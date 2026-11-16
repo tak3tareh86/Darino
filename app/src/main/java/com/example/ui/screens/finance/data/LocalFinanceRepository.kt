@@ -931,6 +931,20 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             db.accountDao().getAllAccountsList(userId)
                 .firstOrNull { it.name.equals(payload.optString("accountName"), ignoreCase = true) }
         }
+        val occurrenceParts = CalendarDateUtils.parseJalali(payload.optString("datePersian"))
+        val startParts = template?.let { CalendarDateUtils.parseJalali(it.startDate) }
+        val endParts = template?.endDate?.takeIf { it.isNotBlank() }?.let(CalendarDateUtils::parseJalali)
+        val occurrenceEpoch = occurrenceParts?.let {
+            PersianCalendarHelper.getJalaliEpochDay(it.first, it.second, it.third)
+        }
+        val startEpoch = startParts?.let {
+            PersianCalendarHelper.getJalaliEpochDay(it.first, it.second, it.third)
+        }
+        val endEpoch = endParts?.let {
+            PersianCalendarHelper.getJalaliEpochDay(it.first, it.second, it.third)
+        }
+        val dateInTemplateRange = occurrenceEpoch != null && startEpoch != null &&
+            occurrenceEpoch >= startEpoch && (endEpoch == null || occurrenceEpoch <= endEpoch)
         val valid = template != null &&
             payload.optString("title") == template.title &&
             payload.optLong("amount") == template.amount &&
@@ -940,6 +954,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             payload.optString("frequency") == template.frequency.name &&
             payload.optString("paymentMethod") == template.paymentMethod.name &&
             (template.accountId.isNullOrBlank() || payload.optString("accountId") == template.accountId) &&
+            dateInTemplateRange &&
             account != null && account.userId == userId && account.isActive && account.deletedAt == null
         if (!valid) {
             RecurringTransactionNotificationManager.removePending(context, userId, occurrenceId)
