@@ -509,6 +509,7 @@ fun FinancialScreen(
                             }
                             scope.launch { snackbarHostState.showSnackbar("تراکنش به‌روزرسانی شد") }
                             showAddTxSheet = false
+                            editingTransaction = null
                         } else {
                             scope.launch { snackbarHostState.showSnackbar("خطا در ویرایش تراکنش") }
                         }
@@ -518,12 +519,12 @@ fun FinancialScreen(
                         if (res == TransactionOperationResult.SUCCESS) {
                             scope.launch { snackbarHostState.showSnackbar("تراکنش جدید با موفقیت ثبت شد") }
                             showAddTxSheet = false
+                            editingTransaction = null
                         } else {
                             scope.launch { snackbarHostState.showSnackbar("خطا در ثبت تراکنش") }
                         }
                     }
                 }
-                editingTransaction = null
             }
         )
     }
