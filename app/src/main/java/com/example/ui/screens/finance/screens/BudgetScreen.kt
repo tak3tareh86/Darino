@@ -111,8 +111,13 @@ fun BudgetScreen(
     }
     val totalRemainingValue = Math.subtractExact(totalBudgetValue, totalSpentValue)
 
-    val overallProgress = if (totalBudgetValue <= 0L) 0f else
-        (totalSpentValue.toDouble() / totalBudgetValue.toDouble()).toFloat().coerceIn(0f, 1f)
+    val overallUsagePercentage = if (totalBudgetValue <= 0L) {
+        if (totalSpentValue > 0L) Int.MAX_VALUE else 0
+    } else {
+        (totalSpentValue.toDouble() / totalBudgetValue.toDouble() * 100.0)
+            .coerceAtLeast(0.0).toInt()
+    }
+    val overallProgress = (overallUsagePercentage / 100f).coerceIn(0f, 1f)
     val warningBudgets = activeBudgets.filter { it.status == BudgetStatus.WARNING || it.status == BudgetStatus.EXCEEDED }
 
     Scaffold(
@@ -219,7 +224,7 @@ fun BudgetScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "${(overallProgress * 100).toInt()}% مصرف‌شده",
+                            text = "${MoneyFormatter.toPersianDigits(overallUsagePercentage.toString())}٪ مصرف‌شده",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = if (overallProgress >= 0.8f) ExpenseRoseLight else EmeraldPrimaryLight
                         )
