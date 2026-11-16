@@ -930,44 +930,61 @@ class VehicleRepository {
                         mileage = mileage,
                         cost = if (index == 0) cost else 0L,
                         description = description,
-                        nextReminderDate = if (index == 0) nextReminderDate else null,
+                        // The selected calendar reminder applies to every service in this
+                        // batch, so each record receives its own reminder ID and schedule.
+                        // The mileage target remains attached only to the primary service:
+                        // the form currently collects one interval, not one per service type.
+                        nextReminderDate = if (isReminderEnabled) nextReminderDate else null,
                         nextReminderMileage = if (index == 0) nextReminderMileage else null,
-                        isReminderEnabled = index == 0 && isReminderEnabled,
-                        offsets = if (index == 0) offsets else emptyList(),
-                        time = if (index == 0) time else null,
+                        isReminderEnabled = isReminderEnabled,
+                        offsets = if (isReminderEnabled) offsets else emptyList(),
+                        time = if (isReminderEnabled) time else null,
                         deferExternalEffects = true
                     ).getOrElse { throw it }
                 }
             }
 
-            // The database commit has succeeded. Only now schedule external alarms
-            // and evaluate mileage thresholds, so a failed batch cannot leave ghost alerts.
-            var resultServices = createdServices
-            val primary = createdServices.first()
-            if (primary.isReminderEnabled &&
-                !primary.nextReminderDate.isNullOrBlank() &&
-                offsets.isNotEmpty()
-            ) {
-                try {
-                    com.example.reminder.domain.ReminderManager(context).enableReminder(primary.id)
-                } catch (e: Exception) {
-                    android.util.Log.w("VehicleRepository", "Alarm scheduling failed for committed service batch.", e)
+            // The database commit has succeeded. Schedule each selected service's
+            // own date reminder only after the whole batch is committed.
+            val resultServices = createdServices.map { service ->
+                if (!service.isReminderEnabled ||
+                    service.nextReminderDate.isNullOrBlank() ||
+                    offsets.isEmpty()
+                ) {
+                    service
+                } else {
                     try {
-                        db.smartReminderDao().updateStatus(userId = userId, id = primary.id, status = "DISABLED")
-                        val updatedNotes = encodeServiceNotes(
-                            primary.cost,
-                            primary.description,
-                            e.message ?: "ثبت هشدار سیستم ناموفق بود"
+                        com.example.reminder.domain.ReminderManager(context).enableReminder(service.id)
+                        service
+                    } catch (e: Exception) {
+                        android.util.Log.w(
+                            "VehicleRepository",
+                            "Alarm scheduling failed for committed service ${service.id}.",
+                            e
                         )
-                        db.vehicleDao().updateServiceNotes(userId, primary.id, updatedNotes)
-                    } catch (dbEx: Exception) {
-                        android.util.Log.e("VehicleRepository", "Failed to persist batch reminder failure state.", dbEx)
-                    }
-                    resultServices = createdServices.mapIndexed { index, service ->
-                        if (index == 0) service.copy(
+                        try {
+                            db.smartReminderDao().updateStatus(
+                                userId = userId,
+                                id = service.id,
+                                status = "DISABLED"
+                            )
+                            val updatedNotes = encodeServiceNotes(
+                                service.cost,
+                                service.description,
+                                e.message ?: "ثبت هشدار سیستم ناموفق بود"
+                            )
+                            db.vehicleDao().updateServiceNotes(userId, service.id, updatedNotes)
+                        } catch (dbEx: Exception) {
+                            android.util.Log.e(
+                                "VehicleRepository",
+                                "Failed to persist reminder failure state for ${service.id}.",
+                                dbEx
+                            )
+                        }
+                        service.copy(
                             reminderAlarmFailed = true,
                             reminderAlarmErrorMessage = e.message ?: "ثبت هشدار سیستم ناموفق بود"
-                        ) else service
+                        )
                     }
                 }
             }
