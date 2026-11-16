@@ -509,7 +509,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     }
 
     private fun isValidSavingsGoal(goal: SavingsGoal): Boolean {
-        if (goal.id.isBlank() || goal.title.isBlank() || goal.targetAmount <= 0L || goal.currentAmount < 0L) {
+        if (goal.id.isBlank() || goal.title.isBlank() || goal.targetDate.isBlank() ||
+            goal.targetAmount <= 0L || goal.currentAmount < 0L
+        ) {
             return false
         }
         return runCatching {
@@ -549,6 +551,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             else -> SavingsGoalStatus.IN_PROGRESS
         }
         current[index] = goal.copy(
+            title = goal.title.trim(),
             targetAmount = targetRials,
             currentAmount = currentRials,
             amountUnit = AppCurrency.RIAL,
