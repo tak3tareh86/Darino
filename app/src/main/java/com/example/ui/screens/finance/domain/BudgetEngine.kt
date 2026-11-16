@@ -2,117 +2,104 @@ package com.example.ui.screens.finance.domain
 
 import com.example.ui.screens.finance.model.Budget
 import com.example.ui.screens.finance.model.BudgetStatus
+import com.example.ui.screens.finance.model.FinanceFilterPeriod
 import com.example.ui.screens.finance.model.TransactionItemData
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.util.MoneyAmount
 import com.example.ui.screens.settings.model.AppCurrency
 import java.math.BigInteger
 
-/**
- * Budget Calculation Engine.
- * Provides safe Long/Int calculations for budget progress, remaining funds, and status threshold alerts.
- */
+/** Calculates budget usage from expenses in the current Jalali month. */
 object BudgetEngine {
 
-    /**
-     * Recalculates budget spent amount, remaining amount, usage percentage, and status
-     * based on the actual transactions.
-     */
+    private fun currentMonthExpenses(
+        transactions: List<TransactionItemData>,
+        nowMillis: Long
+    ): List<TransactionItemData> {
+        val range = FinanceTimeUtils.getTimeRangeForPeriod(FinanceFilterPeriod.THIS_MONTH, nowMillis)
+        return transactions.filter { tx ->
+            tx.type == TransactionType.EXPENSE &&
+                tx.dateMillis >= range.startMillis &&
+                tx.dateMillis < range.endMillis
+        }
+    }
+
     fun calculateBudgetUsage(
         budget: Budget,
-        transactions: List<TransactionItemData>
+        transactions: List<TransactionItemData>,
+        nowMillis: Long = System.currentTimeMillis()
     ): Budget {
-        val spent = transactions
-            .filter { tx ->
-                tx.type == TransactionType.EXPENSE &&
-                        (budget.categoryId == null || tx.categoryId == budget.categoryId)
+        val spent = currentMonthExpenses(transactions, nowMillis)
+            .filter { tx -> budget.categoryId == null || tx.categoryId == budget.categoryId }
+            .fold(0L) { total, tx ->
+                Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
             }
-            .fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact()) }
 
         val budgetInRials = MoneyAmount.of(budget.amount, budget.amountUnit).asRialsLongExact()
         val remaining = Math.subtractExact(budgetInRials, spent)
-
-        val usagePercent: Int = if (budgetInRials <= 0L) {
-            if (spent > 0L) 100 else 0
-        } else {
-            BigInteger.valueOf(spent).multiply(BigInteger.valueOf(100L))
-                .divide(BigInteger.valueOf(budgetInRials))
-                .min(BigInteger.valueOf(Int.MAX_VALUE.toLong()))
-                .toInt()
-        }
-
-        val status = determineBudgetStatus(spent, budgetInRials)
 
         return budget.copy(
             spentAmount = spent,
             spentAmountUnit = AppCurrency.RIAL,
             remainingAmount = remaining,
             remainingAmountUnit = AppCurrency.RIAL,
-            usagePercentage = usagePercent,
-            status = status
+            usagePercentage = percentage(spent, budgetInRials),
+            status = determineBudgetStatus(spent, budgetInRials)
         )
     }
 
-    /**
-     * Determines the status of a budget:
-     * - SAFE (مصرف مطلوب): usage < 75%
-     * - WARNING (نزدیک به سقف): 75% <= usage < 100%
-     * - EXCEEDED (فراتر از بودجه): usage >= 100%
-     */
+    private fun percentage(spent: Long, budget: Long): Int {
+        if (budget <= 0L) return if (spent > 0L) 100 else 0
+        return BigInteger.valueOf(spent)
+            .multiply(BigInteger.valueOf(100L))
+            .divide(BigInteger.valueOf(budget))
+            .min(BigInteger.valueOf(Int.MAX_VALUE.toLong()))
+            .toInt()
+    }
+
     fun determineBudgetStatus(spentAmount: Long, totalBudget: Long): BudgetStatus {
-        if (totalBudget <= 0L) {
-            return if (spentAmount > 0L) BudgetStatus.EXCEEDED else BudgetStatus.SAFE
-        }
-        if (spentAmount >= totalBudget) {
-            return BudgetStatus.EXCEEDED
-        }
-        val percent = BigInteger.valueOf(spentAmount).multiply(BigInteger.valueOf(100L)).divide(BigInteger.valueOf(totalBudget))
-        return if (percent >= BigInteger.valueOf(75L)) {
-            BudgetStatus.WARNING
-        } else {
-            BudgetStatus.SAFE
-        }
+        if (totalBudget <= 0L) return if (spentAmount > 0L) BudgetStatus.EXCEEDED else BudgetStatus.SAFE
+        if (spentAmount >= totalBudget) return BudgetStatus.EXCEEDED
+        val percent = BigInteger.valueOf(spentAmount)
+            .multiply(BigInteger.valueOf(100L))
+            .divide(BigInteger.valueOf(totalBudget))
+        return if (percent >= BigInteger.valueOf(75L)) BudgetStatus.WARNING else BudgetStatus.SAFE
     }
 
     /**
-     * Aggregates total monthly budget vs total expense across active budgets.
-     * Only expenses matching an enabled budget's category are counted.
+     * Overall dashboard rules:
+     * - Global budget(s) govern all expenses and are not added to category caps.
+     * - Without a global budget, active category caps are added and each expense
+     *   is counted once, even if duplicate budgets target the same category.
      */
     fun calculateTotalMonthlyBudgetUsage(
         budgets: List<Budget>,
-        transactions: List<TransactionItemData>
+        transactions: List<TransactionItemData>,
+        nowMillis: Long = System.currentTimeMillis()
     ): OverallBudgetSummary {
         val activeBudgets = budgets.filter { it.isEnabled }
-        val totalBudget = activeBudgets.fold(0L) { total, budget -> Math.addExact(total, MoneyAmount.of(budget.amount, budget.amountUnit).asRialsLongExact()) }
-        
-        // Only count expenses that belong to one of the active budget categories
-        val activeBudgetCategoryIds = activeBudgets.mapNotNull { it.categoryId }.toSet()
-        
-        val totalSpent = transactions
-            .filter { tx -> 
-                tx.type == TransactionType.EXPENSE && 
-                activeBudgetCategoryIds.contains(tx.categoryId)
-            }
-            .fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact()) }
-            
-        val remaining = Math.subtractExact(totalBudget, totalSpent)
+        val globalBudgets = activeBudgets.filter { it.categoryId == null }
+        val categoryBudgets = activeBudgets.filter { it.categoryId != null }
+        val hasGlobalBudget = globalBudgets.isNotEmpty()
+        val budgetsForTotal = if (hasGlobalBudget) globalBudgets else categoryBudgets
 
-        val usagePercentage = if (totalBudget <= 0L) {
-            if (totalSpent > 0L) 100 else 0
-        } else {
-            BigInteger.valueOf(totalSpent).multiply(BigInteger.valueOf(100L)).divide(BigInteger.valueOf(totalBudget))
-                .min(BigInteger.valueOf(Int.MAX_VALUE.toLong()))
-                .toInt()
+        val totalBudget = budgetsForTotal.fold(0L) { total, budget ->
+            Math.addExact(total, MoneyAmount.of(budget.amount, budget.amountUnit).asRialsLongExact())
         }
-
-        val status = determineBudgetStatus(totalSpent, totalBudget)
+        val expenses = currentMonthExpenses(transactions, nowMillis).filter { tx ->
+            hasGlobalBudget || categoryBudgets.any { it.categoryId == tx.categoryId }
+        }
+        val totalSpent = expenses.fold(0L) { total, tx ->
+            Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
+        }
+        val remaining = Math.subtractExact(totalBudget, totalSpent)
 
         return OverallBudgetSummary(
             totalBudget = totalBudget,
             totalSpent = totalSpent,
             remainingBudget = remaining,
-            usagePercentage = usagePercentage,
-            status = status
+            usagePercentage = percentage(totalSpent, totalBudget),
+            status = determineBudgetStatus(totalSpent, totalBudget)
         )
     }
 
