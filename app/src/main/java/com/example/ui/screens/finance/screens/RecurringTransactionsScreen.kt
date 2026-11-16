@@ -48,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.Layered3DCard
 import com.example.ui.screens.finance.model.RecurringTransaction
+import com.example.calendar.domain.CalendarDateUtils
+import com.example.util.PersianCalendarHelper
 import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
@@ -187,6 +189,13 @@ fun RecurringCard(
     val isExpense = item.type == TransactionType.EXPENSE
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val amountColor = if (isExpense) ExpenseRoseLight else if (isDark) Color(0xFF34D399) else EmeraldPrimaryLight
+    val isExpired = item.endDate?.let { endDate ->
+        val next = CalendarDateUtils.parseJalali(item.nextExecutionDate)
+        val end = CalendarDateUtils.parseJalali(endDate)
+        next != null && end != null &&
+            PersianCalendarHelper.getJalaliEpochDay(next.first, next.second, next.third) >
+            PersianCalendarHelper.getJalaliEpochDay(end.first, end.second, end.third)
+    } ?: false
 
     Layered3DCard(
         modifier = modifier.fillMaxWidth(),
@@ -226,6 +235,19 @@ fun RecurringCard(
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Text(
+                        text = when {
+                            isExpired -> "پایان‌یافته"
+                            item.enabled -> "فعال"
+                            else -> "غیرفعال"
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = when {
+                            isExpired -> MaterialTheme.colorScheme.onSurfaceVariant
+                            item.enabled -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
                     if (!item.endDate.isNullOrBlank()) {
                         Text(
                             text = "بازه: ${item.startDate} تا ${item.endDate}",
@@ -249,8 +271,9 @@ fun RecurringCard(
                     )
 
                     Switch(
-                        checked = item.enabled,
+                        checked = item.enabled && !isExpired,
                         onCheckedChange = onToggle,
+                        enabled = !isExpired,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
                             checkedTrackColor = MaterialTheme.colorScheme.primary
