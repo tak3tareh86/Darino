@@ -174,6 +174,14 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         if (transaction.type != TransactionType.EXPENSE && transaction.type != TransactionType.INCOME && transaction.type != TransactionType.TRANSFER) return false
         if (transaction.type == TransactionType.INCOME || transaction.type == TransactionType.EXPENSE) {
             if (transaction.accountId.isNullOrBlank()) return false
+            if (transaction.categoryId.isBlank() || transaction.categoryId != transaction.category.id) return false
+            if (transaction.category.type != transaction.type) return false
+            val validCategory = _categories.value.any { category ->
+                category.id == transaction.categoryId &&
+                    category.type == transaction.type &&
+                    category.isActive
+            }
+            if (!validCategory) return false
         } else if (transaction.type == TransactionType.TRANSFER) {
             val src = transaction.transferSourceAccountId
             val dest = transaction.transferDestinationAccountId
