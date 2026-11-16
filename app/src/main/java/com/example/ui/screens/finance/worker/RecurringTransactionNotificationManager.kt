@@ -63,6 +63,18 @@ object RecurringTransactionNotificationManager {
         getPending(context, userId, occurrenceId) != null
 
     @Synchronized
+    fun getPendingOccurrenceIds(context: Context, userId: String): List<String> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val current = JSONArray(prefs.getString(storageKey(userId), "[]") ?: "[]")
+        return buildList {
+            for (index in 0 until current.length()) {
+                val id = current.optJSONObject(index)?.optString("occurrenceId")
+                if (!id.isNullOrBlank()) add(id)
+            }
+        }
+    }
+
+    @Synchronized
     fun deferPending(context: Context, userId: String, occurrenceId: String, untilMillis: Long) {
         val payload = getPending(context, userId, occurrenceId) ?: return
         payload.put("nextNotificationAt", untilMillis)
