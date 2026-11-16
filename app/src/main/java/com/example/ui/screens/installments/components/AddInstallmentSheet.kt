@@ -966,9 +966,11 @@ private fun FormDetailsStep(
                                     )
                                 },
                                 trailingIcon = {
-                                    ExposedDropdownMenuDefaults.TrailingIcon(
-                                        expanded = paidInstallmentsDropdownExpanded
-                                    )
+                                    IconButton(onClick = {}) {
+                                        ExposedDropdownMenuDefaults.TrailingIcon(
+                                            expanded = paidInstallmentsDropdownExpanded
+                                        )
+                                    }
                                 },
                                 isError = submitValidationError != null,
                                 singleLine = true,
@@ -1036,7 +1038,11 @@ private fun FormDetailsStep(
                                 },
                                 label = { Text("تعداد اقساط", maxLines = 1, softWrap = false) },
                                 trailingIcon = {
-                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = installmentsDropdownExpanded)
+                                    IconButton(onClick = {}) {
+                                        ExposedDropdownMenuDefaults.TrailingIcon(
+                                            expanded = installmentsDropdownExpanded
+                                        )
+                                    }
                                 },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
