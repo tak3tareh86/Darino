@@ -38,7 +38,7 @@ class RecurringTransactionActionReceiver : BroadcastReceiver() {
                             repository.isPendingRecurringOccurrenceValid(appContext, userId, occurrenceId)
                         ) {
                             // Keep a still-valid pending occurrence visible if persistence failed.
-                            RecurringTransactionNotificationManager.showPending(appContext, userId, occurrenceId)
+                            RecurringTransactionNotificationManager.showPendingIfDue(appContext, userId, occurrenceId)
                         }
                     }
 
