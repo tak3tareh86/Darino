@@ -892,6 +892,33 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         }
     }
 
+    suspend fun isPendingRecurringOccurrenceValid(
+        context: Context,
+        userId: String,
+        occurrenceId: String
+    ): Boolean {
+        if (SessionManager.userId != userId) return false
+        val payload = RecurringTransactionNotificationManager.getPending(context, userId, occurrenceId)
+            ?: return false
+        loadMetadataFromDisk(context.applicationContext, userId)
+        val template = _recurringTransactions.value.firstOrNull {
+            it.id == payload.optString("recurringId") && it.enabled
+        }
+        val valid = template != null &&
+            payload.optString("title") == template.title &&
+            payload.optLong("amount") == template.amount &&
+            payload.optString("amountUnit") == template.amountUnit.name &&
+            payload.optString("type") == template.type.name &&
+            payload.optString("categoryId") == template.categoryId &&
+            payload.optString("frequency") == template.frequency.name &&
+            payload.optString("paymentMethod") == template.paymentMethod.name &&
+            (template.accountId.isNullOrBlank() || payload.optString("accountId") == template.accountId)
+        if (!valid) {
+            RecurringTransactionNotificationManager.removePending(context, userId, occurrenceId)
+        }
+        return valid
+    }
+
     /**
      * Creates a recurring transaction only after the user confirms its notification.
      * The deterministic occurrence ID prevents duplicate transactions on repeated taps.
