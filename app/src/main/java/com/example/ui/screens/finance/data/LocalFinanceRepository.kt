@@ -61,6 +61,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         appContext = appCtx
 
         val db = AppDatabase.getDatabase(appCtx)
+        var previousAuthenticatedUserId: String? = null
         repositoryScope.launch {
             SessionManager.sessionState.collectLatest { state ->
                 val authenticatedUserId = when (state) {
@@ -69,7 +70,12 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     else -> null
                 }
 
+                val previousUserId = previousAuthenticatedUserId
+                if (previousUserId != null && previousUserId != authenticatedUserId) {
+                    RecurringTransactionNotificationManager.hidePendingNotificationsForUser(appCtx, previousUserId)
+                }
                 if (authenticatedUserId == null) {
+                    RecurringTransactionNotificationManager.hideAllPendingNotifications(appCtx)
                     _transactions.value = emptyList()
                     _categories.value = FinanceDefaultCategories.allDefaultCategories
                     _budgets.value = emptyList()
@@ -77,9 +83,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     _recurringTransactions.value = emptyList()
                     _accounts.value = emptyList()
                     recalculateBudgets()
+                    previousAuthenticatedUserId = null
                     return@collectLatest
                 }
 
+                previousAuthenticatedUserId = authenticatedUserId
                 loadMetadataFromDisk(appCtx, authenticatedUserId)
 
                 try {
