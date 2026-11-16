@@ -264,27 +264,30 @@ object BackupFolderStorage {
         }
     }
 
-    fun latestBackup(
+    /**
+     * Returns the newest document for each requested automatic-backup prefix.
+     * Keeping one candidate per frequency lets the repository compare the backup's
+     * embedded createdAt value, so fixed filenames never make "weekly" win by spelling.
+     */
+    fun latestBackups(
         context: Context,
         namePrefixes: List<String>
-    ): BackupDocument? {
-        val treeUri = selectedFolderUri(context) ?: return null
+    ): List<BackupDocument> {
+        val treeUri = selectedFolderUri(context) ?: return emptyList()
         val hasReadGrant = context.contentResolver.persistedUriPermissions.any {
             it.uri == treeUri && it.isReadPermission
         }
         if (!hasReadGrant) throw IOException("دسترسی خواندن پوشه پشتیبان لغو شده است؛ پوشه را دوباره انتخاب کنید.")
-        return listDocuments(context, treeUri)
+        val documents = listDocuments(context, treeUri)
             .filter { document ->
                 document.name.endsWith(".darino", ignoreCase = true) &&
                     namePrefixes.any(document.name::startsWith)
             }
-            // Compare the timestamp portion, not the filename prefix: "weekly" sorts
-            // after "daily" regardless of date and would otherwise always win.
-            .maxByOrNull { document ->
-                namePrefixes.firstOrNull(document.name::startsWith)
-                    ?.let(document.name::removePrefix)
-                    .orEmpty()
-            }
+        return namePrefixes.mapNotNull { prefix ->
+            documents.asSequence()
+                .filter { it.name.startsWith(prefix) }
+                .maxWithOrNull(compareBy<BackupDocument> { it.lastModified }.thenBy { it.name })
+        }
     }
 
     private fun pruneBackups(
