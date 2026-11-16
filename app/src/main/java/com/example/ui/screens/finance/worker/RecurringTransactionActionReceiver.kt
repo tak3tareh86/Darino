@@ -41,7 +41,9 @@ class RecurringTransactionActionReceiver : BroadcastReceiver() {
                     }
 
                     ACTION_REMIND_LATER -> {
-                        if (!RecurringTransactionNotificationManager.hasPending(appContext, userId, occurrenceId)) {
+                        val repository = LocalFinanceRepository.instance
+                        repository.init(appContext)
+                        if (!repository.isPendingRecurringOccurrenceValid(appContext, userId, occurrenceId)) {
                             return@launch
                         }
                         val remindAt = System.currentTimeMillis() + TimeUnit.HOURS.toMillis(24)
