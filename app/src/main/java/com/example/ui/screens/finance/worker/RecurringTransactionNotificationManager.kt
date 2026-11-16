@@ -75,6 +75,23 @@ object RecurringTransactionNotificationManager {
     }
 
     @Synchronized
+    fun hidePendingNotificationsForUser(context: Context, userId: String) {
+        getPendingOccurrenceIds(context, userId).forEach { occurrenceId ->
+            cancel(context, occurrenceId)
+            runCatching { WorkManager.getInstance(context).cancelUniqueWork("recurring_reminder_$occurrenceId") }
+        }
+    }
+
+    @Synchronized
+    fun hideAllPendingNotifications(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.all.keys.filter { it.startsWith("pending_") }.forEach { key ->
+            val userId = key.removePrefix("pending_")
+            hidePendingNotificationsForUser(context, userId)
+        }
+    }
+
+    @Synchronized
     fun deferPending(context: Context, userId: String, occurrenceId: String, untilMillis: Long) {
         val payload = getPending(context, userId, occurrenceId) ?: return
         payload.put("nextNotificationAt", untilMillis)
