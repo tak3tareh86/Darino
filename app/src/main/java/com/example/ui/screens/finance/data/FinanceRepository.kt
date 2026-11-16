@@ -53,6 +53,7 @@ interface FinanceRepository {
     fun updateSavingsGoal(goal: SavingsGoal)
     fun deleteSavingsGoal(id: String)
     fun depositToSavingsGoal(goalId: String, amount: Long)
+    fun setSavingsGoalStatus(goalId: String, status: com.example.ui.screens.finance.model.SavingsGoalStatus)
     fun completeSavingsGoal(goalId: String)
 
     fun addRecurringTransaction(recurring: RecurringTransaction)
