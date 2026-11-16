@@ -55,7 +55,7 @@ import com.example.util.PersianCalendarHelper
 fun TransferSheet(
     accounts: List<com.example.ui.screens.finance.model.Account> = emptyList(),
     onDismiss: () -> Unit,
-    onSubmitTransfer: (from: String, to: String, amount: String, desc: String, datePersian: String, recipientName: String) -> Unit,
+    onSubmitTransfer: (from: String, amount: String, desc: String, datePersian: String, recipientName: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val activeAccounts = remember(accounts) { accounts.filter { it.isActive } }
@@ -64,18 +64,9 @@ fun TransferSheet(
             activeAccounts.find { it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی") } ?: activeAccounts.firstOrNull()
         )
     }
-    var selectedDestination by remember(activeAccounts) {
-        mutableStateOf<com.example.ui.screens.finance.model.Account?>(
-            activeAccounts.find { it.name == "کیف پول" || it.name.startsWith("کیف پول") } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
-        )
-    }
-
     LaunchedEffect(activeAccounts) {
         if (selectedSource == null && activeAccounts.isNotEmpty()) {
             selectedSource = activeAccounts.find { it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی") } ?: activeAccounts.firstOrNull()
-        }
-        if (selectedDestination == null && activeAccounts.size >= 2) {
-            selectedDestination = activeAccounts.find { it.name == "کیف پول" || it.name.startsWith("کیف پول") } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
         }
     }
     var amountText by remember { mutableStateOf("") }
@@ -150,14 +141,14 @@ fun TransferSheet(
 
                 // Account Selectors
                 val isDark = MaterialTheme.colorScheme.background.red < 0.2f
-                if (activeAccounts.size < 2) {
+                if (activeAccounts.isEmpty()) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(RadiusMD),
                         color = Color(0xFFEF4444).copy(alpha = 0.1f)
                     ) {
                         Text(
-                            text = "برای انتقال وجه بین حساب‌ها حداقل به دو حساب فعال نیاز دارید.",
+                            text = "برای ثبت انتقال، حداقل یک حساب فعال به‌عنوان مبدأ لازم است.",
                             modifier = Modifier.padding(12.dp),
                             style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFEF4444)),
                             textAlign = TextAlign.Center
@@ -174,22 +165,6 @@ fun TransferSheet(
                                 val isSel = selectedSource?.id == acc.id
                                 Surface(
                                     modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { selectedSource = acc },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSel) MaterialTheme.colorScheme.primary else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
-                                ) {
-                                    Text(acc.name, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), color = if (isSel) Color.White else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium)
-                                }
-                            }
-                        }
-                        Text("حساب مقصد", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            activeAccounts.forEach { acc ->
-                                val isSel = selectedDestination?.id == acc.id
-                                Surface(
-                                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { selectedDestination = acc },
                                     shape = RoundedCornerShape(8.dp),
                                     color = if (isSel) MaterialTheme.colorScheme.primary else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
                                 ) {
@@ -279,13 +254,12 @@ fun TransferSheet(
                             return@Button
                         }
                         val src = selectedSource
-                        val dest = selectedDestination
-                        if (src == null || dest == null) {
-                            errorMessage = "لطفاً حساب مبدأ و مقصد را انتخاب کنید."
+                        if (src == null) {
+                            errorMessage = "لطفاً حساب مبدأ را انتخاب کنید."
                             return@Button
                         }
                         errorMessage = null
-                        onSubmitTransfer(src.id, dest.id, amountText, descText, transferDate, recipientName.trim())
+                        onSubmitTransfer(src.id, amountText, descText, transferDate, recipientName.trim())
                     },
                     modifier = Modifier
                         .fillMaxWidth()
