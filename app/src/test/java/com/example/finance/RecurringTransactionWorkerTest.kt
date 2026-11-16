@@ -6,10 +6,12 @@ import com.example.data.api.NetworkUserDto
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
 import com.example.ui.screens.finance.data.LocalFinanceRepository
+import com.example.ui.screens.finance.domain.RecurringDateCalculator
 import com.example.ui.screens.finance.model.PaymentMethod
 import com.example.ui.screens.finance.model.RecurringFrequency
 import com.example.ui.screens.finance.model.RecurringTransaction
 import com.example.ui.screens.finance.model.TransactionType
+import com.example.ui.screens.finance.worker.RecurringTransactionNotificationManager
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -34,23 +36,28 @@ class RecurringTransactionWorkerTest {
     @Before
     fun setUp() = runBlocking {
         context = ApplicationProvider.getApplicationContext()
-        SessionManager.init(context)
+        context.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
+            .edit()
+            .remove("pref_persisted_recurring_txs_$testUserId")
+            .commit()
+        context.getSharedPreferences("darino_recurring_pending_notifications", Context.MODE_PRIVATE)
+            .edit()
+            .remove("pending_$testUserId")
+            .commit()
 
-        val testUser = NetworkUserDto(
-            id = testUserId,
-            fullName = "recurring_tester",
-            email = "recurring@example.com",
-            phoneNumber = "09123456789",
-            phoneVerified = true
+        SessionManager.init(context)
+        SessionManager.setAuthenticatedUser(
+            NetworkUserDto(
+                id = testUserId,
+                fullName = "recurring_tester",
+                email = "recurring@example.com",
+                phoneNumber = "09123456789",
+                phoneVerified = true
+            )
         )
-        SessionManager.setAuthenticatedUser(testUser)
 
         repository = LocalFinanceRepository.instance
         repository.init(context)
-
-        // Clear SharedPreferences and in-memory list for test isolation
-        val prefs = context.getSharedPreferences("finance_prefs_${testUserId}", Context.MODE_PRIVATE)
-        prefs.edit().clear().commit()
 
         val field = LocalFinanceRepository::class.java.getDeclaredField("_recurringTransactions")
         field.isAccessible = true
@@ -61,236 +68,253 @@ class RecurringTransactionWorkerTest {
         repository.ensureDefaultAccounts(db, testUserId)
     }
 
-    @Test
-    fun testProcessDueRecurringTransaction_createsExpenseAndPreventsDuplicates() = runBlocking {
-        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+    private fun today(): String =
+        PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
 
-        val recurringExpense = RecurringTransaction(
-            id = "rec_exp_${UUID.randomUUID()}",
-            title = "اجاره خانه",
-            amount = 15000000L,
-            type = TransactionType.EXPENSE,
-            categoryId = "home",
-            categoryTitle = "خانه و اجاره",
-            frequency = RecurringFrequency.MONTHLY,
-            startDate = todayJalali,
-            nextExecutionDate = todayJalali,
-            enabled = true,
-            paymentMethod = PaymentMethod.BANK_CARD,
-            accountName = "کارت بانکی"
-        )
+    private suspend fun defaultAccountId(): String =
+        db.accountDao().getAllAccountsList(testUserId)
+            .first { it.name == "کارت بانکی" && it.isActive && it.deletedAt == null }
+            .stringId
 
-        repository.addRecurringTransaction(recurringExpense)
+    private fun recurring(
+        id: String = "rec_${UUID.randomUUID()}",
+        title: String = "تراکنش دوره‌ای آزمایشی",
+        type: TransactionType = TransactionType.EXPENSE,
+        accountId: String? = null,
+        accountName: String = "کارت بانکی",
+        startDate: String = today(),
+        nextDate: String = today(),
+        endDate: String? = null,
+        enabled: Boolean = true,
+        frequency: RecurringFrequency = RecurringFrequency.MONTHLY
+    ) = RecurringTransaction(
+        id = id,
+        title = title,
+        amount = 1_500_000L,
+        type = type,
+        categoryId = if (type == TransactionType.INCOME) "salary" else "home",
+        categoryTitle = if (type == TransactionType.INCOME) "حقوق و دستمزد" else "خانه و اجاره",
+        frequency = frequency,
+        startDate = startDate,
+        endDate = endDate,
+        nextExecutionDate = nextDate,
+        enabled = enabled,
+        paymentMethod = PaymentMethod.BANK_CARD,
+        accountName = accountName,
+        accountId = accountId
+    )
 
-        // Run due processing first time
-        repository.processDueRecurringTransactions(context)
-
-        // Verify transaction was inserted directly into Room database
-        val transactions = db.transactionDao().getAllTransactionsList(testUserId)
-        val createdTx = transactions.find { it.title == "اجاره خانه" }
-        assertNotNull("Recurring expense transaction should be created in database", createdTx)
-        assertEquals(15000000L, createdTx?.amount)
-        assertEquals("EXPENSE", createdTx?.type)
-        assertEquals(true, createdTx?.isRecurring)
-
-        val countFirstRun = transactions.count { it.title == "اجاره خانه" }
-        assertEquals(1, countFirstRun)
-
-        // Run due processing second time immediately -> Database-level deduplication check must prevent second insert!
-        repository.processDueRecurringTransactions(context)
-
-        val transactionsSecondRun = db.transactionDao().getAllTransactionsList(testUserId)
-        val countSecondRun = transactionsSecondRun.count { it.title == "اجاره خانه" }
-        assertEquals("Duplicate transaction should NOT be created on second worker run", 1, countSecondRun)
+    private fun occurrenceId(recurringId: String, date: String): String {
+        val digits = com.example.calendar.domain.CalendarDateUtils.normalizeDate(date)
+            .replace("/", "")
+            .replace("-", "")
+        return "rec_exec_${recurringId}_$digits"
     }
 
     @Test
-    fun testProcessDueRecurringTransaction_createsIncomeCorrectly() = runBlocking {
-        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+    fun dueExpenseCreatesPendingOccurrenceAndOnlyConfirmationWritesTransaction() = runBlocking {
+        val date = today()
+        val item = recurring(id = "rec_expense_confirm", title = "اجاره خانه", accountId = defaultAccountId())
+        repository.addRecurringTransaction(item)
 
-        val recurringIncome = RecurringTransaction(
-            id = "rec_inc_${UUID.randomUUID()}",
+        repository.processDueRecurringTransactions(context)
+
+        val id = occurrenceId(item.id, date)
+        assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        assertTrue(db.transactionDao().getAllTransactionsList(testUserId).none { it.title == item.title })
+
+        // Re-running the worker reuses the same pending occurrence, not a second one.
+        repository.processDueRecurringTransactions(context)
+        assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        assertTrue(db.transactionDao().getAllTransactionsList(testUserId).none { it.title == item.title })
+
+        assertTrue(repository.confirmPendingRecurringTransaction(context, id))
+        val transactions = db.transactionDao().getAllTransactionsList(testUserId)
+        val created = transactions.single { it.stringId == id }
+        assertEquals("EXPENSE", created.type)
+        assertEquals(item.amount, created.amount)
+        assertTrue(created.isRecurring)
+        assertFalse(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        assertFalse(repository.confirmPendingRecurringTransaction(context, id))
+        assertEquals(1, db.transactionDao().getAllTransactionsList(testUserId).count { it.stringId == id })
+    }
+
+    @Test
+    fun dueIncomeRequiresConfirmationBeforeInsertion() = runBlocking {
+        val date = today()
+        val item = recurring(
+            id = "rec_income_confirm",
             title = "حقوق ماهانه پروژه",
-            amount = 45000000L,
             type = TransactionType.INCOME,
-            categoryId = "salary",
-            categoryTitle = "حقوق و دستمزد",
-            frequency = RecurringFrequency.MONTHLY,
-            startDate = todayJalali,
-            nextExecutionDate = todayJalali,
-            enabled = true,
-            paymentMethod = PaymentMethod.BANK_CARD,
-            accountName = "کارت بانکی"
+            accountId = defaultAccountId()
         )
-
-        repository.addRecurringTransaction(recurringIncome)
+        repository.addRecurringTransaction(item)
 
         repository.processDueRecurringTransactions(context)
 
-        val transactions = db.transactionDao().getAllTransactionsList(testUserId)
-        val incomeTx = transactions.find { it.title == "حقوق ماهانه پروژه" }
-        assertNotNull("Recurring income transaction should be created", incomeTx)
-        assertEquals(45000000L, incomeTx?.amount)
-        assertEquals("INCOME", incomeTx?.type)
+        val id = occurrenceId(item.id, date)
+        assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        assertTrue(db.transactionDao().getAllTransactionsList(testUserId).none { it.stringId == id })
+
+        assertTrue(repository.confirmPendingRecurringTransaction(context, id))
+        val created = db.transactionDao().getAllTransactionsList(testUserId).single { it.stringId == id }
+        assertEquals("INCOME", created.type)
     }
 
     @Test
-    fun testDisabledRecurringTransaction_isNotProcessed() = runBlocking {
-        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+    fun disabledRecurringTemplateCancelsPendingOccurrenceAndRejectsConfirmation() = runBlocking {
+        val date = today()
+        val item = recurring(id = "rec_disable_pending", accountId = defaultAccountId())
+        repository.addRecurringTransaction(item)
+        repository.processDueRecurringTransactions(context)
 
-        val disabledRecurring = RecurringTransaction(
-            id = "rec_disabled_${UUID.randomUUID()}",
-            title = "اشتراک غیرفعال",
-            amount = 200000L,
-            type = TransactionType.EXPENSE,
-            categoryId = "bill",
-            categoryTitle = "قبض و اشتراک",
-            frequency = RecurringFrequency.MONTHLY,
-            startDate = todayJalali,
-            nextExecutionDate = todayJalali,
-            enabled = false
+        val id = occurrenceId(item.id, date)
+        assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+
+        repository.setRecurringEnabled(item.id, false)
+
+        assertFalse(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        assertFalse(repository.confirmPendingRecurringTransaction(context, id))
+        assertTrue(db.transactionDao().getAllTransactionsList(testUserId).none { it.stringId == id })
+    }
+
+    @Test
+    fun deletingRecurringTemplateCancelsPendingOccurrence() = runBlocking {
+        val date = today()
+        val item = recurring(id = "rec_delete_pending", accountId = defaultAccountId())
+        repository.addRecurringTransaction(item)
+        repository.processDueRecurringTransactions(context)
+
+        val id = occurrenceId(item.id, date)
+        assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+
+        repository.deleteRecurringTransaction(item.id)
+
+        assertFalse(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        assertFalse(repository.confirmPendingRecurringTransaction(context, id))
+        assertTrue(db.transactionDao().getAllTransactionsList(testUserId).none { it.stringId == id })
+    }
+
+    @Test
+    fun invalidOrDeletedAccountDoesNotCreatePendingOccurrenceOrAdvanceDate() = runBlocking {
+        val date = today()
+        val item = recurring(
+            id = "rec_invalid_account",
+            accountId = "deleted_or_missing_account_id",
+            accountName = "حساب حذف‌شده"
         )
-
-        repository.addRecurringTransaction(disabledRecurring)
+        repository.addRecurringTransaction(item)
 
         repository.processDueRecurringTransactions(context)
 
-        val transactions = db.transactionDao().getAllTransactionsList(testUserId)
-        val disabledTx = transactions.find { it.title == "اشتراک غیرفعال" }
-        assertNull("Disabled recurring item should not create any transaction", disabledTx)
+        val id = occurrenceId(item.id, date)
+        assertFalse(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        assertTrue(db.transactionDao().getAllTransactionsList(testUserId).none { it.stringId == id })
+        val stored = repository.getRecurringTransactions().first().single { it.id == item.id }
+        assertEquals(date, stored.nextExecutionDate)
     }
 
     @Test
-    fun testInvalidAccountId_preventsTransactionInsertionAndPreventsAdvancingDate() = runBlocking {
-        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+    fun anotherUserWorkerRunCannotCreateOrShowFirstUsersRecurringOccurrence() = runBlocking {
+        val date = today()
+        val item = recurring(id = "rec_user_a", accountId = defaultAccountId())
+        repository.addRecurringTransaction(item)
 
-        val invalidAccItem = RecurringTransaction(
-            id = "rec_invalid_acc_${UUID.randomUUID()}",
-            title = "پرداخت با حساب نامعتبر",
-            amount = 500000L,
-            type = TransactionType.EXPENSE,
-            categoryId = "test",
-            categoryTitle = "تست",
-            frequency = RecurringFrequency.MONTHLY,
-            startDate = todayJalali,
-            nextExecutionDate = todayJalali,
-            enabled = true,
-            accountId = "non_existent_deleted_account_id_999"
+        SessionManager.setAuthenticatedUser(
+            NetworkUserDto(
+                id = "user_B_999",
+                fullName = "User B",
+                email = "userB@example.com",
+                phoneNumber = "09999999999",
+                phoneVerified = true
+            )
         )
-
-        repository.addRecurringTransaction(invalidAccItem)
-
         repository.processDueRecurringTransactions(context)
 
-        val transactions = db.transactionDao().getAllTransactionsList(testUserId)
-        val tx = transactions.find { it.title == "پرداخت با حساب نامعتبر" }
-        assertNull("Transaction should NOT be inserted into invalid or deleted account", tx)
-
-        // Verify next execution date was NOT advanced
-        val itemInRepo = repository.getRecurringTransactions().first().find { it.id == invalidAccItem.id }
-        assertEquals("Next execution date should remain unchanged when account is invalid", todayJalali, itemInRepo?.nextExecutionDate)
+        val id = occurrenceId(item.id, date)
+        assertFalse(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        assertTrue(db.transactionDao().getAllTransactionsList("user_B_999").none { it.title == item.title })
     }
 
     @Test
-    fun testUserIsolation_userBCannotCreateTransactionsForUserA() = runBlocking {
-        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-
-        val userARecurring = RecurringTransaction(
-            id = "rec_userA_${UUID.randomUUID()}",
-            title = "تراکنش کاربر الف",
-            amount = 100000L,
-            type = TransactionType.EXPENSE,
-            categoryId = "test",
-            categoryTitle = "تست",
-            frequency = RecurringFrequency.MONTHLY,
-            startDate = todayJalali,
-            nextExecutionDate = todayJalali,
-            enabled = true
-        )
-        repository.addRecurringTransaction(userARecurring)
-
-        // Switch active user session to User B
-        val userB = NetworkUserDto(
-            id = "user_B_999",
-            fullName = "User B",
-            email = "userB@example.com",
-            phoneNumber = "09999999999",
-            phoneVerified = true
-        )
-        SessionManager.setAuthenticatedUser(userB)
-        repository.ensureDefaultAccounts(db, "user_B_999")
-
-        // Run process for User B
+    fun failedDatabaseConfirmationKeepsPendingOccurrenceForRetry() = runBlocking {
+        val date = today()
+        val item = recurring(id = "rec_retry_confirmation", accountId = defaultAccountId())
+        repository.addRecurringTransaction(item)
         repository.processDueRecurringTransactions(context)
 
-        val userBTransactions = db.transactionDao().getAllTransactionsList("user_B_999")
-        val userBTx = userBTransactions.find { it.title == "تراکنش کاربر الف" }
-        assertNull("User B worker run must not process User A's recurring transactions", userBTx)
-    }
+        val id = occurrenceId(item.id, date)
+        assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
 
-    @Test
-    fun testInsertionErrorInRoom_preventsAdvancingDate() = runBlocking {
-        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-
-        val recurringExpense = RecurringTransaction(
-            id = "rec_db_error_12345",
-            title = "خطای دیتابیس",
-            amount = 100000L,
-            type = TransactionType.EXPENSE,
-            categoryId = "home",
-            categoryTitle = "خانه",
-            frequency = RecurringFrequency.MONTHLY,
-            startDate = todayJalali,
-            nextExecutionDate = todayJalali,
-            enabled = true,
-            accountName = "کارت بانکی"
-        )
-        repository.addRecurringTransaction(recurringExpense)
-
-        // Create a SQLite BEFORE INSERT trigger to force a DB exception on insertion
         db.openHelper.writableDatabase.execSQL(
             "CREATE TRIGGER fail_insert BEFORE INSERT ON transactions BEGIN SELECT RAISE(ABORT, 'Simulated DB Error'); END;"
         )
-
         try {
-            // Processing should fail on DB insertion and NOT advance nextExecutionDate
-            repository.processDueRecurringTransactions(context)
-
-            val itemInRepo = repository.getRecurringTransactions().first().find { it.id == recurringExpense.id }
-            assertEquals("Next execution date should NOT advance when Room insertion fails", todayJalali, itemInRepo?.nextExecutionDate)
+            assertFalse(repository.confirmPendingRecurringTransaction(context, id))
+            assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+            assertTrue(db.transactionDao().getAllTransactionsList(testUserId).none { it.stringId == id })
         } finally {
             db.openHelper.writableDatabase.execSQL("DROP TRIGGER IF EXISTS fail_insert;")
         }
+
+        assertTrue(repository.confirmPendingRecurringTransaction(context, id))
+        assertFalse(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        assertEquals(1, db.transactionDao().getAllTransactionsList(testUserId).count { it.stringId == id })
     }
 
     @Test
-    fun testTemplateWithoutAccountIdAndNoMatchingAccountName_doesNotInsertOnOtherAccountAndKeepsDate() = runBlocking {
-        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-
-        val itemWithoutAccount = RecurringTransaction(
-            id = "rec_no_acc_name_${UUID.randomUUID()}",
-            title = "پرداخت بدون حساب معتبر",
-            amount = 750000L,
-            type = TransactionType.EXPENSE,
-            categoryId = "test",
-            categoryTitle = "تست",
-            frequency = RecurringFrequency.MONTHLY,
-            startDate = todayJalali,
-            nextExecutionDate = todayJalali,
-            enabled = true,
-            accountId = "",
-            accountName = "حساب ناموجود و نامعتبر"
+    fun recurringTemplateWithUnknownAccountNameDoesNotCreatePendingOccurrence() = runBlocking {
+        val date = today()
+        val item = recurring(
+            id = "rec_unknown_account_name",
+            accountId = null,
+            accountName = "حساب ناموجود"
         )
-
-        repository.addRecurringTransaction(itemWithoutAccount)
+        repository.addRecurringTransaction(item)
 
         repository.processDueRecurringTransactions(context)
 
-        val transactions = db.transactionDao().getAllTransactionsList(testUserId)
-        val tx = transactions.find { it.title == "پرداخت بدون حساب معتبر" }
-        assertNull("Transaction should NOT be inserted into another fallback account", tx)
+        val id = occurrenceId(item.id, date)
+        assertFalse(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        val stored = repository.getRecurringTransactions().first().single { it.id == item.id }
+        assertEquals(date, stored.nextExecutionDate)
+    }
 
-        val itemInRepo = repository.getRecurringTransactions().first().find { it.id == itemWithoutAccount.id }
-        assertEquals("Next execution date should remain unchanged when no matching account found", todayJalali, itemInRepo?.nextExecutionDate)
+    @Test
+    fun repositoryRejectsInvalidJalaliRecurringDates() = runBlocking {
+        val invalid = recurring(
+            id = "rec_invalid_date",
+            accountId = defaultAccountId(),
+            startDate = "۱۴۰۵/۱۲/۳۰",
+            nextDate = "۱۴۰۵/۱۲/۳۰"
+        )
+        repository.addRecurringTransaction(invalid)
+
+        assertFalse(repository.getRecurringTransactions().first().any { it.id == invalid.id })
+    }
+
+    @Test
+    fun monthlyRecurrenceRestoresOriginalDayAfterShortMonth() {
+        val afterEsfand = RecurringDateCalculator.nextDate(
+            currentDate = "۱۴۰۵/۱۲/۲۹",
+            frequency = RecurringFrequency.MONTHLY,
+            anchorDayOfMonth = 31,
+            anchorMonthOfYear = 12
+        )
+        assertEquals("۱۴۰۶/۰۱/۳۱", afterEsfand)
+    }
+
+    @Test
+    fun yearlyRecurrenceRestoresLeapDayAnchorInNextJalaliLeapYear() {
+        var date = "۱۴۰۳/۱۲/۳۰"
+        repeat(5) {
+            date = RecurringDateCalculator.nextDate(
+                currentDate = date,
+                frequency = RecurringFrequency.YEARLY,
+                anchorDayOfMonth = 30,
+                anchorMonthOfYear = 12
+            ) ?: fail("Expected a valid next Jalali date")
+        }
+        assertEquals("۱۴۰۸/۱۲/۳۰", date)
     }
 }
