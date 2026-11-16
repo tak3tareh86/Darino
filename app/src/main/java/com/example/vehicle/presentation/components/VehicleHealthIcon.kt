@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
@@ -47,13 +48,53 @@ fun VehicleHealthIcon(
 ) {
     val normalizedTitle = title.replace("ي", "ی").replace("ك", "ک")
     val isOilFilter = normalizedTitle.contains("فیلتر روغن")
+    val isBodyInsurance = normalizedTitle.contains("بیمه") && normalizedTitle.contains("بدنه")
     val icon = vehicleHealthIconFor(title)
     Surface(
         modifier = modifier.size(size),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.62f)
     ) {
-        if (isOilFilter) {
+        if (isBodyInsurance) {
+            val tint = MaterialTheme.colorScheme.primary
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(size * 0.20f)
+            ) {
+                val strokeWidth = this.size.minDimension * 0.075f
+                val w = this.size.width
+                val h = this.size.height
+
+                // Shield outline with a car silhouette to distinguish body insurance.
+                val shield = Path().apply {
+                    moveTo(w * 0.5f, h * 0.04f)
+                    lineTo(w * 0.91f, h * 0.19f)
+                    lineTo(w * 0.86f, h * 0.59f)
+                    cubicTo(w * 0.82f, h * 0.78f, w * 0.65f, h * 0.91f, w * 0.5f, h * 0.97f)
+                    cubicTo(w * 0.35f, h * 0.91f, w * 0.18f, h * 0.78f, w * 0.14f, h * 0.59f)
+                    lineTo(w * 0.09f, h * 0.19f)
+                    close()
+                }
+                drawPath(shield, tint, style = Stroke(width = strokeWidth))
+                val car = Path().apply {
+                    moveTo(w * 0.23f, h * 0.61f)
+                    lineTo(w * 0.30f, h * 0.47f)
+                    quadraticTo(w * 0.33f, h * 0.42f, w * 0.40f, h * 0.42f)
+                    lineTo(w * 0.64f, h * 0.42f)
+                    quadraticTo(w * 0.70f, h * 0.42f, w * 0.73f, h * 0.47f)
+                    lineTo(w * 0.80f, h * 0.61f)
+                    lineTo(w * 0.80f, h * 0.72f)
+                    lineTo(w * 0.23f, h * 0.72f)
+                    close()
+                }
+                drawPath(car, tint, style = Stroke(width = strokeWidth))
+                drawLine(tint, Offset(w * 0.35f, h * 0.44f), Offset(w * 0.30f, h * 0.60f), strokeWidth)
+                drawLine(tint, Offset(w * 0.65f, h * 0.44f), Offset(w * 0.70f, h * 0.60f), strokeWidth)
+                drawCircle(tint, radius = strokeWidth * 1.35f, center = Offset(w * 0.34f, h * 0.73f))
+                drawCircle(tint, radius = strokeWidth * 1.35f, center = Offset(w * 0.67f, h * 0.73f))
+            }
+        } else if (isOilFilter) {
             val tint = MaterialTheme.colorScheme.primary
             Canvas(
                 modifier = Modifier
