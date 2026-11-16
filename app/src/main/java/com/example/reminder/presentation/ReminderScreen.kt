@@ -602,8 +602,7 @@ fun ReminderScreen(
                                         ReminderCard(
                                             reminder = reminder,
                                             vehiclePlate = vehiclePlateForReminder(reminder),
-                                            vehiclePlate = vehiclePlateForReminder(reminder),
-                                        onClick = {},
+                                            onClick = {},
                                             onToggleCompleted = {
                                                 viewModel.toggleReminderEnabled(reminder.id, true)
                                             },
