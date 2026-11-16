@@ -867,29 +867,14 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 }
 
                 if (shouldAdvanceDate) {
-                    // Advance from the actual scheduled occurrence while retaining the original Jalali anchor.
-                    var newNextDate = RecurringDateCalculator.nextDate(
+                    // Move directly to the first future occurrence, preserving the original Jalali anchor.
+                    val newNextDate = RecurringDateCalculator.firstDateAfter(
                         effectiveDate,
                         item.frequency,
                         item.anchorDayOfMonth,
-                        item.anchorMonthOfYear
+                        item.anchorMonthOfYear,
+                        todayJalali
                     ) ?: continue
-
-                    // Catch up missed periods without drifting the original day/month.
-                    var loopCount = 0
-                    while (loopCount < 100) {
-                        val newParts = CalendarDateUtils.parseJalali(newNextDate) ?: break
-                        val newEpoch = PersianCalendarHelper.getJalaliEpochDay(newParts.first, newParts.second, newParts.third)
-                        if (newEpoch > todayEpochDay) break
-
-                        newNextDate = RecurringDateCalculator.nextDate(
-                            newNextDate,
-                            item.frequency,
-                            item.anchorDayOfMonth,
-                            item.anchorMonthOfYear
-                        ) ?: break
-                        loopCount++
-                    }
 
                     val idx = updatedList.indexOfFirst { it.id == item.id }
                     if (idx != -1) {
