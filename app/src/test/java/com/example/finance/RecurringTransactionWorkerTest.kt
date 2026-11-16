@@ -68,9 +68,6 @@ class RecurringTransactionWorkerTest {
         repository.ensureDefaultAccounts(db, testUserId)
     }
 
-    private fun today(): String =
-        PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-
     private fun dueDate(): String =
         PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis() - 2L * 24L * 60L * 60L * 1000L).toFormattedDate()
 
@@ -362,6 +359,31 @@ class RecurringTransactionWorkerTest {
         assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
         assertTrue(repository.confirmPendingRecurringTransaction(context, id))
         assertEquals(1, db.transactionDao().getAllTransactionsList(testUserId).count { it.stringId == id })
+    }
+
+
+    @Test
+    fun overdueDailyRecurrenceSkipsBacklogAndSchedulesFirstFutureDay() {
+        val next = RecurringDateCalculator.firstDateAfter(
+            currentDate = "۱۴۰۵/۰۱/۰۱",
+            frequency = RecurringFrequency.DAILY,
+            anchorDayOfMonth = 1,
+            anchorMonthOfYear = 1,
+            referenceDate = "۱۴۰۵/۰۶/۰۱"
+        )
+        assertEquals("۱۴۰۵/۰۶/۰۲", next)
+    }
+
+    @Test
+    fun overdueWeeklyRecurrenceSkipsBacklogWithoutChangingWeeklyCadence() {
+        val next = RecurringDateCalculator.firstDateAfter(
+            currentDate = "۱۴۰۵/۰۱/۰۱",
+            frequency = RecurringFrequency.WEEKLY,
+            anchorDayOfMonth = 1,
+            anchorMonthOfYear = 1,
+            referenceDate = "۱۴۰۵/۰۱/۱۵"
+        )
+        assertEquals("۱۴۰۵/۰۱/۲۲", next)
     }
 
 }
