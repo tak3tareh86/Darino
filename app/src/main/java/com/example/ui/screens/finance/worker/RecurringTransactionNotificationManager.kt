@@ -106,15 +106,16 @@ object RecurringTransactionNotificationManager {
     }
 
     fun showAllPending(context: Context, userId: String) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val current = JSONArray(prefs.getString(storageKey(userId), "[]") ?: "[]")
-        val now = System.currentTimeMillis()
-        for (index in 0 until current.length()) {
-            val item = current.optJSONObject(index) ?: continue
-            val occurrenceId = item.optString("occurrenceId")
-            if (occurrenceId.isBlank() || item.optLong("nextNotificationAt", 0L) > now) continue
-            showPending(context, userId, occurrenceId)
+        getPendingOccurrenceIds(context, userId).forEach { occurrenceId ->
+            showPendingIfDue(context, userId, occurrenceId)
         }
+    }
+
+    fun showPendingIfDue(context: Context, userId: String, occurrenceId: String): Boolean {
+        val payload = getPending(context, userId, occurrenceId) ?: return false
+        if (payload.optLong("nextNotificationAt", 0L) > System.currentTimeMillis()) return false
+        showPending(context, userId, occurrenceId)
+        return true
     }
 
     @Synchronized
@@ -159,7 +160,7 @@ object RecurringTransactionNotificationManager {
             updated.put(item)
         }
         if (prefs.edit().putString(storageKey(userId), updated.toString()).commit()) {
-            refreshedIds.filter { it.isNotBlank() }.forEach { showPending(context, userId, it) }
+            refreshedIds.filter { it.isNotBlank() }.forEach { showPendingIfDue(context, userId, it) }
         }
     }
 
