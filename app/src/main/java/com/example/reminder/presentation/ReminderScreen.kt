@@ -609,7 +609,7 @@ fun ReminderScreen(
                                             onSnoozeClick = {
                                                 showSnoozeSheetForReminder = reminder
                                             },
-                                    onDeleteClick = { viewModel.deleteReminder(reminder.id) }
+                                            onDeleteClick = { viewModel.deleteReminder(reminder.id) }
                                         )
                                     }
                                 }
@@ -626,7 +626,7 @@ fun ReminderScreen(
                                         onSnoozeClick = {
                                             showSnoozeSheetForReminder = reminder
                                         },
-                                    onDeleteClick = { viewModel.deleteReminder(reminder.id) }
+                                        onDeleteClick = { viewModel.deleteReminder(reminder.id) }
                                     )
                                 }
                             }
