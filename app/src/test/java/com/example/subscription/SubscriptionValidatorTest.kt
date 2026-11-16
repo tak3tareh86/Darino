@@ -50,16 +50,25 @@ class SubscriptionValidatorTest {
     }
 
     @Test
-    fun testCalculateSubscriptionEndAt_addsOneCalendarYear() {
-        val purchaseAt = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
-            clear()
-            set(2024, java.util.Calendar.FEBRUARY, 29, 12, 0, 0)
-        }.timeInMillis
+    fun testCalculateSubscriptionEndAt_addsOneJalaliYear() {
+        val purchaseAt = com.example.util.PersianCalendarHelper.jalaliToEpochMillis(
+            1405, 8, 25, 14, 35
+        )
+        val expected = com.example.util.PersianCalendarHelper.jalaliToEpochMillis(
+            1406, 8, 25, 14, 35
+        )
 
-        val expected = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
-            clear()
-            set(2025, java.util.Calendar.FEBRUARY, 28, 12, 0, 0)
-        }.timeInMillis
+        assertEquals(expected, SubscriptionValidator.calculateSubscriptionEndAt(purchaseAt))
+    }
+
+    @Test
+    fun testCalculateSubscriptionEndAt_clampsEsfandWhenNextYearIsNotLeap() {
+        val purchaseAt = com.example.util.PersianCalendarHelper.jalaliToEpochMillis(
+            1403, 12, 30, 10, 20
+        )
+        val expected = com.example.util.PersianCalendarHelper.jalaliToEpochMillis(
+            1404, 12, 29, 10, 20
+        )
 
         assertEquals(expected, SubscriptionValidator.calculateSubscriptionEndAt(purchaseAt))
     }
