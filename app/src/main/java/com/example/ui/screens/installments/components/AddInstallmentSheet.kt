@@ -913,37 +913,90 @@ private fun FormDetailsStep(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedTextField(
-                            value = paidInstallmentsCount,
-                            onValueChange = { input ->
-                                onPaidInstallmentsCountChange(
-                                    IranianPhoneUtils.convertDigitsToPersian(
-                                        IranianPhoneUtils.convertDigitsToEnglish(input).filter { it.isDigit() }
+                        var paidInstallmentsDropdownExpanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
+                            expanded = paidInstallmentsDropdownExpanded,
+                            onExpandedChange = {
+                                paidInstallmentsDropdownExpanded = !paidInstallmentsDropdownExpanded
+                            },
+                            modifier = Modifier.weight(0.9f)
+                        ) {
+                            OutlinedTextField(
+                                value = paidInstallmentsCount,
+                                onValueChange = { input ->
+                                    onPaidInstallmentsCountChange(
+                                        IranianPhoneUtils.convertDigitsToPersian(
+                                            IranianPhoneUtils.convertDigitsToEnglish(input).filter { it.isDigit() }
+                                        )
                                     )
-                                )
-                            },
-                            label = {
-                                Text(
-                                    "تعداد اقساط پرداخت‌شده",
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    fontSize = 10.sp
-                                )
-                            },
-                            isError = submitValidationError != null,
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier
-                                .weight(1.2f)
-                                .testTag("installment_paid_count_input"),
-                            shape = RoundedCornerShape(10.dp)
-                        )
+                                },
+                                label = {
+                                    Text(
+                                        "تعداد اقساط پرداخت‌شده",
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        fontSize = 10.sp
+                                    )
+                                },
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(
+                                        expanded = paidInstallmentsDropdownExpanded
+                                    )
+                                },
+                                isError = submitValidationError != null,
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
+                                    .testTag("installment_paid_count_input"),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            ExposedDropdownMenu(
+                                expanded = paidInstallmentsDropdownExpanded,
+                                onDismissRequest = { paidInstallmentsDropdownExpanded = false },
+                                modifier = Modifier.heightIn(max = 280.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 260.dp)
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(horizontal = 6.dp)
+                                ) {
+                                    (1..60).toList().chunked(3).forEach { rowCounts ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            rowCounts.forEach { count ->
+                                                TextButton(
+                                                    onClick = {
+                                                        onPaidInstallmentsCountChange(
+                                                            IranianPhoneUtils.convertDigitsToPersian(count.toString())
+                                                        )
+                                                        paidInstallmentsDropdownExpanded = false
+                                                    },
+                                                    modifier = Modifier.weight(1f),
+                                                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = IranianPhoneUtils.convertDigitsToPersian(count.toString()),
+                                                        style = MaterialTheme.typography.bodyMedium
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
                         var installmentsDropdownExpanded by remember { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = installmentsDropdownExpanded,
                             onExpandedChange = { installmentsDropdownExpanded = !installmentsDropdownExpanded },
-                            modifier = Modifier.weight(0.8f)
+                            modifier = Modifier.weight(1.1f)
                         ) {
                             OutlinedTextField(
                                 value = installmentsCount,
