@@ -12,7 +12,7 @@ data class SubscriptionInfo(
     val purchaseTokenReference: String? = null,
     val marketAccountState: String = "ACTIVE_ACCOUNT",
     val lastSyncAt: Long = System.currentTimeMillis(),
-    // Set only when Bazaar/Poolakey successfully confirms the active purchase.
-    // A missing value (0) requires a fresh Market verification.
+    // Informational timestamp of the last successful Bazaar/Poolakey confirmation.
+    // It does not impose an offline expiry on a purchased subscription.
     val lastMarketVerificationAt: Long = 0L
 )
