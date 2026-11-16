@@ -712,6 +712,16 @@ fun AddTransactionSheet(
                         errorMessage = "لطفاً عنوان دقیق تراکنش را وارد کنید."
                         return@Button
                     }
+                    if (selectedType != TransactionType.TRANSFER &&
+                        availableCategories.none { it.id == selectedCategory.id && it.type == selectedType }
+                    ) {
+                        errorMessage = if (selectedType == TransactionType.INCOME) {
+                            "لطفاً یک دسته‌بندی فعال درآمد انتخاب کنید."
+                        } else {
+                            "لطفاً یک دسته‌بندی فعال هزینه انتخاب کنید."
+                        }
+                        return@Button
+                    }
                     val parsedDate = CalendarDateUtils.parseJalali(datePersian)
                     if (parsedDate == null || !CalendarDateUtils.isValidJalaliDate(datePersian)) {
                         errorMessage = "لطفاً تاریخ معتبر وارد کنید."
