@@ -125,55 +125,81 @@ fun ReminderCard(
                         softWrap = true
                     )
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(RadiusSM),
-                            color = reminderType.accentColor.copy(alpha = 0.12f)
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.align(Alignment.CenterStart),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(
-                                text = reminderType.title,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 10.sp,
-                                    color = reminderType.accentColor,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            )
-                        }
-
-                        if (priority == Priority.HIGH) {
                             Surface(
                                 shape = RoundedCornerShape(RadiusSM),
-                                color = ExpenseRoseLight.copy(alpha = 0.15f)
+                                color = reminderType.accentColor.copy(alpha = 0.12f)
                             ) {
                                 Text(
-                                    text = "فوری",
+                                    text = reminderType.title,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontSize = 10.sp,
-                                        color = ExpenseRoseLight,
-                                        fontWeight = FontWeight.Bold
+                                        color = reminderType.accentColor,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
+
+                            if (priority == Priority.HIGH) {
+                                Surface(
+                                    shape = RoundedCornerShape(RadiusSM),
+                                    color = ExpenseRoseLight.copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        text = "فوری",
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 10.sp,
+                                            color = ExpenseRoseLight,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(RadiusSM),
+                                color = statusColor.copy(alpha = 0.12f)
+                            ) {
+                                Text(
+                                    text = statusText,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp,
+                                        color = statusColor,
+                                        fontWeight = FontWeight.Medium
                                     )
                                 )
                             }
                         }
 
-                        Surface(
-                            shape = RoundedCornerShape(RadiusSM),
-                            color = statusColor.copy(alpha = 0.12f)
-                        ) {
-                            Text(
-                                text = statusText,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 10.sp,
-                                    color = statusColor,
-                                    fontWeight = FontWeight.Medium
+                        if (reminder.targetKilometer != null) {
+                            Row(
+                                modifier = Modifier.align(Alignment.Center),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Speed,
+                                    contentDescription = null,
+                                    tint = InfoIndigoLight,
+                                    modifier = Modifier.size(13.dp)
                                 )
-                            )
+                                Text(
+                                    text = "${reminder.targetKilometer} کیلومتر",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = InfoIndigoLight
+                                    )
+                                )
+                            }
                         }
                     }
                 }
@@ -301,27 +327,6 @@ fun ReminderCard(
                             color = EmeraldPrimaryLight
                         )
                     )
-                } else if (reminder.targetKilometer != null) {
-                    Row(
-                        modifier = Modifier.align(Alignment.CenterStart),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Speed,
-                            contentDescription = null,
-                            tint = InfoIndigoLight,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Text(
-                            text = "${reminder.targetKilometer} کیلومتر",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = InfoIndigoLight
-                            )
-                        )
-                    }
                 }
             }
         }
