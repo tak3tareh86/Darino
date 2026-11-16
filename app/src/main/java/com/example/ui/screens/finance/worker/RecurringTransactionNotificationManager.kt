@@ -13,6 +13,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import org.json.JSONArray
 import org.json.JSONObject
+import androidx.work.WorkManager
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.MoneyFormatter
 
@@ -87,6 +88,7 @@ object RecurringTransactionNotificationManager {
     }
 
     @Synchronized
+    @Synchronized
     fun removePending(context: Context, userId: String, occurrenceId: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val current = JSONArray(prefs.getString(storageKey(userId), "[]") ?: "[]")
@@ -95,7 +97,53 @@ object RecurringTransactionNotificationManager {
             val item = current.optJSONObject(index) ?: continue
             if (item.optString("occurrenceId") != occurrenceId) updated.put(item)
         }
-        prefs.edit().putString(storageKey(userId), updated.toString()).apply()
+        prefs.edit().putString(storageKey(userId), updated.toString()).commit()
+        cancel(context, occurrenceId)
+        WorkManager.getInstance(context).cancelUniqueWork("recurring_reminder_$occurrenceId")
+    }
+
+    @Synchronized
+    fun removePendingForRecurring(context: Context, userId: String, recurringId: String) {
+        if (recurringId.isBlank()) return
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val current = JSONArray(prefs.getString(storageKey(userId), "[]") ?: "[]")
+        val updated = JSONArray()
+        val removedIds = mutableListOf<String>()
+        for (index in 0 until current.length()) {
+            val item = current.optJSONObject(index) ?: continue
+            if (item.optString("recurringId") == recurringId) {
+                item.optString("occurrenceId").takeIf { it.isNotBlank() }?.let(removedIds::add)
+            } else {
+                updated.put(item)
+            }
+        }
+        prefs.edit().putString(storageKey(userId), updated.toString()).commit()
+        removedIds.forEach { occurrenceId ->
+            cancel(context, occurrenceId)
+            WorkManager.getInstance(context).cancelUniqueWork("recurring_reminder_$occurrenceId")
+        }
+    }
+
+    @Synchronized
+    fun removePendingForInactiveRecurring(context: Context, userId: String, activeRecurringIds: Set<String>) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val current = JSONArray(prefs.getString(storageKey(userId), "[]") ?: "[]")
+        val updated = JSONArray()
+        val removedIds = mutableListOf<String>()
+        for (index in 0 until current.length()) {
+            val item = current.optJSONObject(index) ?: continue
+            val recurringId = item.optString("recurringId")
+            if (recurringId.isBlank() || recurringId !in activeRecurringIds) {
+                item.optString("occurrenceId").takeIf { it.isNotBlank() }?.let(removedIds::add)
+            } else {
+                updated.put(item)
+            }
+        }
+        prefs.edit().putString(storageKey(userId), updated.toString()).commit()
+        removedIds.forEach { occurrenceId ->
+            cancel(context, occurrenceId)
+            WorkManager.getInstance(context).cancelUniqueWork("recurring_reminder_$occurrenceId")
+        }
     }
 
     fun showPending(context: Context, userId: String, occurrenceId: String) {
