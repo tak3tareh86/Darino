@@ -232,9 +232,11 @@ object BackupFolderStorage {
             runCatching {
                 listDocuments(context, treeUri)
                     .filter {
-                        it.name.startsWith(retentionPrefix) &&
+                        (it.name.startsWith(retentionPrefix) &&
                             it.name != filename &&
-                            it.name.endsWith(".darino", ignoreCase = true)
+                            it.name.endsWith(".darino", ignoreCase = true)) ||
+                            it.name.startsWith(".$filename.tmp-") ||
+                            it.name.startsWith(".$filename.rollback-")
                     }
                     .forEach { old ->
                         if (!runCatching { DocumentsContract.deleteDocument(resolver, old.uri) }.getOrDefault(false)) {
