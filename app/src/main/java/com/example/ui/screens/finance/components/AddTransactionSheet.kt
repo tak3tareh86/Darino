@@ -166,15 +166,6 @@ fun AddTransactionSheet(
                 } else null
         )
     }
-    var selectedDestinationAccount by remember(activeAccounts, initialTransaction) {
-        mutableStateOf(
-            activeAccounts.find { it.id == initialTransaction?.transferDestinationAccountId }
-                ?: if (initialTransaction == null) {
-                    activeAccounts.find { it.name == "کیف پول" || it.name.startsWith("کیف پول") } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
-                } else null
-        )
-    }
-
     LaunchedEffect(activeAccounts) {
         if (initialTransaction == null) {
             if (selectedAccount == null && activeAccounts.isNotEmpty()) {
@@ -182,9 +173,6 @@ fun AddTransactionSheet(
             }
             if (selectedSourceAccount == null && activeAccounts.isNotEmpty()) {
                 selectedSourceAccount = activeAccounts.find { it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی") } ?: activeAccounts.firstOrNull()
-            }
-            if (selectedDestinationAccount == null && activeAccounts.size >= 2) {
-                selectedDestinationAccount = activeAccounts.find { it.name == "کیف پول" || it.name.startsWith("کیف پول") } ?: activeAccounts.getOrNull(1) ?: activeAccounts.firstOrNull()
             }
         }
     }
@@ -395,40 +383,7 @@ fun AddTransactionSheet(
                             }
                         }
                     }
-                    
-                    // Destination Account
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = "حساب مقصد",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            activeAccounts.forEach { acc ->
-                                val isSelected = selectedDestinationAccount?.id == acc.id
-                                Surface(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable { selectedDestinationAccount = acc },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) EmeraldPrimaryLight else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
-                                    border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                                ) {
-                                    Text(
-                                        text = acc.name,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
-                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
-                        }
-                    }
+
                 }
             }
 
@@ -695,12 +650,8 @@ fun AddTransactionSheet(
                             return@Button
                         }
                     } else {
-                        if (selectedSourceAccount == null || selectedDestinationAccount == null) {
-                            errorMessage = "لطفاً حساب‌های مبدأ و مقصد را انتخاب کنید."
-                            return@Button
-                        }
-                        if (selectedSourceAccount?.id == selectedDestinationAccount?.id) {
-                            errorMessage = "حساب مبدأ و مقصد نمی‌توانند یکسان باشند."
+                        if (selectedSourceAccount == null) {
+                            errorMessage = "لطفاً حساب مبدأ را انتخاب کنید."
                             return@Button
                         }
                     }
@@ -745,7 +696,8 @@ fun AddTransactionSheet(
                     )
 
                     val finalTitle = if (selectedType == TransactionType.TRANSFER) {
-                        "انتقال از ${selectedSourceAccount?.name} به ${selectedDestinationAccount?.name}"
+                        transferRecipientName.trim().takeIf { it.isNotEmpty() }
+                            ?.let { "انتقال وجه به $it" } ?: "انتقال وجه"
                     } else {
                         title.trim()
                     }
@@ -766,13 +718,13 @@ fun AddTransactionSheet(
                         dateMillis = transactionDateMillis,
                         description = description,
                         paymentMethod = paymentMethod,
-                        accountName = if (selectedType == TransactionType.TRANSFER) 
-                            "انتقال وجه" 
-                        else 
+                        accountName = if (selectedType == TransactionType.TRANSFER)
+                            (selectedSourceAccount?.name ?: "کارت بانکی")
+                        else
                             (selectedAccount?.name ?: paymentMethod.title),
                         accountId = selectedAccount?.id,
                         transferSourceAccountId = if (selectedType == TransactionType.TRANSFER) selectedSourceAccount?.id else null,
-                        transferDestinationAccountId = if (selectedType == TransactionType.TRANSFER) selectedDestinationAccount?.id else null,
+                        transferDestinationAccountId = null,
                         transferRecipientName = if (selectedType == TransactionType.TRANSFER) transferRecipientName.trim().takeIf { it.isNotEmpty() } else null,
                         sourceType = initialTransaction?.sourceType ?: TransactionSourceType.MANUAL,
                         sourceId = initialTransaction?.sourceId,
