@@ -768,7 +768,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             return
         }
 
-        val todayJalali = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+        val nowDateTime = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val todayJalali = nowDateTime.toFormattedDate()
         val cleanToday = com.example.calendar.domain.CalendarDateUtils.normalizeDate(todayJalali)
         val partsToday = cleanToday.split("/")
         if (partsToday.size != 3) return
@@ -812,6 +813,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     continue
                 }
             }
+
+            // The recurring notification is scheduled for 09:00 local time.
+            if (nextEpochDay == todayEpochDay && nowDateTime.hour < 9) continue
 
             // Check if due: nextExecutionDate <= today
             if (nextEpochDay <= todayEpochDay) {
