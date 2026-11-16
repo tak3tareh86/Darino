@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.data.security.SessionManager
+import com.example.ui.screens.finance.data.LocalFinanceRepository
 
 /**
  * Re-displays a still-pending occurrence after the user asks to be reminded tomorrow.
@@ -22,7 +23,9 @@ class RecurringTransactionReminderWorker(
             SessionManager.init(applicationContext)
             if (SessionManager.userId != userId) return Result.success()
 
-            if (RecurringTransactionNotificationManager.hasPending(applicationContext, userId, occurrenceId)) {
+            val repository = LocalFinanceRepository.instance
+            repository.init(applicationContext)
+            if (repository.isPendingRecurringOccurrenceValid(applicationContext, userId, occurrenceId)) {
                 RecurringTransactionNotificationManager.showPending(applicationContext, userId, occurrenceId)
             }
             Result.success()
