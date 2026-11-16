@@ -73,8 +73,16 @@ class LocalSubscriptionDataSource(context: Context) {
         val token = prefs.getString(KEY_PURCHASE_TOKEN, null)
         val marketAccountState = prefs.getString(KEY_MARKET_ACCOUNT_STATE, "UNKNOWN") ?: "UNKNOWN"
         val lastSyncAt = prefs.getLong(KEY_LAST_SYNC_AT, System.currentTimeMillis())
-        // Legacy active purchases have no explicit confirmation timestamp and must re-verify.
-        val lastMarketVerificationAt = prefs.getLong(KEY_LAST_MARKET_VERIFICATION_AT, 0L)
+        val storedMarketVerificationAt = prefs.getLong(KEY_LAST_MARKET_VERIFICATION_AT, 0L)
+        // Migrate a known legacy Market sync only when its timestamp was actually persisted.
+        // Never treat the fallback current time as evidence of a successful verification.
+        val lastMarketVerificationAt = when {
+            storedMarketVerificationAt > 0L -> storedMarketVerificationAt
+            marketAccountState == "MARKET_ACTIVE" &&
+                prefs.contains(KEY_LAST_SYNC_AT) &&
+                lastSyncAt > 0L -> lastSyncAt
+            else -> 0L
+        }
 
         return SubscriptionInfo(
             userId = userId,
