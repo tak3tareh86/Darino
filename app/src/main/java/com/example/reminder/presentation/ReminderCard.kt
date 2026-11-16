@@ -180,42 +180,49 @@ fun ReminderCard(
                             }
                         }
 
-                        if (!vehiclePlate.isNullOrBlank()) {
-                            Text(
-                                text = vehiclePlate,
+                        if (!vehiclePlate.isNullOrBlank() || reminder.targetKilometer != null) {
+                            Column(
                                 modifier = Modifier
                                     .align(Alignment.Center)
+                                    .offset(x = (-16).dp)
                                     .padding(horizontal = 54.dp),
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                ),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        if (reminder.targetKilometer != null) {
-                            Row(
-                                modifier = Modifier.align(Alignment.CenterEnd),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(1.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Speed,
-                                    contentDescription = null,
-                                    tint = InfoIndigoLight,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Text(
-                                    text = "${reminder.targetKilometer} کیلومتر",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = InfoIndigoLight
+                                if (!vehiclePlate.isNullOrBlank()) {
+                                    Text(
+                                        text = vehiclePlate,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
-                                )
+                                }
+
+                                if (reminder.targetKilometer != null) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Speed,
+                                            contentDescription = null,
+                                            tint = InfoIndigoLight,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Text(
+                                            text = "${reminder.targetKilometer} کیلومتر",
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = InfoIndigoLight
+                                            )
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
