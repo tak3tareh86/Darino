@@ -1167,7 +1167,7 @@ fun EditSmsTransactionDialog(
                         Text("نوع تراکنش",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
                         Row(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
                             listOf(TransactionType.INCOME to "درآمد",TransactionType.EXPENSE to "هزینه",TransactionType.TRANSFER to "انتقال").forEach{(t,label)->
-                                FilterChip(modifier=Modifier.weight(1f),selected=selectedType==t,onClick={selectedType=t;category=when(t){TransactionType.INCOME->incomeCats.first();TransactionType.EXPENSE->expenseCats.first();TransactionType.TRANSFER->transferCats.first()};error=null},label={Text(label,maxLines=1)})
+                                FilterChip(modifier=Modifier.weight(1f),selected=selectedType==t,onClick={selectedType=t;category=when(t){TransactionType.INCOME,TransactionType.EXPENSE->activeCategories.firstOrNull{it.type==t}?.title.orEmpty();TransactionType.TRANSFER->com.example.ui.screens.finance.model.FinanceDefaultCategories.transferCategory.title};error=null},label={Text(label,maxLines=1)})
                             }
                         }
                     }
