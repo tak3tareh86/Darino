@@ -758,6 +758,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             currentUserId,
             activeRecurringList.map { it.id }.toSet()
         )
+        RecurringTransactionNotificationManager.getPendingOccurrenceIds(context, currentUserId).forEach { occurrenceId ->
+            isPendingRecurringOccurrenceValid(context, currentUserId, occurrenceId)
+        }
         RecurringTransactionNotificationManager.showAllPending(context, currentUserId)
         if (activeRecurringList.isEmpty()) {
             return
@@ -914,6 +917,14 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val template = _recurringTransactions.value.firstOrNull {
             it.id == payload.optString("recurringId") && it.enabled
         }
+        val accountId = payload.optString("accountId").takeIf { it.isNotBlank() }
+        val db = AppDatabase.getDatabase(context.applicationContext)
+        val account = if (accountId != null) {
+            db.accountDao().getAccountByStringId(userId, accountId)
+        } else {
+            db.accountDao().getAllAccountsList(userId)
+                .firstOrNull { it.name.equals(payload.optString("accountName"), ignoreCase = true) }
+        }
         val valid = template != null &&
             payload.optString("title") == template.title &&
             payload.optLong("amount") == template.amount &&
@@ -922,7 +933,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             payload.optString("categoryId") == template.categoryId &&
             payload.optString("frequency") == template.frequency.name &&
             payload.optString("paymentMethod") == template.paymentMethod.name &&
-            (template.accountId.isNullOrBlank() || payload.optString("accountId") == template.accountId)
+            (template.accountId.isNullOrBlank() || payload.optString("accountId") == template.accountId) &&
+            account != null && account.userId == userId && account.isActive && account.deletedAt == null
         if (!valid) {
             RecurringTransactionNotificationManager.removePending(context, userId, occurrenceId)
         }
@@ -976,8 +988,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             } else {
                 db.accountDao().getAllAccountsList(userId)
                     .firstOrNull { it.name.equals(payload.optString("accountName"), ignoreCase = true) }
-            } ?: return false
-            if (account.userId != userId || !account.isActive || account.deletedAt != null) return false
+            }
+            if (account == null || account.userId != userId || !account.isActive || account.deletedAt != null) {
+                RecurringTransactionNotificationManager.removePending(context, userId, occurrenceId)
+                return false
+            }
             if (SessionManager.userId != userId) return false
 
             val type = runCatching { TransactionType.valueOf(payload.getString("type")) }.getOrNull() ?: return false
