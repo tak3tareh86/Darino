@@ -67,6 +67,7 @@ fun SubscriptionStatusCard(
     val isExpired = info.subscriptionStatus == SubscriptionStatus.EXPIRED || info.subscriptionStatus == SubscriptionStatus.LOCKED
     val isActive = info.subscriptionStatus == SubscriptionStatus.ACTIVE
     val isTrial = info.subscriptionStatus == SubscriptionStatus.TRIAL
+    val requiresMarketReverification = isExpired && info.marketAccountState == "MARKET_ACTIVE"
 
     if (isActive) {
         // Compact active-subscription card. Never invent an expiry date that Market does not provide.
@@ -273,7 +274,11 @@ fun SubscriptionStatusCard(
                             }
 
                             Text(
-                                text = if (isExpired) "پایان دوره آزمایشی" else "دوست خوبم سلام",
+                                text = when {
+                                    requiresMarketReverification -> "نیاز به تأیید مجدد بازار"
+                                    isExpired -> "پایان دوره آزمایشی"
+                                    else -> "دوست خوبم سلام"
+                                },
                                 modifier = Modifier.fillMaxWidth(),
                                 textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.titleMedium.copy(
@@ -293,7 +298,11 @@ fun SubscriptionStatusCard(
                         ) {
                             if (isExpired) {
                                 Text(
-                                    text = "دوره آزمایشی تمام شده؛ برای ادامه اشتراک سالیانه تهیه کنید.",
+                                    text = if (requiresMarketReverification) {
+                                        "برای تأیید دوباره اشتراک به اینترنت متصل شو و خرید قبلی را از بازار بازیابی کن."
+                                    } else {
+                                        "دوره آزمایشی تمام شده؛ برای ادامه اشتراک سالیانه تهیه کنید."
+                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                     textAlign = TextAlign.Justify,
                                     style = MaterialTheme.typography.bodySmall.copy(

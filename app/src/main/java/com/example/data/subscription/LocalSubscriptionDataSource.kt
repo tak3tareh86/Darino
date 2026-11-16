@@ -71,7 +71,8 @@ class LocalSubscriptionDataSource(context: Context) {
         val productId = prefs.getString(KEY_PRODUCT_ID, MarketConfig.YEARLY_PRODUCT_ID) ?: MarketConfig.YEARLY_PRODUCT_ID
         val token = prefs.getString(KEY_PURCHASE_TOKEN, null)
         val marketAccountState = prefs.getString(KEY_MARKET_ACCOUNT_STATE, "UNKNOWN") ?: "UNKNOWN"
-        val lastSyncAt = prefs.getLong(KEY_LAST_SYNC_AT, System.currentTimeMillis())
+        // A missing timestamp must remain unknown; using now would extend legacy cached access.
+        val lastSyncAt = prefs.getLong(KEY_LAST_SYNC_AT, 0L)
 
         return SubscriptionInfo(
             userId = userId,

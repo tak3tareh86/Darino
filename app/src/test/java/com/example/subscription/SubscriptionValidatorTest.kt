@@ -26,17 +26,50 @@ class SubscriptionValidatorTest {
     }
 
     @Test
-    fun testEvaluateStatus_staleMarketConfirmationDoesNotExtendExpiredSubscription() {
+    fun testEvaluateStatus_marketConfirmationOlderThanSevenDaysRequiresReverification() {
         val now = 2_000_000_000_000L
         val info = SubscriptionInfo(
             subscriptionStartAt = now - 400 * 86_400_000L,
             subscriptionEndAt = now - 35 * 86_400_000L,
             subscriptionStatus = SubscriptionStatus.ACTIVE,
             marketAccountState = "MARKET_ACTIVE",
-            lastSyncAt = now - 25 * 60 * 60 * 1000L
+            lastSyncAt = now - 8 * 86_400_000L
         )
 
-        assertEquals(SubscriptionStatus.EXPIRED, SubscriptionValidator.evaluateStatus(info, now))
+        assertEquals(SubscriptionStatus.LOCKED, SubscriptionValidator.evaluateStatus(info, now))
+    }
+
+    @Test
+    fun testEvaluateStatus_marketConfirmationRemainsValidJustBeforeSevenDayBoundary() {
+        val now = 2_000_000_000_000L
+        val info = SubscriptionInfo(
+            marketAccountState = "MARKET_ACTIVE",
+            lastSyncAt = now - (7 * 86_400_000L) + 1L
+        )
+
+        assertEquals(SubscriptionStatus.ACTIVE, SubscriptionValidator.evaluateStatus(info, now))
+    }
+
+    @Test
+    fun testEvaluateStatus_marketConfirmationExpiresAtSevenDayBoundary() {
+        val now = 2_000_000_000_000L
+        val info = SubscriptionInfo(
+            marketAccountState = "MARKET_ACTIVE",
+            lastSyncAt = now - 7 * 86_400_000L
+        )
+
+        assertEquals(SubscriptionStatus.LOCKED, SubscriptionValidator.evaluateStatus(info, now))
+    }
+
+    @Test
+    fun testEvaluateStatus_marketActiveWithoutConfirmationTimestampIsLocked() {
+        val now = 2_000_000_000_000L
+        val info = SubscriptionInfo(
+            marketAccountState = "MARKET_ACTIVE",
+            lastSyncAt = 0L
+        )
+
+        assertEquals(SubscriptionStatus.LOCKED, SubscriptionValidator.evaluateStatus(info, now))
     }
 
     @Test

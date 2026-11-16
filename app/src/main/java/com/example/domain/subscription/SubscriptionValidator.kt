@@ -4,6 +4,8 @@ import com.example.util.PersianCalendarHelper
 
 object SubscriptionValidator {
 
+    private const val MARKET_OFFLINE_GRACE_PERIOD_MILLIS = 7L * 24L * 60L * 60L * 1000L
+
     fun calculateTrialDaysRemaining(info: SubscriptionInfo, currentTimeMillis: Long = System.currentTimeMillis()): Long {
         if (info.trialEndAt <= 0L) return 0L
         val diffMillis = info.trialEndAt - currentTimeMillis
@@ -38,14 +40,17 @@ object SubscriptionValidator {
             return SubscriptionStatus.LOCKED
         }
 
-        // The current PURCHASED state returned by Bazaar/Poolakey is authoritative.
-        // No remote verification server or synthetic expiry timestamp is used.
+        // A successful Market confirmation grants a bounded offline grace period.
+        // A missing timestamp is not proof of a recent confirmation and must fail closed.
         if (info.marketAccountState == "MARKET_ACTIVE") {
-            val verifiedExpiry = info.subscriptionEndAt
-            return when {
-                verifiedExpiry != null && verifiedExpiry > 0L && currentTimeMillis >= verifiedExpiry -> SubscriptionStatus.EXPIRED
-                else -> SubscriptionStatus.ACTIVE
+            if (info.lastSyncAt <= 0L) return SubscriptionStatus.LOCKED
+            if (currentTimeMillis - info.lastSyncAt >= MARKET_OFFLINE_GRACE_PERIOD_MILLIS) {
+                return SubscriptionStatus.LOCKED
             }
+
+            // Market's current PURCHASED result is authoritative; old locally cached expiry
+            // values must not override a more recent successful Market confirmation.
+            return SubscriptionStatus.ACTIVE
         }
 
         // Trial Check

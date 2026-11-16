@@ -11,5 +11,6 @@ data class SubscriptionInfo(
     val productId: String = "",
     val purchaseTokenReference: String? = null,
     val marketAccountState: String = "ACTIVE_ACCOUNT",
-    val lastSyncAt: Long = System.currentTimeMillis()
+    // Timestamp of the last successful Market entitlement confirmation; 0 means never confirmed.
+    val lastSyncAt: Long = 0L
 )

@@ -59,6 +59,7 @@ fun SubscriptionLockedScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val requiresMarketReverification = uiState.info.marketAccountState == "MARKET_ACTIVE"
 
     Box(
         modifier = Modifier
@@ -184,7 +185,11 @@ fun SubscriptionLockedScreen(
             Spacer(modifier = Modifier.height(22.dp))
 
             Text(
-                text = "مدت زمان استفاده رایگان شما از برنامه به پایان رسیده است.",
+                text = if (requiresMarketReverification) {
+                    "برای تأیید دوباره اشتراک، لازم است به اینترنت متصل شوید و وضعیت خرید را از بازار بازیابی کنید."
+                } else {
+                    "مدت زمان استفاده رایگان شما از برنامه به پایان رسیده است."
+                },
                 modifier = Modifier.fillMaxWidth(),
                 color = Color(0xFFE1E7F5),
                 fontSize = 17.sp,
@@ -196,7 +201,11 @@ fun SubscriptionLockedScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             Text(
-                text = "برای استفاده مجدد از امکانات برنامه و ادامه مدیریت امور مالی و زندگی روزمره خود، لطفاً اشتراک سالانه تهیه کنید.",
+                text = if (requiresMarketReverification) {
+                    "پس از اتصال به اینترنت، گزینه «بازیابی خرید قبلی» را بزنید. تا زمان تأیید مجدد بازار، دسترسی به برنامه محدود می‌ماند."
+                } else {
+                    "برای استفاده مجدد از امکانات برنامه و ادامه مدیریت امور مالی و زندگی روزمره خود، لطفاً اشتراک سالانه تهیه کنید."
+                },
                 modifier = Modifier.fillMaxWidth(),
                 color = Color(0xFFBAC6E0),
                 fontSize = 16.sp,
