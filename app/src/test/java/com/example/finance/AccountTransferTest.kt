@@ -178,7 +178,7 @@ class AccountTransferTest {
 
         
     @Test
-    fun `Transfer - external recipient reduces source only and supports edit/delete`() = runBlocking {
+    fun `Transfer - record only and never changes any account balance`() = runBlocking {
         val source = Account(id = "source", userId = userA, name = "کارت بانکی من", type = AccountType.CARD, initialBalance = 1_000_000L)
         val unrelated = Account(id = "unrelated", userId = userA, name = "حساب دیگر من", type = AccountType.CARD, initialBalance = 500_000L)
         assertEquals(TransactionOperationResult.SUCCESS, repository.addAccountResult(source))
@@ -201,7 +201,7 @@ class AccountTransferTest {
         val stored = db.transactionDao().getTransactionByStringId(userA, transfer.id)
         assertEquals("گیرنده آزمایشی", stored?.transferRecipientName)
         assertNull(stored?.transferDestinationAccountId)
-        assertEquals(700_000L, repository.calculateAccountBalance(source.id))
+        assertEquals(1_000_000L, repository.calculateAccountBalance(source.id))
         assertEquals(500_000L, repository.calculateAccountBalance(unrelated.id))
 
         val transferCategory = FinanceDefaultCategories.transferCategory
@@ -222,7 +222,7 @@ class AccountTransferTest {
 
         val edited = transfer.copy(amount = 400_000L, transferRecipientName = "گیرنده ویرایش‌شده")
         assertEquals(TransactionOperationResult.SUCCESS, repository.updateTransactionResult(edited))
-        assertEquals(600_000L, repository.calculateAccountBalance(source.id))
+        assertEquals(1_000_000L, repository.calculateAccountBalance(source.id))
         assertEquals(500_000L, repository.calculateAccountBalance(unrelated.id))
 
         assertEquals(TransactionOperationResult.SUCCESS, repository.deleteTransactionResult(transfer.id))
