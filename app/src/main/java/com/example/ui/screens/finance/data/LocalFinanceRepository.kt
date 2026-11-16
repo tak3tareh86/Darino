@@ -693,7 +693,12 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val userId = SessionManager.userId
         val ctx = appContext
         if (!userId.isNullOrBlank() && ctx != null) {
-            RecurringTransactionNotificationManager.removePendingForRecurring(ctx, userId, recurring.id)
+            if (normalized.enabled) {
+                // Keep the already-due occurrence, but refresh its data from the edited template.
+                RecurringTransactionNotificationManager.refreshPendingForRecurring(ctx, userId, normalized)
+            } else {
+                RecurringTransactionNotificationManager.removePendingForRecurring(ctx, userId, recurring.id)
+            }
             com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(ctx)
         }
     }
