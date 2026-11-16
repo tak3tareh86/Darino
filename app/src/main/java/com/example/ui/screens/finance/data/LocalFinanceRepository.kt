@@ -21,7 +21,9 @@ import com.example.ui.screens.finance.model.TransactionType
 import com.example.util.PersianCalendarHelper
 import com.example.util.MoneyAmount
 import com.example.ui.screens.settings.model.AppCurrency
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
@@ -79,30 +81,40 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 loadMetadataFromDisk(appCtx, authenticatedUserId)
 
                 try {
-                    // Ensure default active accounts exist in Room DB for authenticated user
-                    ensureDefaultAccounts(db, authenticatedUserId)
+                    // Keep all user-scoped collectors as children of this collectLatest
+                    // action so changing/logging out a user cancels the previous user's flows.
+                    coroutineScope {
+                        // Ensure default active accounts exist in Room DB for authenticated user
+                        ensureDefaultAccounts(db, authenticatedUserId)
 
-                    // Schedule background recurring transaction worker & run immediate check
-                    com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(appCtx)
-                    com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(appCtx)
+                        // Schedule background recurring transaction worker & run immediate check
+                        com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(appCtx)
+                        com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(appCtx)
 
-                    // Collect accounts
-                    launch {
-                        db.accountDao().getAllAccountsFlow(authenticatedUserId).collectLatest { entities ->
-                            val mapped = entities.map { toAccount(it) }
-                            _accounts.value = mapped
+                        // Collect accounts
+                        launch {
+                            db.accountDao().getAllAccountsFlow(authenticatedUserId).collectLatest { entities ->
+                                val mapped = entities.map { toAccount(it) }
+                                if (SessionManager.userId == authenticatedUserId) {
+                                    _accounts.value = mapped
+                                }
+                            }
+                        }
+
+                        // Collect transactions
+                        launch {
+                            db.transactionDao().getAllTransactions(authenticatedUserId).collectLatest { entities ->
+                                // Room is the production source of truth; an empty database stays empty.
+                                val mapped = entities.map { toItemData(it, _categories.value) }
+                                if (SessionManager.userId == authenticatedUserId) {
+                                    _transactions.value = mapped
+                                    recalculateBudgets()
+                                }
+                            }
                         }
                     }
-
-                    // Collect transactions
-                    launch {
-                        db.transactionDao().getAllTransactions(authenticatedUserId).collectLatest { entities ->
-                            // Room is the production source of truth; an empty database stays empty.
-                            val mapped = entities.map { toItemData(it, _categories.value) }
-                            _transactions.value = mapped
-                            recalculateBudgets()
-                        }
-                    }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
