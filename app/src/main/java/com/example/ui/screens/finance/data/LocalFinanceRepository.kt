@@ -857,7 +857,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 if (existingTx != null) {
                     shouldAdvanceDate = true
                 } else if (RecurringTransactionNotificationManager.hasPending(context, currentUserId, executionStringId)) {
-                    RecurringTransactionNotificationManager.showPending(context, currentUserId, executionStringId)
+                    RecurringTransactionNotificationManager.showPendingIfDue(context, currentUserId, executionStringId)
                     shouldAdvanceDate = true
                 } else {
                     val scheduledMillis = PersianCalendarHelper.jalaliToEpochMillis(nextY, nextM, nextD, 9, 0)
@@ -879,7 +879,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                         put("accountId", scheduledAccount.stringId)
                     }
                     if (RecurringTransactionNotificationManager.savePending(context, currentUserId, executionStringId, payload)) {
-                        RecurringTransactionNotificationManager.showPending(context, currentUserId, executionStringId)
+                        RecurringTransactionNotificationManager.showPendingIfDue(context, currentUserId, executionStringId)
                         shouldAdvanceDate = true
                     } else {
                         android.util.Log.e("LocalFinanceRepository", "Unable to persist pending recurring occurrence $executionStringId; keeping its due date.")
