@@ -231,7 +231,11 @@ fun AddSavingsGoalSheet(
                         return@Button
                     }
                     if (parsedTargetRials == null || parsedTargetRials <= 0L || parsedCurrentRials == null || parsedCurrentRials < 0L) {
-                        errorMessage = "مبلغ کل هدف باید بیشتر از صفر باشد."
+                        errorMessage = "مبلغ هدف باید بیشتر از صفر و مبلغ پس‌اندازشده نمی‌تواند منفی باشد."
+                        return@Button
+                    }
+                    if (targetDate.isBlank()) {
+                        errorMessage = "لطفاً تاریخ موعد هدف را وارد کنید."
                         return@Button
                     }
 
@@ -244,7 +248,11 @@ fun AddSavingsGoalSheet(
                         targetDate = targetDate,
                         description = description,
                         iconEmoji = selectedEmoji,
-                        status = if (parsedCurrentRials >= parsedTargetRials) SavingsGoalStatus.COMPLETED else SavingsGoalStatus.IN_PROGRESS
+                        status = when {
+                            parsedCurrentRials >= parsedTargetRials -> SavingsGoalStatus.COMPLETED
+                            initialGoal?.status == SavingsGoalStatus.PAUSED -> SavingsGoalStatus.PAUSED
+                            else -> SavingsGoalStatus.IN_PROGRESS
+                        }
                     )
                     onSubmit(g)
                 },
