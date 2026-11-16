@@ -67,9 +67,10 @@ class SubscriptionValidatorTest {
     @Test
     fun testEvaluateStatus_marketConfirmationOlderThanSevenDaysRemainsActive() {
         val now = 2_000_000_000_000L
+        val purchaseAt = now - 200 * 86_400_000L
         val info = SubscriptionInfo(
-            subscriptionStartAt = now - 400 * 86_400_000L,
-            subscriptionEndAt = now - 35 * 86_400_000L,
+            subscriptionPurchaseAt = purchaseAt,
+            subscriptionEndAt = SubscriptionValidator.calculateSubscriptionEndAt(purchaseAt),
             subscriptionStatus = SubscriptionStatus.ACTIVE,
             marketAccountState = "MARKET_ACTIVE",
             lastSyncAt = now - 8 * 86_400_000L,
@@ -82,7 +83,9 @@ class SubscriptionValidatorTest {
     @Test
     fun testEvaluateStatus_marketConfirmationAtSevenDayBoundaryRemainsActive() {
         val now = 2_000_000_000_000L
+        val purchaseAt = now - 200 * 86_400_000L
         val info = SubscriptionInfo(
+            subscriptionPurchaseAt = purchaseAt,
             marketAccountState = "MARKET_ACTIVE",
             lastSyncAt = now - 7 * 86_400_000L,
             lastMarketVerificationAt = now - 7 * 86_400_000L
@@ -94,7 +97,9 @@ class SubscriptionValidatorTest {
     @Test
     fun testEvaluateStatus_marketActiveWithoutVerificationTimestampRemainsActive() {
         val now = 2_000_000_000_000L
+        val purchaseAt = now - 200 * 86_400_000L
         val info = SubscriptionInfo(
+            subscriptionPurchaseAt = purchaseAt,
             marketAccountState = "MARKET_ACTIVE",
             lastSyncAt = now - 8 * 86_400_000L,
             lastMarketVerificationAt = 0L
