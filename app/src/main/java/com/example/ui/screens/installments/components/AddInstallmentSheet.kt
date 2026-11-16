@@ -875,11 +875,6 @@ private fun FormDetailsStep(
                         label = { Text("نام بانک/طرف حساب") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
-                        leadingIcon = {
-                            if (category == InstallmentCategory.BANK_LOANS) {
-                                Icon(Icons.Rounded.AccountBalance, contentDescription = null)
-                            }
-                        },
                         trailingIcon = {
                             if (category == InstallmentCategory.BANK_LOANS) {
                                 IconButton(onClick = { showBankPickerDialog = true }) {
