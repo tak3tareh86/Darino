@@ -264,28 +264,8 @@ object VehicleAnalyzer {
             serviceStatus("تسمه تایم", listOf(ServiceType.TIMING_BELT_CHANGE), R.drawable.time)
         )
 
-        // Keep the established baseline checks, then add every other service type
-        // that actually has a record for this vehicle. This prevents batch-selected
-        // services (battery, brakes, tires, coolant, etc.) from being invisible to
-        // the health score without penalizing owners for service types never recorded.
-        val alreadyTrackedTypes = setOf(
-            ServiceType.OIL_CHANGE,
-            ServiceType.OIL_FILTER_CHANGE,
-            ServiceType.AIR_FILTER_CHANGE,
-            ServiceType.TRANSMISSION_OIL_CHANGE,
-            ServiceType.ALTERNATOR_BELT_CHANGE,
-            ServiceType.TIMING_BELT_CHANGE
-        )
-        val additionalServiceChecks = ServiceType.values()
-            .filter { type -> type !in alreadyTrackedTypes && latestService(type) != null }
-            .map { type ->
-                serviceStatus(
-                    title = type.title,
-                    types = listOf(type),
-                    iconRes = type.iconRes
-                )
-            }
-        val checklist = fixedChecklist + additionalServiceChecks
+        // The health score and displayed gauge are based exclusively on the nine fixed checklist items.
+        val checklist = fixedChecklist
 
         val penalties = checklist.sumOf { item ->
             when {
