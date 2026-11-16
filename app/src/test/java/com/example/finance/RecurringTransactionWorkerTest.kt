@@ -317,4 +317,45 @@ class RecurringTransactionWorkerTest {
         }
         assertEquals("۱۴۰۸/۱۲/۳۰", date)
     }
+
+    @Test
+    fun editingRecurringTemplateCancelsOldPendingPayload() = runBlocking {
+        val date = today()
+        val item = recurring(id = "rec_edit_pending", accountId = defaultAccountId())
+        repository.addRecurringTransaction(item)
+        repository.processDueRecurringTransactions(context)
+
+        val id = occurrenceId(item.id, date)
+        assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+
+        repository.updateRecurringTransaction(item.copy(amount = item.amount + 100_000L))
+
+        assertFalse(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        assertFalse(repository.confirmPendingRecurringTransaction(context, id))
+        assertTrue(db.transactionDao().getAllTransactionsList(testUserId).none { it.stringId == id })
+    }
+
+    @Test
+    fun pendingOccurrenceOnEndDateRemainsAvailableForConfirmation() = runBlocking {
+        val date = today()
+        val item = recurring(
+            id = "rec_end_date_pending",
+            accountId = defaultAccountId(),
+            endDate = date
+        )
+        repository.addRecurringTransaction(item)
+        repository.processDueRecurringTransactions(context)
+
+        val id = occurrenceId(item.id, date)
+        assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+
+        // A later worker run sees that there are no future scheduled dates, but must
+        // not discard the occurrence that was already due on the inclusive end date.
+        repository.processDueRecurringTransactions(context)
+
+        assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        assertTrue(repository.confirmPendingRecurringTransaction(context, id))
+        assertEquals(1, db.transactionDao().getAllTransactionsList(testUserId).count { it.stringId == id })
+    }
+
 }
