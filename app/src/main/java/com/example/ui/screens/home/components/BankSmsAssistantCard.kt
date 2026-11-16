@@ -134,6 +134,7 @@ fun BankSmsAssistantCard(
         EditSmsTransactionDialog(
             suggestion = editingSuggestion,
             userAccounts = userAccounts,
+            categories = categories,
             onDismiss = { editingSuggestionId = null },
             onConfirm = { amountRials, type, cat, acc, desc, dest, onResult ->
                 onUpdateCustomDetails(editingSuggestion.id, cat, acc, dest)
@@ -1055,6 +1056,7 @@ private fun TransactionTypeChip(
 fun EditSmsTransactionDialog(
     suggestion: BankSmsSuggestion,
     userAccounts: List<com.example.data.database.AccountEntity> = emptyList(),
+    categories: List<com.example.ui.screens.finance.model.TransactionCategory> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (Long, TransactionType, String, String, String, String?, (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit) -> Unit
 ) {
