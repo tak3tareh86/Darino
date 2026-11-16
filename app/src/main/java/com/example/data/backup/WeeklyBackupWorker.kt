@@ -3,7 +3,6 @@ package com.example.data.backup
 import android.content.Context
 import android.util.Log
 import androidx.work.*
-import com.example.calendar.domain.CalendarDateUtils
 import java.util.concurrent.TimeUnit
 
 class WeeklyBackupWorker(
@@ -56,21 +55,16 @@ class WeeklyBackupWorker(
             }
 
             val userTag = BackupUserScope.tag(userId)
-            val (y, m, d) = CalendarDateUtils.getCurrentJalaliDate()
-            val timestamp = java.text.SimpleDateFormat("HHmmssSSS", java.util.Locale.ROOT)
-                .format(java.util.Date())
             val retentionPrefix = "${frequency}_auto_backup_${userTag}_"
-            val filename = "${retentionPrefix}${y}_${m.toString().padStart(2, '0')}_${d.toString().padStart(2, '0')}_$timestamp.darino"
+            val filename = "${retentionPrefix}latest.darino"
 
-            // All user-visible backup types share the folder explicitly selected in settings.
-            // A missing/revoked folder is an error; never silently write to private app storage.
-            val keepCount = if (frequency == FREQUENCY_DAILY) DAILY_RETENTION_COUNT else WEEKLY_RETENTION_COUNT
-            val savedUri = BackupFolderStorage.saveBackup(
+            // Daily and weekly workers remain independent; each updates only its own stable file.
+            // A missing/revoked folder is an error; never silently write to app-private storage.
+            val savedUri = BackupFolderStorage.saveOrReplaceAutomaticBackup(
                 applicationContext,
                 filename,
                 encryptedPayload,
-                retentionPrefix,
-                keepCount
+                retentionPrefix
             )
 
             Log.i(TAG, "$frequency auto-backup file created successfully: $savedUri")
@@ -112,8 +106,6 @@ class WeeklyBackupWorker(
         private const val KEY_FREQUENCY = "backup_frequency"
         private const val FREQUENCY_WEEKLY = "weekly"
         private const val FREQUENCY_DAILY = "daily"
-        private const val DAILY_RETENTION_COUNT = 30
-        private const val WEEKLY_RETENTION_COUNT = 12
         private const val MAX_BACKUP_JSON_BYTES = 64L * 1024 * 1024
         // Keep device-encrypted automatic backups within the same ceiling used by local restore.
         private const val MAX_LOCAL_BACKUP_FILE_BYTES = MAX_BACKUP_JSON_BYTES + 1024L
