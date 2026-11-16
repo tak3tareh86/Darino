@@ -871,7 +871,7 @@ fun SupportBackupScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text("بکاپ خودکار روزانه (۳۰ نسخه)", fontWeight = FontWeight.SemiBold)
+                                        Text("بکاپ خودکار روزانه (۱ نسخه)", fontWeight = FontWeight.SemiBold)
                                         Switch(
                                             checked = dailyAutoBackupEnabled,
                                             onCheckedChange = { enabled -> setAutomaticBackupEnabled("daily", enabled) },
@@ -883,7 +883,7 @@ fun SupportBackupScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text("بکاپ خودکار هفتگی (۱۲ نسخه)", fontWeight = FontWeight.SemiBold)
+                                        Text("بکاپ خودکار هفتگی (۱ نسخه)", fontWeight = FontWeight.SemiBold)
                                         Switch(
                                             checked = weeklyAutoBackupEnabled,
                                             onCheckedChange = { enabled -> setAutomaticBackupEnabled("weekly", enabled) },
