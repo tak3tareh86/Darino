@@ -165,12 +165,13 @@ class FinancialViewModel(
         val balance = FinanceEngine.calculateMonthlyBalance(income, expense)
         val savingsRate = FinanceEngine.calculateSavingsRate(income, expense)
 
-        // Recalculate each budget's usage based on the same filtered transactions
+        // Budgets always represent the current Jalali month, independently
+        // of the transaction-list filter selected on the finance screen.
         val updatedBudgets = budgets.map { budget ->
-            BudgetEngine.calculateBudgetUsage(budget, filteredTransactions)
+            BudgetEngine.calculateBudgetUsage(budget, transactions)
         }
 
-        val budgetSummary = BudgetEngine.calculateTotalMonthlyBudgetUsage(updatedBudgets, filteredTransactions)
+        val budgetSummary = BudgetEngine.calculateTotalMonthlyBudgetUsage(updatedBudgets, transactions)
 
         FinancialState(
             monthlyIncome = income,
