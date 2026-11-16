@@ -111,7 +111,7 @@ object RecurringTransactionNotificationManager {
         }
         prefs.edit().putString(storageKey(userId), updated.toString()).commit()
         cancel(context, occurrenceId)
-        WorkManager.getInstance(context).cancelUniqueWork("recurring_reminder_$occurrenceId")
+        runCatching { WorkManager.getInstance(context).cancelUniqueWork("recurring_reminder_$occurrenceId") }
     }
 
     @Synchronized
@@ -164,7 +164,7 @@ object RecurringTransactionNotificationManager {
         prefs.edit().putString(storageKey(userId), updated.toString()).commit()
         removedIds.forEach { occurrenceId ->
             cancel(context, occurrenceId)
-            WorkManager.getInstance(context).cancelUniqueWork("recurring_reminder_$occurrenceId")
+            runCatching { WorkManager.getInstance(context).cancelUniqueWork("recurring_reminder_$occurrenceId") }
         }
     }
 
