@@ -203,6 +203,10 @@ fun ReminderCard(
             // Vehicle reminder descriptions show only the useful identifying detail.
             // The stored reminder title and all reminder scheduling data remain untouched.
             val displayDescription = when {
+                // Installment descriptions currently contain only a second, preformatted
+                // copy of the amount. The dedicated amount row above is the single source
+                // of truth for this card, so do not render that duplicate description.
+                reminder.type.equals("INSTALLMENT", ignoreCase = true) -> ""
                 reminder.type.equals("INSURANCE", ignoreCase = true) -> {
                     amountCleanedDescription
                         .substringAfter("برای خودرو ", "")
