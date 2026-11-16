@@ -204,6 +204,22 @@ class AccountTransferTest {
         assertEquals(700_000L, repository.calculateAccountBalance(source.id))
         assertEquals(500_000L, repository.calculateAccountBalance(unrelated.id))
 
+        val transferCategory = FinanceDefaultCategories.transferCategory
+        val persistedTransactions = db.transactionDao().getAllTransactionsList(userA).map { entity ->
+            TransactionItemData(
+                id = entity.stringId,
+                title = entity.title,
+                amount = entity.amount,
+                type = TransactionType.valueOf(entity.type),
+                category = transferCategory,
+                datePersian = entity.datePersian,
+                timePersian = entity.timeFormatted,
+                dateMillis = entity.timestamp
+            )
+        }
+        assertEquals(0L, com.example.ui.screens.finance.domain.FinanceEngine.calculateMonthlyIncome(persistedTransactions))
+        assertEquals(0L, com.example.ui.screens.finance.domain.FinanceEngine.calculateMonthlyExpense(persistedTransactions))
+
         val edited = transfer.copy(amount = 400_000L, transferRecipientName = "گیرنده ویرایش‌شده")
         assertEquals(TransactionOperationResult.SUCCESS, repository.updateTransactionResult(edited))
         assertEquals(600_000L, repository.calculateAccountBalance(source.id))
@@ -240,6 +256,31 @@ class AccountTransferTest {
         assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "missing_source", transferSourceAccountId = null)))
         assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "blank_source", transferSourceAccountId = "")))
         assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "unknown_source", transferSourceAccountId = "not_local")))
+
+        SessionManager.setAuthenticatedUser(
+            com.example.data.api.NetworkUserDto(
+                id = userB,
+                fullName = "کاربر ب",
+                email = null,
+                phoneNumber = "09120000002",
+                phoneVerified = true
+            )
+        )
+        repository.refreshMetadataForCurrentUser()
+        val foreignSource = Account(id = "foreign_source", userId = userB, name = "کارت کاربر دیگر", type = AccountType.CARD)
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addAccountResult(foreignSource))
+        SessionManager.setAuthenticatedUser(
+            com.example.data.api.NetworkUserDto(
+                id = userA,
+                fullName = "کاربر آ",
+                email = null,
+                phoneNumber = "09120000001",
+                phoneVerified = true
+            )
+        )
+        repository.refreshMetadataForCurrentUser()
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "foreign_source_transfer", transferSourceAccountId = foreignSource.id)))
+
         assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "inactive_source", transferSourceAccountId = inactive.id)))
         assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "deleted_source", transferSourceAccountId = deleted.id)))
         assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "zero_amount", amount = 0L)))
