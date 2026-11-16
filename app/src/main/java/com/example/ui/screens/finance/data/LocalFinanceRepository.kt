@@ -67,6 +67,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
                 if (authenticatedUserId == null) {
                     _transactions.value = emptyList()
+                    _categories.value = FinanceDefaultCategories.allDefaultCategories
                     _budgets.value = emptyList()
                     _savingsGoals.value = emptyList()
                     _recurringTransactions.value = emptyList()
@@ -224,9 +225,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val currentUserId = SessionManager.userId
         if (currentUserId == null) {
             _transactions.value = emptyList()
+            _categories.value = FinanceDefaultCategories.allDefaultCategories
             _budgets.value = emptyList()
             _savingsGoals.value = emptyList()
             _recurringTransactions.value = emptyList()
+            _accounts.value = emptyList()
         } else {
             loadMetadataFromDisk(appCtx, currentUserId)
         }
