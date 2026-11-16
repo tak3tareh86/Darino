@@ -86,6 +86,7 @@ fun HomeScreen(
     val smsErrorMessage by viewModel.smsErrorMessage.collectAsState()
     val pendingSms by viewModel.pendingSmsQueue.collectAsState()
     val userAccounts by viewModel.userAccounts.collectAsState()
+    val financeCategories by viewModel.financeCategories.collectAsState()
 
     val context = LocalContext.current
     var hasReceiveSmsPermission by remember {
@@ -332,6 +333,7 @@ fun HomeScreen(
                             errorMessage = smsErrorMessage,
                             queue = pendingSms,
                             userAccounts = userAccounts,
+                            categories = financeCategories,
                             onTypeChange = { id, type ->
                                 viewModel.updateSmsTransactionType(id, type)
                             },
