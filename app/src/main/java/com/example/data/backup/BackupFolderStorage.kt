@@ -167,7 +167,10 @@ object BackupFolderStorage {
         val existingDocuments = listDocuments(context, treeUri)
         val rollbackDocuments = existingDocuments
             .filter { it.name.startsWith(".$filename.rollback-") }
-            .sortedByDescending { it.lastModified }
+            .sortedWith(
+                compareByDescending<BackupDocument> { it.lastModified }
+                    .thenByDescending { it.name }
+            )
         val currentDocument = existingDocuments.firstOrNull { it.name == filename }
         if (currentDocument == null && rollbackDocuments.isNotEmpty()) {
             val recovered = DocumentsContract.renameDocument(resolver, rollbackDocuments.first().uri, filename)
