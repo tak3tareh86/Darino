@@ -67,8 +67,9 @@ private fun vehicleHealthIconFor(title: String): ImageVector {
         value.contains("روغن گیربکس") -> Icons.Outlined.Settings
         value.contains("لنت ترمز") -> Icons.Outlined.DiscFull
         value.contains("دیسک") || value.contains("کلاچ") -> Icons.Outlined.Sync
+        value.contains("تنظیم موتور") -> Icons.Outlined.Build
         value.contains("شمع") || value.contains("وایر") -> Icons.Outlined.ElectricBolt
-        value.contains("تنظیم موتور") || value.contains("موتور") -> Icons.Outlined.Build
+        value.contains("موتور") -> Icons.Outlined.Build
         value.contains("لاستیک") || value.contains("تایر") -> Icons.Outlined.DiscFull
         value.contains("باتری") -> Icons.Outlined.BatteryChargingFull
         value.contains("هیدرولیک") || value.contains("فرمان") -> Icons.Outlined.Tune
