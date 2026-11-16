@@ -176,35 +176,31 @@ class AccountTransferTest {
         assertEquals(500_000L, repository.calculateAccountBalance("acc_x"))
     }
 
-    @Test
-    fun `Transfer - real effects, validations, atomicity, delete and update`() = runBlocking {
-        // Create accounts for User A
-        val srcAcc = Account(id = "acc_src", userId = userA, name = "حساب مبدا", type = AccountType.CARD, initialBalance = 1_000_000L)
-        val destAcc = Account(id = "acc_dest", userId = userA, name = "حساب مقصد", type = AccountType.CARD, initialBalance = 500_000L)
-        
+        @Test
+    fun `Transfer - external recipient reduces source only, validates, edits and deletes`() = runBlocking {
+        val srcAcc = Account(id = "acc_src", userId = userA, name = "کارت بانکی من", type = AccountType.CARD, initialBalance = 1_000_000L)
+        val unrelatedAcc = Account(id = "acc_other", userId = userA, name = "حساب دیگر من", type = AccountType.CARD, initialBalance = 500_000L)
         repository.addAccountResult(srcAcc)
-        repository.addAccountResult(destAcc)
+        repository.addAccountResult(unrelatedAcc)
 
-        // 1. Successful transfer
-        val cat = FinanceDefaultCategories.defaultExpenseCategories.first()
         val transferTx = TransactionItemData(
             id = "tx_transfer",
-            title = "انتقال وجه تستی",
+            title = "انتقال وجه به گیرنده آزمایشی",
             amount = 300_000L,
             type = TransactionType.TRANSFER,
-            category = cat,
+            category = FinanceDefaultCategories.transferCategory,
             datePersian = "امروز",
             timePersian = "12:00",
-            transferSourceAccountId = "acc_src",
-            transferDestinationAccountId = "acc_dest",
+            accountName = srcAcc.name,
+            transferSourceAccountId = srcAcc.id,
+            transferDestinationAccountId = null,
             transferRecipientName = "گیرنده آزمایشی"
         )
 
-        val transferRes = repository.addTransactionResult(transferTx)
-        assertEquals(TransactionOperationResult.SUCCESS, transferRes)
-
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(transferTx))
         val storedTransfer = db.transactionDao().getTransactionByStringId(userA, "tx_transfer")
         assertEquals("گیرنده آزمایشی", storedTransfer?.transferRecipientName)
+        assertEquals(null, storedTransfer?.transferDestinationAccountId)
 
         val renamedTransfer = transferTx.copy(transferRecipientName = "گیرنده ویرایش‌شده")
         assertEquals(TransactionOperationResult.SUCCESS, repository.updateTransactionResult(renamedTransfer))
@@ -213,13 +209,12 @@ class AccountTransferTest {
             db.transactionDao().getTransactionByStringId(userA, "tx_transfer")?.transferRecipientName
         )
 
-        // Balance changes
-        assertEquals(700_000L, repository.calculateAccountBalance("acc_src"))
-        assertEquals(800_000L, repository.calculateAccountBalance("acc_dest"))
+        // An outgoing transfer decreases only its source; it never credits another local account.
+        assertEquals(700_000L, repository.calculateAccountBalance(srcAcc.id))
+        assertEquals(500_000L, repository.calculateAccountBalance(unrelatedAcc.id))
 
-        // 2. Transfer must be excluded from general Income & Expense totals
+        val cat = FinanceDefaultCategories.transferCategory
         val txList = db.transactionDao().getAllTransactionsList(userA).map {
-            // Map simple mock TransactionItemData to pass to engine
             TransactionItemData(
                 id = it.stringId,
                 title = it.title,
@@ -233,54 +228,38 @@ class AccountTransferTest {
         assertEquals(0L, com.example.ui.screens.finance.domain.FinanceEngine.calculateMonthlyIncome(txList))
         assertEquals(0L, com.example.ui.screens.finance.domain.FinanceEngine.calculateMonthlyExpense(txList))
 
-        // 3. Validation: source = destination rejected
-        val invalidSelfTransfer = transferTx.copy(id = "tx_self", transferDestinationAccountId = "acc_src")
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(invalidSelfTransfer))
+        assertEquals(
+            TransactionOperationResult.VALIDATION_ERROR,
+            repository.addTransactionResult(transferTx.copy(id = "tx_no_source", transferSourceAccountId = null))
+        )
+        assertEquals(
+            TransactionOperationResult.VALIDATION_ERROR,
+            repository.addTransactionResult(transferTx.copy(id = "tx_zero", amount = 0L))
+        )
+        assertEquals(
+            TransactionOperationResult.VALIDATION_ERROR,
+            repository.addTransactionResult(transferTx.copy(id = "tx_negative", amount = -100_000L))
+        )
 
-        // 4. Validation: zero or negative amount rejected
-        val invalidZeroTx = transferTx.copy(id = "tx_zero", amount = 0L)
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(invalidZeroTx))
-
-        val invalidNegativeTx = transferTx.copy(id = "tx_neg", amount = -100L)
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(invalidNegativeTx))
-
-        // 5. Validation: cross-user account rejected
-        // Create account for User B
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = userB, fullName = "User B", email = null, phoneNumber = "09120000002", phoneVerified = true))
-        repository.refreshMetadataForCurrentUser()
-        val bAcc = Account(id = "acc_b", userId = userB, name = "حساب کاربر ب", type = AccountType.CARD, initialBalance = 100_000L)
-        repository.addAccountResult(bAcc)
-
-        // Switch back to User A
-        SessionManager.setAuthenticatedUser(com.example.data.api.NetworkUserDto(id = userA, fullName = "User A", email = null, phoneNumber = "09120000001", phoneVerified = true))
-        repository.refreshMetadataForCurrentUser()
-
-        // Transfer from User A to User B's account (should be rejected since acc_b doesn't exist for User A)
-        val crossUserTx = transferTx.copy(id = "tx_cross", transferDestinationAccountId = "acc_b")
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(crossUserTx))
-
-        // 6. Delete transfer restores both sides
         repository.deleteTransactionResult("tx_transfer")
         val deletedTransfer = db.transactionDao().getTransactionIncludingDeleted(userA, "tx_transfer")
         assertTrue(deletedTransfer?.deletedAt != null)
         assertEquals("گیرنده ویرایش‌شده", deletedTransfer?.transferRecipientName)
-        assertEquals(1_000_000L, repository.calculateAccountBalance("acc_src"))
-        assertEquals(500_000L, repository.calculateAccountBalance("acc_dest"))
+        assertEquals(1_000_000L, repository.calculateAccountBalance(srcAcc.id))
+        assertEquals(500_000L, repository.calculateAccountBalance(unrelatedAcc.id))
 
-        // 7. Update transfer recalculates both sides
         val newTransfer = transferTx.copy(id = "tx_transfer_2", amount = 100_000L)
-        repository.addTransactionResult(newTransfer)
-        assertEquals(900_000L, repository.calculateAccountBalance("acc_src"))
-        assertEquals(600_000L, repository.calculateAccountBalance("acc_dest"))
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(newTransfer))
+        assertEquals(900_000L, repository.calculateAccountBalance(srcAcc.id))
+        assertEquals(500_000L, repository.calculateAccountBalance(unrelatedAcc.id))
 
-        // Update amount from 100k to 400k
         val updatedTransfer = newTransfer.copy(amount = 400_000L)
-        repository.updateTransactionResult(updatedTransfer)
-        assertEquals(600_000L, repository.calculateAccountBalance("acc_src"))
-        assertEquals(900_000L, repository.calculateAccountBalance("acc_dest"))
+        assertEquals(TransactionOperationResult.SUCCESS, repository.updateTransactionResult(updatedTransfer))
+        assertEquals(600_000L, repository.calculateAccountBalance(srcAcc.id))
+        assertEquals(500_000L, repository.calculateAccountBalance(unrelatedAcc.id))
     }
 
-    @Test
+@Test
     fun `Income and Expense - validation rejects missing, invalid, foreign, deleted, inactive accounts`() = runBlocking {
         val activeAcc = Account(id = "acc_valid", userId = userA, name = "حساب معتبر", type = AccountType.CARD, initialBalance = 1_000_000L, isActive = true)
         val inactiveAcc = Account(id = "acc_inactive", userId = userA, name = "حساب غیرفعال", type = AccountType.CARD, initialBalance = 500_000L, isActive = false)
@@ -370,128 +349,100 @@ class AccountTransferTest {
             type = TransactionType.TRANSFER,
             category = cat,
             datePersian = "امروز",
+             @Test
+    fun `Transfer - source account validation rejects missing, foreign, deleted and inactive accounts`() = runBlocking {
+        val validSource = Account(id = "t_src", userId = userA, name = "کارت مبدأ", type = AccountType.CARD, initialBalance = 1_000_000L, isActive = true)
+        val inactiveSource = Account(id = "t_inactive", userId = userA, name = "کارت غیرفعال", type = AccountType.CARD, initialBalance = 500_000L, isActive = false)
+        val deletedSource = Account(id = "t_deleted", userId = userA, name = "کارت حذف‌شده", type = AccountType.CARD, initialBalance = 200_000L, isActive = true)
+        repository.addAccountResult(validSource)
+        repository.addAccountResult(inactiveSource)
+        repository.addAccountResult(deletedSource)
+        repository.deleteAccountResult(deletedSource.id)
+
+        val base = TransactionItemData(
+            id = "tx_external_validation",
+            title = "انتقال وجه",
+            amount = 100_000L,
+            type = TransactionType.TRANSFER,
+            category = FinanceDefaultCategories.transferCategory,
+            datePersian = "امروز",
             timePersian = "12:00",
-            transferSourceAccountId = "t_src",
-            transferDestinationAccountId = "t_dest"
+            accountName = validSource.name,
+            transferSourceAccountId = validSource.id,
+            transferDestinationAccountId = null,
+            transferRecipientName = "شخص دیگر"
         )
 
-        // Missing source
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferSourceAccountId = null)))
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferSourceAccountId = "")))
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "tx_missing_source", transferSourceAccountId = null)))
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "tx_blank_source", transferSourceAccountId = "")))
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "tx_fake_source", transferSourceAccountId = "not_a_local_account")))
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "tx_inactive_source", transferSourceAccountId = inactiveSource.id)))
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "tx_deleted_source", transferSourceAccountId = deletedSource.id)))
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "tx_zero_amount", amount = 0L)))
+        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(id = "tx_negative_amount", amount = -50_000L)))
 
-        // Missing destination
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferDestinationAccountId = null)))
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferDestinationAccountId = "")))
-
-        // Same account
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferDestinationAccountId = "t_src")))
-
-        // Inactive destination
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferDestinationAccountId = "t_inact")))
-
-        // Deleted destination
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferDestinationAccountId = "t_del")))
-
-        // Non-existent source
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(transferSourceAccountId = "fake_src")))
-
-        // Amount <= 0
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(amount = 0L)))
-        assertEquals(TransactionOperationResult.VALIDATION_ERROR, repository.addTransactionResult(base.copy(amount = -50_000L)))
+        // No destination account in the user's account list is required.
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(base))
+        assertEquals(900_000L, repository.calculateAccountBalance(validSource.id))
     }
 
-    @Test
-    fun `Edit and Delete balance consistency across Income, Expense, and Transfer`() = runBlocking {
-        val acc1 = Account(id = "acc_b1", userId = userA, name = "حساب ۱", type = AccountType.CARD, initialBalance = 1_000_000L, isActive = true)
-        val acc2 = Account(id = "acc_b2", userId = userA, name = "حساب ۲", type = AccountType.CARD, initialBalance = 500_000L, isActive = true)
+lt("tx_inc_c")
+        assertEquals(1_000_000L, repository.calculateAccountBalance("acc_b1"))
 
+        // 2. Expense flow: add -> edit -> delete
+        val txExp = TransactionItemData(id = "tx_exp_c", title = "هزینه", amount = 250_000L, type = TransactionType.EXPENSE,    @Test
+    fun `Edit and Delete balance consistency across Income, Expense, and external Transfer`() = runBlocking {
+        val acc1 = Account(id = "acc_b1", userId = userA, name = "کارت مبدأ", type = AccountType.CARD, initialBalance = 1_000_000L, isActive = true)
+        val acc2 = Account(id = "acc_b2", userId = userA, name = "کارت دیگر", type = AccountType.CARD, initialBalance = 500_000L, isActive = true)
         repository.addAccountResult(acc1)
         repository.addAccountResult(acc2)
 
         val catInc = FinanceDefaultCategories.defaultIncomeCategories.first()
         val catExp = FinanceDefaultCategories.defaultExpenseCategories.first()
 
-        // 1. Income flow: add -> edit -> delete
         val txInc = TransactionItemData(id = "tx_inc_c", title = "درآمد", amount = 400_000L, type = TransactionType.INCOME, category = catInc, datePersian = "امروز", timePersian = "12:00", accountId = "acc_b1")
         repository.addTransactionResult(txInc)
         assertEquals(1_400_000L, repository.calculateAccountBalance("acc_b1"))
-
-        // Edit income amount to 600,000
         repository.updateTransactionResult(txInc.copy(amount = 600_000L))
         assertEquals(1_600_000L, repository.calculateAccountBalance("acc_b1"))
-
-        // Delete income
         repository.deleteTransactionResult("tx_inc_c")
         assertEquals(1_000_000L, repository.calculateAccountBalance("acc_b1"))
 
-        // 2. Expense flow: add -> edit -> delete
         val txExp = TransactionItemData(id = "tx_exp_c", title = "هزینه", amount = 250_000L, type = TransactionType.EXPENSE, category = catExp, datePersian = "امروز", timePersian = "12:00", accountId = "acc_b1")
         repository.addTransactionResult(txExp)
         assertEquals(750_000L, repository.calculateAccountBalance("acc_b1"))
-
-        // Edit expense amount to 350,000
         repository.updateTransactionResult(txExp.copy(amount = 350_000L))
         assertEquals(650_000L, repository.calculateAccountBalance("acc_b1"))
-
-        // Delete expense
         repository.deleteTransactionResult("tx_exp_c")
         assertEquals(1_000_000L, repository.calculateAccountBalance("acc_b1"))
 
-        // 3. Transfer flow: add -> edit -> delete
-        val txTr = TransactionItemData(id = "tx_tr_c", title = "انتقال", amount = 200_000L, type = TransactionType.TRANSFER, category = catExp, datePersian = "امروز", timePersian = "12:00", transferSourceAccountId = "acc_b1", transferDestinationAccountId = "acc_b2")
+        val txTr = TransactionItemData(
+            id = "tx_tr_c",
+            title = "انتقال وجه به شخص دیگر",
+            amount = 200_000L,
+            type = TransactionType.TRANSFER,
+            category = catExp,
+            datePersian = "امروز",
+            timePersian = "12:00",
+            accountName = acc1.name,
+            transferSourceAccountId = acc1.id,
+            transferDestinationAccountId = null,
+            transferRecipientName = "گیرنده"
+        )
         repository.addTransactionResult(txTr)
         assertEquals(800_000L, repository.calculateAccountBalance("acc_b1"))
-        assertEquals(700_000L, repository.calculateAccountBalance("acc_b2"))
+        assertEquals(500_000L, repository.calculateAccountBalance("acc_b2"))
 
-        // Edit transfer amount to 500,000
         repository.updateTransactionResult(txTr.copy(amount = 500_000L))
         assertEquals(500_000L, repository.calculateAccountBalance("acc_b1"))
-        assertEquals(1_000_000L, repository.calculateAccountBalance("acc_b2"))
+        assertEquals(500_000L, repository.calculateAccountBalance("acc_b2"))
 
-        // Delete transfer
         repository.deleteTransactionResult("tx_tr_c")
         assertEquals(1_000_000L, repository.calculateAccountBalance("acc_b1"))
         assertEquals(500_000L, repository.calculateAccountBalance("acc_b2"))
     }
 
-    @Test
-    fun `Period Separation - stage 2 period filter does not affect Current Account Balance`() = runBlocking {
-        // Create an account and add a transaction inside and outside month range
-        val acc = Account(id = "acc_period", userId = userA, name = "حساب دوره‌ای", type = AccountType.CARD, initialBalance = 1_000_000L)
-        repository.addAccountResult(acc)
-
-        val cat = FinanceDefaultCategories.defaultIncomeCategories.first()
-        val now = System.currentTimeMillis()
-        val monthRange = com.example.ui.screens.finance.domain.FinanceTimeUtils.getTimeRangeForPeriod(FinanceFilterPeriod.THIS_MONTH, now)
-
-        val inMonthTx = TransactionItemData(
-            id = "tx_in",
-            title = "داخل ماه",
-            amount = 200_000L,
-            type = TransactionType.INCOME,
-            category = cat,
-            datePersian = "امروز",
-            timePersian = "12:00",
-            accountId = "acc_period",
-            dateMillis = monthRange.startMillis + 1000L
-        )
-
-        val outMonthTx = TransactionItemData(
-            id = "tx_out",
-            title = "خارج ماه",
-            amount = 500_000L,
-            type = TransactionType.INCOME,
-            category = cat,
-            datePersian = "ماه قبل",
-            timePersian = "12:00",
-            accountId = "acc_period",
-            dateMillis = monthRange.startMillis - 10_000L
-        )
-
-        repository.addTransactionResult(inMonthTx)
-        repository.addTransactionResult(outMonthTx)
-
-        // Current Account Balance must include both (1,000,000 + 200,000 + 500,000 = 1,700,000)
+oth (1,000,000 + 200,000 + 500,000 = 1,700,000)
         val balance = repository.calculateAccountBalance("acc_period")
         assertEquals(1_700_000L, balance)
     }
@@ -534,3 +485,33 @@ class AccountTransferTest {
     }
 
 }
+    @Test
+    fun `Transfer - mixed Rial and Toman values deduct from source only`() = runBlocking {
+        val source = Account(
+            id = "mixed_src",
+            userId = userA,
+            name = "کارت مبدأ",
+            type = AccountType.CARD,
+            initialBalance = 1_000_000L,
+            initialBalanceUnit = AppCurrency.RIAL
+        )
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addAccountResult(source))
+
+        val transfer = TransactionItemData(
+            id = "mixed_transfer",
+            title = "انتقال به شخص دیگر",
+            amount = 30_000L,
+            amountUnit = AppCurrency.TOMAN,
+            type = TransactionType.TRANSFER,
+            category = FinanceDefaultCategories.transferCategory,
+            datePersian = "امروز",
+            timePersian = "12:00",
+            accountName = source.name,
+            transferSourceAccountId = source.id,
+            transferDestinationAccountId = null,
+            transferRecipientName = "گیرنده"
+        )
+        assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(transfer))
+        assertEquals(700_000L, repository.calculateAccountBalance(source.id))
+    }
+
