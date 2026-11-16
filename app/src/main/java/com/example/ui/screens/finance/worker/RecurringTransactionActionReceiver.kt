@@ -34,8 +34,10 @@ class RecurringTransactionActionReceiver : BroadcastReceiver() {
                         val repository = LocalFinanceRepository.instance
                         repository.init(appContext)
                         val confirmed = repository.confirmPendingRecurringTransaction(appContext, occurrenceId)
-                        if (!confirmed) {
-                            // Keep the pending occurrence visible if validation or persistence failed.
+                        if (!confirmed &&
+                            repository.isPendingRecurringOccurrenceValid(appContext, userId, occurrenceId)
+                        ) {
+                            // Keep a still-valid pending occurrence visible if persistence failed.
                             RecurringTransactionNotificationManager.showPending(appContext, userId, occurrenceId)
                         }
                     }
