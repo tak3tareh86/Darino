@@ -104,26 +104,40 @@ class LocalBackupRepository(
         val userTag = BackupUserScope.tag(getEffectiveUserId())
         val backup = withContext(Dispatchers.IO) {
             val selectedFolder = BackupFolderStorage.selectedFolderUri(context)
-            val encryptedPayload = if (selectedFolder != null) {
-                val selectedFolderBackup = BackupFolderStorage.latestBackup(
+            if (selectedFolder != null) {
+                val candidates = BackupFolderStorage.latestBackups(
                     context,
                     listOf("daily_auto_backup_${userTag}_", "weekly_auto_backup_${userTag}_")
-                ) ?: throw IllegalStateException("در پوشه انتخاب‌شده نسخه پشتیبان خودکار برای این حساب پیدا نشد.")
-                context.contentResolver.openInputStream(selectedFolderBackup.uri)?.use { input ->
-                    val output = ByteArrayOutputStream()
-                    val buffer = ByteArray(8 * 1024)
-                    var total = 0L
-                    while (true) {
-                        val count = input.read(buffer)
-                        if (count < 0) break
-                        total += count
-                        require(total <= MAX_LOCAL_BACKUP_FILE_BYTES) {
-                            "حجم فایل پشتیبان خودکار از حد مجاز بیشتر است."
-                        }
-                        output.write(buffer, 0, count)
-                    }
-                    output.toByteArray()
-                } ?: throw java.io.IOException("خواندن فایل پشتیبان از پوشه انتخاب‌شده ناموفق بود.")
+                )
+                if (candidates.isEmpty()) {
+                    throw IllegalStateException("در پوشه انتخاب‌شده نسخه پشتیبان خودکار برای این حساب پیدا نشد.")
+                }
+                // Decode at most one candidate per frequency and compare the authoritative
+                // backup metadata timestamp, not the fixed filename or provider sort order.
+                candidates.mapNotNull { document ->
+                    runCatching {
+                        val encrypted = context.contentResolver.openInputStream(document.uri)?.use { input ->
+                            val output = ByteArrayOutputStream()
+                            val buffer = ByteArray(8 * 1024)
+                            var total = 0L
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                total += count
+                                require(total <= MAX_LOCAL_BACKUP_FILE_BYTES) {
+                                    "حجم فایل پشتیبان خودکار از حد مجاز بیشتر است."
+                                }
+                                output.write(buffer, 0, count)
+                            }
+                            output.toByteArray()
+                        } ?: throw java.io.IOException("خواندن فایل پشتیبان از پوشه انتخاب‌شده ناموفق بود.")
+                        val json = DeviceBackupEncryption.decrypt(encrypted).toString(Charsets.UTF_8)
+                        BackupFileCodec.decode(json)
+                    }.onFailure { error ->
+                        Log.w(TAG, "Could not read automatic backup candidate: ${document.name}", error)
+                    }.getOrNull()
+                }.maxByOrNull { it.metadata.createdAt }
+                    ?: throw IllegalStateException("هیچ‌یک از نسخه‌های پشتیبان خودکار قابل بازیابی نیست.")
             } else {
                 // Backward compatibility only for installations that have not selected a folder yet.
                 val legacyFile = File(context.filesDir, "auto_backups")
@@ -135,10 +149,10 @@ class LocalBackupRepository(
                     }
                     ?.maxByOrNull { it.name.substringAfter("${userTag}_") }
                     ?: throw IllegalStateException("نسخه پشتیبان خودکار برای این حساب پیدا نشد.")
-                readBoundedLocalBackup(legacyFile)
+                val encryptedPayload = readBoundedLocalBackup(legacyFile)
+                val json = DeviceBackupEncryption.decrypt(encryptedPayload).toString(Charsets.UTF_8)
+                BackupFileCodec.decode(json)
             }
-            val json = DeviceBackupEncryption.decrypt(encryptedPayload).toString(Charsets.UTF_8)
-            BackupFileCodec.decode(json)
         }
         restoreBackup(backup, RestoreMode.REPLACE)
     }
