@@ -111,6 +111,7 @@ fun BankSmsAssistantCard(
     errorMessage: String?,
     queue: List<BankSmsSuggestion>,
     userAccounts: List<com.example.data.database.AccountEntity> = emptyList(),
+    categories: List<com.example.ui.screens.finance.model.TransactionCategory> = emptyList(),
     onTypeChange: (id: String, type: TransactionType) -> Unit,
     onAccept: (id: String, amountRials: Long?, type: TransactionType?, category: String?, account: String?, desc: String?, dest: String?, onResult: (com.example.ui.screens.home.viewmodel.SmsAcceptResult) -> Unit) -> Unit = { _, _, _, _, _, _, _, _ -> },
     onUpdateCustomDetails: (id: String, category: String?, account: String?, destAccount: String?) -> Unit = { _, _, _, _ -> },
@@ -1097,6 +1098,7 @@ fun EditSmsTransactionDialog(
             suggestion.balanceAmount?.takeIf { it > 0L }?.let { add(MoneyAmount.of(it, suggestion.balanceAmountUnit ?: suggestion.amountUnit).inUnit(appCurrency).value to "موجودی/مانده") }
         }.distinctBy { it.first }
     }
+    val activeCategories = remember(categories) { categories.filter { it.isActive } }
     var category by remember(suggestion.id) { mutableStateOf(suggestion.category) }
     val accounts = remember(userAccounts) { userAccounts.filter { it.isActive && it.deletedAt == null } }
     val sourceDigits = suggestion.sourceAccount?.let(IranianPhoneUtils::convertDigitsToEnglish)?.filter { it in '0'..'9' }
@@ -1111,10 +1113,18 @@ fun EditSmsTransactionDialog(
     var accountMenuExpanded by remember(suggestion.id) { mutableStateOf(false) }
     var destinationMenuExpanded by remember(suggestion.id) { mutableStateOf(false) }
     var categoryMenuExpanded by remember(suggestion.id) { mutableStateOf(false) }
-    val expenseCats=listOf("خرید روزمره","سوپرمارکت و خرید","غذا و رستوران","خودرو و سوخت","قبوض و خدمات","اقساط و تسهیلات","سلامت و درمان","سایر")
-    val incomeCats=listOf("حقوق و دستمزد","درآمد و واریز","سود سپرده","یارانه و کمک‌معیشتی","فروش کالا","سایر")
-    val transferCats=listOf("انتقال بین‌بانکی","کارت به کارت","پایا","ساتنا","انتقال داخلی")
-    val cats=when(selectedType){TransactionType.EXPENSE->expenseCats;TransactionType.INCOME->incomeCats;TransactionType.TRANSFER->transferCats;null->emptyList()}
+    val cats = remember(activeCategories, selectedType) {
+        when (selectedType) {
+            TransactionType.EXPENSE, TransactionType.INCOME ->
+                activeCategories.filter { it.type == selectedType }.map { it.title }.distinct()
+            TransactionType.TRANSFER ->
+                listOf(com.example.ui.screens.finance.model.FinanceDefaultCategories.transferCategory.title)
+            null -> emptyList()
+        }
+    }
+    LaunchedEffect(cats, selectedType) {
+        if (category !in cats && cats.isNotEmpty()) category = cats.first()
+    }
 
     androidx.compose.ui.window.Dialog(onDismissRequest=onDismiss,properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
         Card(
