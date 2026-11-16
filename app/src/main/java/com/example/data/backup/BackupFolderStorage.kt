@@ -134,6 +134,136 @@ object BackupFolderStorage {
         }
     }
 
+    /**
+     * Replaces one automatic backup in place while retaining a recoverable copy of the
+     * previous file until the new document has been verified after rename.
+     */
+    fun saveOrReplaceAutomaticBackup(
+        context: Context,
+        filename: String,
+        payload: ByteArray,
+        retentionPrefix: String
+    ): Uri {
+        require(filename.endsWith(".darino", ignoreCase = true)) {
+            "پسوند فایل پشتیبان باید .darino باشد."
+        }
+        require(filename.startsWith(retentionPrefix)) {
+            "نام فایل پشتیبان با محدوده نگهداری آن سازگار نیست."
+        }
+        val treeUri = selectedFolderUri(context)
+            ?: throw IOException("پوشه ذخیره پشتیبان معتبر نیست؛ لطفاً دوباره پوشه را انتخاب کنید.")
+        val resolver = context.contentResolver
+        if (resolver.persistedUriPermissions.none { it.uri == treeUri && it.isWritePermission }) {
+            throw IOException("دسترسی نوشتن به پوشه پشتیبان لغو شده است؛ پوشه را دوباره انتخاب کنید.")
+        }
+
+        val parentDocumentUri = DocumentsContract.buildDocumentUriUsingTree(
+            treeUri,
+            DocumentsContract.getTreeDocumentId(treeUri)
+        )
+
+        // Recover a previous file if the process stopped between moving the old document
+        // aside and promoting the verified temporary document.
+        val existingDocuments = listDocuments(context, treeUri)
+        val rollbackDocuments = existingDocuments
+            .filter { it.name.startsWith(".$filename.rollback-") }
+            .sortedByDescending { it.lastModified }
+        val currentDocument = existingDocuments.firstOrNull { it.name == filename }
+        if (currentDocument == null && rollbackDocuments.isNotEmpty()) {
+            val recovered = DocumentsContract.renameDocument(resolver, rollbackDocuments.first().uri, filename)
+                ?: throw IOException("بازیابی نسخه قبلی پشتیبان پس از توقف عملیات ناموفق بود.")
+            if (resolver.openInputStream(recovered)?.use { it.readBytes().isNotEmpty() } != true) {
+                throw IOException("نسخه قبلی پشتیبان پس از بازیابی قابل خواندن نیست.")
+            }
+        } else if (currentDocument != null) {
+            // The new file was promoted only after its temporary contents were verified.
+            // A leftover rollback is therefore safe to discard on the next run.
+            rollbackDocuments.forEach { document ->
+                runCatching { DocumentsContract.deleteDocument(resolver, document.uri) }
+            }
+        }
+
+        val temporaryName = ".$filename.tmp-${System.currentTimeMillis()}"
+        val temporaryUri = DocumentsContract.createDocument(
+            resolver, parentDocumentUri, "application/octet-stream", temporaryName
+        ) ?: throw IOException("ساخت فایل موقت در پوشه پشتیبان ناموفق بود.")
+        var rollbackUri: Uri? = null
+        try {
+            val descriptor = resolver.openFileDescriptor(temporaryUri, "w")
+                ?: throw IOException("باز کردن فایل موقت برای نوشتن ناموفق بود.")
+            descriptor.use { parcel ->
+                java.io.FileOutputStream(parcel.fileDescriptor).use { output ->
+                    output.write(payload)
+                    output.flush()
+                    parcel.fileDescriptor.sync()
+                }
+            }
+            val stagedBytes = resolver.openInputStream(temporaryUri)?.use { it.readBytes() }
+                ?: throw IOException("بررسی فایل موقت پشتیبان ناموفق بود.")
+            check(stagedBytes.contentEquals(payload)) {
+                "بررسی صحت فایل پشتیبان موقت ناموفق بود."
+            }
+
+            val oldDocument = listDocuments(context, treeUri).firstOrNull { it.name == filename }
+            if (oldDocument != null) {
+                val rollbackName = ".$filename.rollback-${System.currentTimeMillis()}"
+                rollbackUri = DocumentsContract.renameDocument(resolver, oldDocument.uri, rollbackName)
+                    ?: throw IOException("انتقال امن نسخه قبلی پشتیبان ناموفق بود.")
+            }
+
+            val finalUri = DocumentsContract.renameDocument(resolver, temporaryUri, filename)
+                ?: throw IOException("پوشه انتخاب‌شده امکان نهایی‌کردن نام فایل پشتیبان را ندارد.")
+            val finalBytes = resolver.openInputStream(finalUri)?.use { it.readBytes() }
+                ?: throw IOException("خواندن فایل پشتیبان پس از جایگزینی ناموفق بود.")
+            check(finalBytes.contentEquals(payload)) {
+                "بررسی صحت فایل پشتیبان پس از جایگزینی ناموفق بود."
+            }
+
+            // The replacement is now verified. Only now may the previous copy be removed.
+            rollbackUri?.let { oldUri ->
+                runCatching { DocumentsContract.deleteDocument(resolver, oldUri) }
+                    .onFailure { error ->
+                        android.util.Log.w("BackupFolderStorage", "Could not remove verified backup rollback file.", error)
+                    }
+            }
+
+            // Remove only dated automatic backups belonging to this user and this frequency.
+            // The stable destination is deliberately excluded; manual/emergency files do not match.
+            runCatching {
+                listDocuments(context, treeUri)
+                    .filter {
+                        it.name.startsWith(retentionPrefix) &&
+                            it.name != filename &&
+                            it.name.endsWith(".darino", ignoreCase = true)
+                    }
+                    .forEach { old ->
+                        if (!runCatching { DocumentsContract.deleteDocument(resolver, old.uri) }.getOrDefault(false)) {
+                            android.util.Log.w("BackupFolderStorage", "Could not remove superseded automatic backup: ${old.name}")
+                        }
+                    }
+            }.onFailure { error ->
+                android.util.Log.w("BackupFolderStorage", "Automatic backup saved, but old-version cleanup failed.", error)
+            }
+            return finalUri
+        } catch (error: Exception) {
+            runCatching { DocumentsContract.deleteDocument(resolver, temporaryUri) }
+            val previous = rollbackUri
+            if (previous != null) {
+                runCatching {
+                    listDocuments(context, treeUri)
+                        .firstOrNull { it.name == filename }
+                        ?.let { DocumentsContract.deleteDocument(resolver, it.uri) }
+                    DocumentsContract.renameDocument(resolver, previous, filename)
+                        ?: throw IOException("بازگرداندن نسخه قبلی پشتیبان ناموفق بود.")
+                }.onFailure { restoreError ->
+                    error.addSuppressed(restoreError)
+                    android.util.Log.e("BackupFolderStorage", "Failed to restore the previous automatic backup.", restoreError)
+                }
+            }
+            throw error
+        }
+    }
+
     fun latestBackup(
         context: Context,
         namePrefixes: List<String>
