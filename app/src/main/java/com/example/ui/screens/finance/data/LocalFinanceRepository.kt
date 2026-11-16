@@ -183,9 +183,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             }
             if (!validCategory) return false
         } else if (transaction.type == TransactionType.TRANSFER) {
-            val src = transaction.transferSourceAccountId
-            val dest = transaction.transferDestinationAccountId
-            if (src.isNullOrBlank() || dest.isNullOrBlank()) return false
+            if (transaction.transferSourceAccountId.isNullOrBlank()) return false
         }
         return true
     }
@@ -195,15 +193,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
         if (tx.type == TransactionType.TRANSFER) {
             val srcId = tx.transferSourceAccountId ?: return false
-            val destId = tx.transferDestinationAccountId ?: return false
-            if (srcId.isBlank() || destId.isBlank()) return false
+            if (srcId.isBlank()) return false
 
             val srcAcc = db.accountDao().getAccountByStringId(userId, srcId) ?: return false
-            val destAcc = db.accountDao().getAccountByStringId(userId, destId) ?: return false
-
-            if (srcAcc.userId != userId || destAcc.userId != userId) return false
-            if (!srcAcc.isActive || !destAcc.isActive) return false
-            if (srcAcc.deletedAt != null || destAcc.deletedAt != null) return false
+            if (srcAcc.userId != userId) return false
+            if (!srcAcc.isActive || srcAcc.deletedAt != null) return false
         } else {
             // INCOME or EXPENSE: accountId is strictly required and must be valid, active, non-deleted, and belong to current user
             val accId = tx.accountId
@@ -1290,9 +1284,6 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 "TRANSFER" -> {
                     if (tx.transferSourceAccountId == accountId) {
                         balance = Math.subtractExact(balance, txAmountRials)
-                    }
-                    if (tx.transferDestinationAccountId == accountId) {
-                        balance = Math.addExact(balance, txAmountRials)
                     }
                 }
             }
