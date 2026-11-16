@@ -13,6 +13,7 @@ import com.example.util.IranianPhoneUtils
 import com.example.util.PersianCalendarHelper
 import com.example.util.MoneyAmount
 import java.math.BigInteger
+import kotlin.math.roundToInt
 import com.example.ui.screens.settings.model.AppCurrency
 
 /**
@@ -214,9 +215,6 @@ object VehicleAnalyzer {
                         return VehicleHealthCheckItem(title, "سررسید گذشته", false, true, iconRes)
                     }
                     if (cleanDueDate <= today) dueSoon = true
-                } else if (nextKm == null) {
-                    // A record without a defined interval cannot be presented as confirmed healthy.
-                    dueSoon = true
                 }
             }
 
@@ -267,14 +265,14 @@ object VehicleAnalyzer {
         // The health score and displayed gauge are based exclusively on the nine fixed checklist items.
         val checklist = fixedChecklist
 
-        val penalties = checklist.sumOf { item ->
-            when {
-                item.isWarning -> 15
-                !item.isOk -> 15
-                else -> 0
-            }
+        // Each of the nine fixed checklist items contributes equally to the score.
+        // A completed service with no configured next reminder remains completed until
+        // an explicit due date or mileage indicates that attention is needed.
+        val score = if (checklist.isEmpty()) {
+            0
+        } else {
+            (checklist.count { it.isOk } * 100f / checklist.size).roundToInt()
         }
-        val score = (100 - penalties).coerceIn(10, 100)
         val level = when {
             score >= 80 -> VehicleHealthLevel.GOOD
             score >= 55 -> VehicleHealthLevel.SERVICE_DUE
