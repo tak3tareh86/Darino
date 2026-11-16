@@ -43,8 +43,8 @@ object SubscriptionValidator {
         // A successful Market confirmation grants a bounded offline grace period.
         // A missing timestamp is not proof of a recent confirmation and must fail closed.
         if (info.marketAccountState == "MARKET_ACTIVE") {
-            if (info.lastSyncAt <= 0L) return SubscriptionStatus.LOCKED
-            if (currentTimeMillis - info.lastSyncAt >= MARKET_OFFLINE_GRACE_PERIOD_MILLIS) {
+            if (info.lastMarketVerificationAt <= 0L) return SubscriptionStatus.LOCKED
+            if (currentTimeMillis - info.lastMarketVerificationAt >= MARKET_OFFLINE_GRACE_PERIOD_MILLIS) {
                 return SubscriptionStatus.LOCKED
             }
 

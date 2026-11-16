@@ -22,6 +22,7 @@ class LocalSubscriptionDataSource(context: Context) {
         private const val KEY_PURCHASE_TOKEN = "purchase_token"
         private const val KEY_MARKET_ACCOUNT_STATE = "market_account_state"
         private const val KEY_LAST_SYNC_AT = "last_sync_at"
+        private const val KEY_LAST_MARKET_VERIFICATION_AT = "last_market_verification_at"
     }
 
     /**
@@ -71,8 +72,9 @@ class LocalSubscriptionDataSource(context: Context) {
         val productId = prefs.getString(KEY_PRODUCT_ID, MarketConfig.YEARLY_PRODUCT_ID) ?: MarketConfig.YEARLY_PRODUCT_ID
         val token = prefs.getString(KEY_PURCHASE_TOKEN, null)
         val marketAccountState = prefs.getString(KEY_MARKET_ACCOUNT_STATE, "UNKNOWN") ?: "UNKNOWN"
-        // A missing timestamp must remain unknown; using now would extend legacy cached access.
-        val lastSyncAt = prefs.getLong(KEY_LAST_SYNC_AT, 0L)
+        val lastSyncAt = prefs.getLong(KEY_LAST_SYNC_AT, System.currentTimeMillis())
+        // Legacy active purchases have no explicit confirmation timestamp and must re-verify.
+        val lastMarketVerificationAt = prefs.getLong(KEY_LAST_MARKET_VERIFICATION_AT, 0L)
 
         return SubscriptionInfo(
             userId = userId,
@@ -85,7 +87,8 @@ class LocalSubscriptionDataSource(context: Context) {
             productId = productId,
             purchaseTokenReference = token,
             marketAccountState = marketAccountState,
-            lastSyncAt = lastSyncAt
+            lastSyncAt = lastSyncAt,
+            lastMarketVerificationAt = lastMarketVerificationAt
         )
     }
 
@@ -102,6 +105,7 @@ class LocalSubscriptionDataSource(context: Context) {
             .putString(KEY_PURCHASE_TOKEN, info.purchaseTokenReference)
             .putString(KEY_MARKET_ACCOUNT_STATE, info.marketAccountState)
             .putLong(KEY_LAST_SYNC_AT, info.lastSyncAt)
+            .putLong(KEY_LAST_MARKET_VERIFICATION_AT, info.lastMarketVerificationAt)
             .apply()
     }
 }

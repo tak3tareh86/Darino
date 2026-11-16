@@ -64,6 +64,7 @@ class SubscriptionRepositoryImpl(
                             purchaseTokenReference = purchase.purchaseToken,
                             marketAccountState = "MARKET_ACTIVE",
                             lastSyncAt = now,
+                            lastMarketVerificationAt = now,
                             subscriptionStatus = SubscriptionStatus.ACTIVE
                         )
                     }
@@ -75,6 +76,7 @@ class SubscriptionRepositoryImpl(
                         purchaseTokenReference = null,
                         marketAccountState = "REFUNDED",
                         lastSyncAt = now,
+                        lastMarketVerificationAt = 0L,
                         subscriptionStatus = SubscriptionStatus.EXPIRED
                     )
                     else -> {
@@ -85,7 +87,8 @@ class SubscriptionRepositoryImpl(
                             productId = "",
                             purchaseTokenReference = null,
                             marketAccountState = "NO_PURCHASE_FOUND",
-                            lastSyncAt = now
+                            lastSyncAt = now,
+                            lastMarketVerificationAt = 0L
                         )
                         cleared.copy(subscriptionStatus = SubscriptionValidator.evaluateStatus(cleared, now))
                     }
@@ -187,7 +190,8 @@ class SubscriptionRepositoryImpl(
             productId = purchaseInfo.productId,
             purchaseTokenReference = purchaseInfo.purchaseToken,
             marketAccountState = "MARKET_ACTIVE",
-            lastSyncAt = now
+            lastSyncAt = now,
+            lastMarketVerificationAt = now
         )
         val updated = candidate.copy(
             subscriptionStatus = SubscriptionValidator.evaluateStatus(candidate, now)

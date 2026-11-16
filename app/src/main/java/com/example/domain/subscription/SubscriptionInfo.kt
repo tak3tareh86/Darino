@@ -11,6 +11,8 @@ data class SubscriptionInfo(
     val productId: String = "",
     val purchaseTokenReference: String? = null,
     val marketAccountState: String = "ACTIVE_ACCOUNT",
-    // Timestamp of the last successful Market entitlement confirmation; 0 means never confirmed.
-    val lastSyncAt: Long = 0L
+    val lastSyncAt: Long = System.currentTimeMillis(),
+    // Set only when Bazaar/Poolakey successfully confirms the active purchase.
+    // A missing value (0) requires a fresh Market verification.
+    val lastMarketVerificationAt: Long = 0L
 )

@@ -19,7 +19,8 @@ class SubscriptionValidatorTest {
             subscriptionEndAt = originalEnd,
             subscriptionStatus = SubscriptionStatus.EXPIRED,
             marketAccountState = "MARKET_ACTIVE",
-            lastSyncAt = now - 60_000L
+            lastSyncAt = now - 60_000L,
+            lastMarketVerificationAt = now - 60_000L
         )
 
         assertEquals(SubscriptionStatus.ACTIVE, SubscriptionValidator.evaluateStatus(info, now))
@@ -33,7 +34,8 @@ class SubscriptionValidatorTest {
             subscriptionEndAt = now - 35 * 86_400_000L,
             subscriptionStatus = SubscriptionStatus.ACTIVE,
             marketAccountState = "MARKET_ACTIVE",
-            lastSyncAt = now - 8 * 86_400_000L
+            lastSyncAt = now - 8 * 86_400_000L,
+            lastMarketVerificationAt = now - 8 * 86_400_000L
         )
 
         assertEquals(SubscriptionStatus.LOCKED, SubscriptionValidator.evaluateStatus(info, now))
@@ -44,7 +46,7 @@ class SubscriptionValidatorTest {
         val now = 2_000_000_000_000L
         val info = SubscriptionInfo(
             marketAccountState = "MARKET_ACTIVE",
-            lastSyncAt = now - (7 * 86_400_000L) + 1L
+            lastMarketVerificationAt = now - (7 * 86_400_000L) + 1L
         )
 
         assertEquals(SubscriptionStatus.ACTIVE, SubscriptionValidator.evaluateStatus(info, now))
@@ -55,7 +57,7 @@ class SubscriptionValidatorTest {
         val now = 2_000_000_000_000L
         val info = SubscriptionInfo(
             marketAccountState = "MARKET_ACTIVE",
-            lastSyncAt = now - 7 * 86_400_000L
+            lastMarketVerificationAt = now - 7 * 86_400_000L
         )
 
         assertEquals(SubscriptionStatus.LOCKED, SubscriptionValidator.evaluateStatus(info, now))
@@ -66,7 +68,7 @@ class SubscriptionValidatorTest {
         val now = 2_000_000_000_000L
         val info = SubscriptionInfo(
             marketAccountState = "MARKET_ACTIVE",
-            lastSyncAt = 0L
+            lastMarketVerificationAt = 0L
         )
 
         assertEquals(SubscriptionStatus.LOCKED, SubscriptionValidator.evaluateStatus(info, now))
