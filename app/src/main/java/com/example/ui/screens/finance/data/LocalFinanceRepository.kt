@@ -759,8 +759,10 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             activeRecurringList.map { it.id }.toSet()
         )
         RecurringTransactionNotificationManager.getPendingOccurrenceIds(context, currentUserId).forEach { occurrenceId ->
+            if (SessionManager.userId != currentUserId) return
             isPendingRecurringOccurrenceValid(context, currentUserId, occurrenceId)
         }
+        if (SessionManager.userId != currentUserId) return
         RecurringTransactionNotificationManager.showAllPending(context, currentUserId)
         if (activeRecurringList.isEmpty()) {
             return
