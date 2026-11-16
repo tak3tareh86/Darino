@@ -656,11 +656,12 @@ class FinanceStage2Test {
         repository.addSavingsGoal(valid)
         repository.addSavingsGoal(valid.copy(title = "تکراری"))
         repository.updateSavingsGoal(valid.copy(currentAmount = -50L))
+        repository.updateSavingsGoal(valid.copy(title = "  عنوان ویرایش  "))
 
         val stored = repository.getSavingsGoals().first().filter { it.id == "valid_goal" }
         assertEquals(1, stored.size)
         assertEquals(100L, stored.single().currentAmount)
-        assertEquals("هدف معتبر", stored.single().title)
+        assertEquals("عنوان ویرایش", stored.single().title)
     }
 
     @Test
@@ -707,6 +708,42 @@ class FinanceStage2Test {
 
         val stored = repository.getSavingsGoals().first().single { it.id == goal.id }
         assertEquals(SavingsGoalStatus.IN_PROGRESS, stored.status)
+    }
+
+
+    @Test
+    fun `savings goal survives reload and can be deleted`() = runBlocking {
+        val goal = SavingsGoal(
+            id = "persist_goal_test",
+            title = "هدف ماندگار",
+            targetAmount = 5_000L,
+            currentAmount = 1_250L,
+            targetDate = "۱۴۰۵/۱۲/۲۹",
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL
+        )
+        repository.addSavingsGoal(goal)
+
+        SessionManager.logout()
+        repository.refreshMetadataForCurrentUser()
+        assertFalse(repository.getSavingsGoals().first().any { it.id == goal.id })
+
+        SessionManager.setAuthenticatedUser(
+            com.example.data.api.NetworkUserDto(
+                id = "test_user_stage2",
+                fullName = "Stage 2 User",
+                email = null,
+                phoneNumber = "09120000000",
+                phoneVerified = true
+            )
+        )
+        repository.refreshMetadataForCurrentUser()
+
+        val restored = repository.getSavingsGoals().first().single { it.id == goal.id }
+        assertEquals(1_250L, restored.currentAmount)
+        assertEquals(25, restored.progressPercentage)
+
+        repository.deleteSavingsGoal(goal.id)
+        assertFalse(repository.getSavingsGoals().first().any { it.id == goal.id })
     }
 
 }
