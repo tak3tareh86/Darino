@@ -775,10 +775,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         )
         RecurringTransactionNotificationManager.getPendingOccurrenceIds(context, currentUserId).forEach { occurrenceId ->
             if (SessionManager.userId != currentUserId) return
-            isPendingRecurringOccurrenceValid(context, currentUserId, occurrenceId)
+            if (isPendingRecurringOccurrenceValid(context, currentUserId, occurrenceId)) {
+                RecurringTransactionNotificationManager.showPending(context, currentUserId, occurrenceId)
+            }
         }
         if (SessionManager.userId != currentUserId) return
-        RecurringTransactionNotificationManager.showAllPending(context, currentUserId)
         if (activeRecurringList.isEmpty()) {
             return
         }
@@ -945,7 +946,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         }
         val dateInTemplateRange = occurrenceEpoch != null && startEpoch != null &&
             occurrenceEpoch >= startEpoch && (endEpoch == null || occurrenceEpoch <= endEpoch)
-        val valid = template != null &&
+        val validTemplateOccurrence = template != null &&
             payload.optString("title") == template.title &&
             payload.optLong("amount") == template.amount &&
             payload.optString("amountUnit") == template.amountUnit.name &&
@@ -954,12 +955,15 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             payload.optString("frequency") == template.frequency.name &&
             payload.optString("paymentMethod") == template.paymentMethod.name &&
             (template.accountId.isNullOrBlank() || payload.optString("accountId") == template.accountId) &&
-            dateInTemplateRange &&
-            account != null && account.userId == userId && account.isActive && account.deletedAt == null
-        if (!valid) {
+            dateInTemplateRange
+        if (!validTemplateOccurrence) {
             RecurringTransactionNotificationManager.removePending(context, userId, occurrenceId)
+            return false
         }
-        return valid
+
+        // Keep an occurrence pending while its selected account is unavailable, but hide its
+        // notification. Editing the template to an active account can safely revive it.
+        return account != null && account.userId == userId && account.isActive && account.deletedAt == null
     }
 
     /**
@@ -1012,7 +1016,6 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                     .firstOrNull { it.name.equals(payload.optString("accountName"), ignoreCase = true) }
             }
             if (account == null || account.userId != userId || !account.isActive || account.deletedAt != null) {
-                RecurringTransactionNotificationManager.removePending(context, userId, occurrenceId)
                 return false
             }
             if (SessionManager.userId != userId) return false
