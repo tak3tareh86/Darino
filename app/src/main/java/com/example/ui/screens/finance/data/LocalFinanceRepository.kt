@@ -776,7 +776,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         RecurringTransactionNotificationManager.getPendingOccurrenceIds(context, currentUserId).forEach { occurrenceId ->
             if (SessionManager.userId != currentUserId) return
             if (isPendingRecurringOccurrenceValid(context, currentUserId, occurrenceId)) {
-                RecurringTransactionNotificationManager.showPending(context, currentUserId, occurrenceId)
+                RecurringTransactionNotificationManager.showPendingIfDue(context, currentUserId, occurrenceId)
             }
         }
         if (SessionManager.userId != currentUserId) return
