@@ -148,7 +148,10 @@ data class RecurringTransaction(
     val accountName: String = "کارت بانکی",
     val accountId: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val amountUnit: AppCurrency = AppCurrency.TOMAN
+    val amountUnit: AppCurrency = AppCurrency.TOMAN,
+    // Preserve the original calendar day/month when short Jalali months require clamping.
+    val anchorDayOfMonth: Int = 0,
+    val anchorMonthOfYear: Int = 0
 ) {
     val formattedAmount: String
         get() = MoneyFormatter.formatExact(MoneyAmount.of(amount, amountUnit))
