@@ -776,6 +776,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         RecurringTransactionNotificationManager.getPendingOccurrenceIds(context, currentUserId).forEach { occurrenceId ->
             if (SessionManager.userId != currentUserId) return
             if (isPendingRecurringOccurrenceValid(context, currentUserId, occurrenceId)) {
+                if (SessionManager.userId != currentUserId) return
                 RecurringTransactionNotificationManager.showPendingIfDue(context, currentUserId, occurrenceId)
             }
         }
@@ -965,7 +966,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
         // Keep an occurrence pending while its selected account is unavailable, but hide its
         // notification. Editing the template to an active account can safely revive it.
-        return account != null && account.userId == userId && account.isActive && account.deletedAt == null
+        return SessionManager.userId == userId &&
+            account != null && account.userId == userId && account.isActive && account.deletedAt == null
     }
 
     /**
