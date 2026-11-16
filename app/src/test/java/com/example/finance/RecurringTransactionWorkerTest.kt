@@ -83,7 +83,7 @@ class RecurringTransactionWorkerTest {
         accountId: String? = null,
         accountName: String = "کارت بانکی",
         startDate: String = dueDate(),
-        nextDate: String = dueDate(),
+        nextDate: String = startDate,
         endDate: String? = null,
         enabled: Boolean = true,
         frequency: RecurringFrequency = RecurringFrequency.MONTHLY
