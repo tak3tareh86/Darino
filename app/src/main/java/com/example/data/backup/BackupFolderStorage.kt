@@ -286,7 +286,13 @@ object BackupFolderStorage {
         return namePrefixes.mapNotNull { prefix ->
             documents.asSequence()
                 .filter { it.name.startsWith(prefix) }
-                .maxWithOrNull(compareBy<BackupDocument> { it.lastModified }.thenBy { it.name })
+                .maxWithOrNull { first, second ->
+                    if (first.lastModified > 0L && second.lastModified > 0L) {
+                        first.lastModified.compareTo(second.lastModified)
+                    } else {
+                        first.name.compareTo(second.name)
+                    }
+                }
         }
     }
 
