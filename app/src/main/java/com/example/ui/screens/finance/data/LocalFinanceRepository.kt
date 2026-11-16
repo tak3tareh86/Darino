@@ -1281,11 +1281,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                         balance = Math.subtractExact(balance, txAmountRials)
                     }
                 }
-                "TRANSFER" -> {
-                    if (tx.transferSourceAccountId == accountId) {
-                        balance = Math.subtractExact(balance, txAmountRials)
-                    }
-                }
+                // TRANSFER is a record-only event in Darino. It must never
+                // change any account balance, because account balances are not tracked.
             }
         }
         return balance
