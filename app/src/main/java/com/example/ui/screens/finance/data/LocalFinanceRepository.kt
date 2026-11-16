@@ -739,9 +739,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val db = AppDatabase.getDatabase(context)
         ensureDefaultAccounts(db, currentUserId)
 
-        if (_recurringTransactions.value.isEmpty()) {
-            loadMetadataFromDisk(context, currentUserId)
-        }
+        // Always reload the current user's persisted templates; a worker may outlive a session switch.
+        loadMetadataFromDisk(context, currentUserId)
         val activeRecurringList = _recurringTransactions.value.filter { it.enabled }.toMutableList()
         RecurringTransactionNotificationManager.removePendingForInactiveRecurring(
             context,
@@ -903,12 +902,25 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             ?: return false
         if (payload.optString("userId") != userId || payload.optString("occurrenceId") != occurrenceId) return false
 
-        if (_recurringTransactions.value.none { it.id == payload.optString("recurringId") }) {
-            loadMetadataFromDisk(context.applicationContext, userId)
-        }
+        // Resolve the template from the active user's persisted data, not a possibly stale in-memory session.
+        loadMetadataFromDisk(context.applicationContext, userId)
         val recurringId = payload.optString("recurringId")
         val recurringTemplate = _recurringTransactions.value.firstOrNull { it.id == recurringId && it.enabled }
         if (recurringTemplate == null) {
+            RecurringTransactionNotificationManager.removePending(context, userId, occurrenceId)
+            return false
+        }
+        val templateMatchesPayload =
+            payload.optString("title") == recurringTemplate.title &&
+            payload.optLong("amount") == recurringTemplate.amount &&
+            payload.optString("amountUnit") == recurringTemplate.amountUnit.name &&
+            payload.optString("type") == recurringTemplate.type.name &&
+            payload.optString("categoryId") == recurringTemplate.categoryId &&
+            payload.optString("frequency") == recurringTemplate.frequency.name &&
+            payload.optString("paymentMethod") == recurringTemplate.paymentMethod.name &&
+            (recurringTemplate.accountId.isNullOrBlank() ||
+                payload.optString("accountId") == recurringTemplate.accountId)
+        if (!templateMatchesPayload) {
             RecurringTransactionNotificationManager.removePending(context, userId, occurrenceId)
             return false
         }
