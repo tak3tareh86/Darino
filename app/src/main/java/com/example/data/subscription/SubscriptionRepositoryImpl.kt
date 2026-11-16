@@ -55,18 +55,17 @@ class SubscriptionRepositoryImpl(
                     PurchaseState.PURCHASED -> {
                         val purchaseAt = purchase.purchaseTime.takeIf { it > 0L }
                             ?: currentLocal.subscriptionPurchaseAt
-                        currentLocal.copy(
+                        val candidate = currentLocal.copy(
                             subscriptionStartAt = purchaseAt ?: currentLocal.subscriptionStartAt,
                             subscriptionPurchaseAt = purchaseAt,
-                            // Poolakey confirms active state but does not expose a reliable expiry.
-                            subscriptionEndAt = null,
+                            subscriptionEndAt = purchaseAt?.let(SubscriptionValidator::calculateSubscriptionEndAt),
                             productId = purchase.productId,
                             purchaseTokenReference = purchase.purchaseToken,
-                            marketAccountState = "MARKET_ACTIVE",
+                            marketAccountState = if (purchaseAt != null) "MARKET_ACTIVE" else "PURCHASE_TIME_UNAVAILABLE",
                             lastSyncAt = now,
-                            lastMarketVerificationAt = now,
-                            subscriptionStatus = SubscriptionStatus.ACTIVE
+                            lastMarketVerificationAt = now
                         )
+                        candidate.copy(subscriptionStatus = SubscriptionValidator.evaluateStatus(candidate, now))
                     }
                     PurchaseState.REFUNDED -> currentLocal.copy(
                         subscriptionStartAt = null,
@@ -184,12 +183,12 @@ class SubscriptionRepositoryImpl(
         val purchaseAt = purchaseInfo.purchaseTime.takeIf { it > 0L }
         val currentLocal = localDataSource.getSubscriptionInfo()
         val candidate = currentLocal.copy(
-            subscriptionStartAt = purchaseAt ?: currentLocal.subscriptionStartAt,
-            subscriptionPurchaseAt = purchaseAt ?: currentLocal.subscriptionPurchaseAt,
-            subscriptionEndAt = null,
+            subscriptionStartAt = purchaseAt,
+            subscriptionPurchaseAt = purchaseAt,
+            subscriptionEndAt = purchaseAt?.let(SubscriptionValidator::calculateSubscriptionEndAt),
             productId = purchaseInfo.productId,
             purchaseTokenReference = purchaseInfo.purchaseToken,
-            marketAccountState = "MARKET_ACTIVE",
+            marketAccountState = if (purchaseAt != null) "MARKET_ACTIVE" else "PURCHASE_TIME_UNAVAILABLE",
             lastSyncAt = now,
             lastMarketVerificationAt = now
         )
