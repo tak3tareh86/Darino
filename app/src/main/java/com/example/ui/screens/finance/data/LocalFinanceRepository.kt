@@ -633,10 +633,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             (recurring.type != TransactionType.INCOME && recurring.type != TransactionType.EXPENSE)
         ) return false
 
-        val matchingCategory = (_categories.value + FinanceDefaultCategories.allDefaultCategories)
-            .firstOrNull {
+        if ((_categories.value + FinanceDefaultCategories.allDefaultCategories).none {
                 it.id == recurring.categoryId && it.type == recurring.type && it.isActive
-            } ?: return false
+            }) return false
 
         if (!CalendarDateUtils.isValidJalaliDate(recurring.startDate) ||
             !CalendarDateUtils.isValidJalaliDate(recurring.nextExecutionDate)
@@ -743,9 +742,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         appContext = context.applicationContext
         val db = AppDatabase.getDatabase(context)
         ensureDefaultAccounts(db, currentUserId)
+        if (SessionManager.userId != currentUserId) return
 
         // Always reload the current user's persisted templates; a worker may outlive a session switch.
         loadMetadataFromDisk(context, currentUserId)
+        if (SessionManager.userId != currentUserId) return
         val activeRecurringList = _recurringTransactions.value.filter { it.enabled }.toMutableList()
         RecurringTransactionNotificationManager.removePendingForInactiveRecurring(
             context,
@@ -889,7 +890,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             }
         }
 
-        if (hasChanges) {
+        if (hasChanges && SessionManager.userId == currentUserId) {
             _recurringTransactions.value = updatedList
             saveMetadataToDisk()
         }
@@ -904,6 +905,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val payload = RecurringTransactionNotificationManager.getPending(context, userId, occurrenceId)
             ?: return false
         loadMetadataFromDisk(context.applicationContext, userId)
+        if (SessionManager.userId != userId) return false
         val template = _recurringTransactions.value.firstOrNull {
             it.id == payload.optString("recurringId") && it.enabled
         }
