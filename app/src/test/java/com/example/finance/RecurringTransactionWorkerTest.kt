@@ -319,7 +319,7 @@ class RecurringTransactionWorkerTest {
     }
 
     @Test
-    fun editingRecurringTemplateCancelsOldPendingPayload() = runBlocking {
+    fun editingRecurringTemplateRefreshesPendingPayload() = runBlocking {
         val date = today()
         val item = recurring(id = "rec_edit_pending", accountId = defaultAccountId())
         repository.addRecurringTransaction(item)
@@ -328,7 +328,8 @@ class RecurringTransactionWorkerTest {
         val id = occurrenceId(item.id, date)
         assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
 
-        val edited = item.copy(amount = item.amount + 100_000L)
+        val savedTemplate = repository.getRecurringTransactions().first().single { it.id == item.id }
+        val edited = savedTemplate.copy(amount = item.amount + 100_000L)
         repository.updateRecurringTransaction(edited)
 
         assertTrue(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
