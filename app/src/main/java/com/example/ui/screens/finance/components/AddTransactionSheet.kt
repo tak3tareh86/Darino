@@ -118,8 +118,6 @@ fun AddTransactionSheet(
         )
     }
     var title by remember { mutableStateOf(initialTransaction?.title ?: "") }
-    // Preserve an existing or user-entered title; otherwise keep it synchronized with the selected category.
-    var isTitleManuallyEdited by remember { mutableStateOf(initialTransaction != null) }
 
     val availableCategories = remember(selectedType, categories) {
         if (selectedType == TransactionType.INCOME) {
@@ -275,16 +273,13 @@ fun AddTransactionSheet(
                                     TransactionType.INCOME -> {
                                         val cats = categories.filter { it.type == TransactionType.INCOME && it.isActive }
                                         cats.firstOrNull()?.let { selectedCategory = it }
-                                        selectedSubCategory = selectedCategory.subCategories.firstOrNull()
+                                        selectedSubCategory = null
                                     }
                                     TransactionType.EXPENSE -> {
                                         val cats = categories.filter { it.type == TransactionType.EXPENSE && it.isActive }
                                         cats.firstOrNull()?.let { selectedCategory = it }
-                                        selectedSubCategory = selectedCategory.subCategories.firstOrNull()
+                                        selectedSubCategory = null
                                     }
-                                }
-                                if (!isTitleManuallyEdited) {
-                                    title = if (type == TransactionType.TRANSFER) "" else selectedCategory.title
                                 }
                             }
                             .padding(vertical = 8.dp),
@@ -484,10 +479,7 @@ fun AddTransactionSheet(
                                     .clip(RoundedCornerShape(10.dp))
                                     .clickable {
                                         selectedCategory = category
-                                        selectedSubCategory = category.subCategories.firstOrNull()
-                                        if (!isTitleManuallyEdited) {
-                                            title = category.title
-                                        }
+                                        selectedSubCategory = null
                                     }
                             ) {
                                 Row(
@@ -523,13 +515,12 @@ fun AddTransactionSheet(
                     value = title,
                     onValueChange = {
                         title = it
-                        isTitleManuallyEdited = true
                         errorMessage = null
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("tx_title_input"),
-                    placeholder = { Text("مثال: خرید سوپرمارکت، حقوق، بنزین", style = MaterialTheme.typography.bodyMedium) },
+                    placeholder = { Text("مثال: کرایه اسنپ، مترو، حقوق ماهانه", style = MaterialTheme.typography.bodyMedium) },
                     singleLine = true,
                     shape = RoundedCornerShape(RadiusMD),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -716,10 +707,14 @@ fun AddTransactionSheet(
                         errorMessage = "لطفاً مبلغ معتبری وارد کنید."
                         return@Button
                     }
+                    if (selectedType != TransactionType.TRANSFER && title.isBlank()) {
+                        errorMessage = "لطفاً عنوان دقیق تراکنش را وارد کنید."
+                        return@Button
+                    }
                     val finalTitle = if (selectedType == TransactionType.TRANSFER) {
                         "انتقال از ${selectedSourceAccount?.name} به ${selectedDestinationAccount?.name}"
                     } else {
-                        title.ifBlank { selectedCategory.title }
+                        title.trim()
                     }
 
                     val tags = tagsText.split("،", ",").map { it.trim() }.filter { it.isNotEmpty() }
