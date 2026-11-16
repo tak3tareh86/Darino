@@ -15,6 +15,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import androidx.work.WorkManager
 import com.example.ui.screens.settings.model.AppCurrency
+import com.example.ui.screens.finance.model.RecurringTransaction
 import com.example.util.MoneyFormatter
 
 /**
@@ -99,6 +100,38 @@ object RecurringTransactionNotificationManager {
         prefs.edit().putString(storageKey(userId), updated.toString()).commit()
         cancel(context, occurrenceId)
         WorkManager.getInstance(context).cancelUniqueWork("recurring_reminder_$occurrenceId")
+    }
+
+    @Synchronized
+    fun refreshPendingForRecurring(
+        context: Context,
+        userId: String,
+        recurring: RecurringTransaction
+    ) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val current = JSONArray(prefs.getString(storageKey(userId), "[]") ?: "[]")
+        val updated = JSONArray()
+        val refreshedIds = mutableListOf<String>()
+        for (index in 0 until current.length()) {
+            val item = current.optJSONObject(index) ?: continue
+            if (item.optString("recurringId") == recurring.id) {
+                item.put("title", recurring.title)
+                item.put("amount", recurring.amount)
+                item.put("amountUnit", recurring.amountUnit.name)
+                item.put("type", recurring.type.name)
+                item.put("categoryId", recurring.categoryId)
+                item.put("categoryTitle", recurring.categoryTitle)
+                item.put("frequency", recurring.frequency.name)
+                item.put("paymentMethod", recurring.paymentMethod.name)
+                item.put("accountName", recurring.accountName)
+                item.put("accountId", recurring.accountId ?: "")
+                refreshedIds.add(item.optString("occurrenceId"))
+            }
+            updated.put(item)
+        }
+        if (prefs.edit().putString(storageKey(userId), updated.toString()).commit()) {
+            refreshedIds.filter { it.isNotBlank() }.forEach { showPending(context, userId, it) }
+        }
     }
 
     @Synchronized
