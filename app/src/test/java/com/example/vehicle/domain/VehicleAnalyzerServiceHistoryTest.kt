@@ -108,6 +108,52 @@ class VehicleAnalyzerServiceHistoryTest {
     }
 
     @Test
+    fun threeCompletedChecklistServicesProduceOneThirdHealthScore() {
+        val vehicle = com.example.vehicle.data.VehicleEntity(
+            id = "vehicle-1",
+            brand = "Test",
+            model = "Car",
+            year = "1400",
+            color = "",
+            plate = "",
+            currentMileage = 50000
+        )
+        val completedServices = listOf(
+            service(
+                id = "oil",
+                type = ServiceType.OIL_CHANGE,
+                title = ServiceType.OIL_CHANGE.title,
+                date = "۱۴۰۵/۰۸/۱۰"
+            ),
+            service(
+                id = "oil-filter",
+                type = ServiceType.OIL_FILTER_CHANGE,
+                title = ServiceType.OIL_FILTER_CHANGE.title,
+                date = "۱۴۰۵/۰۸/۱۰"
+            ),
+            service(
+                id = "air-filter",
+                type = ServiceType.AIR_FILTER_CHANGE,
+                title = ServiceType.AIR_FILTER_CHANGE.title,
+                date = "۱۴۰۵/۰۸/۱۰"
+            )
+        )
+
+        val report = VehicleAnalyzer.analyzeHealth(
+            vehicle = vehicle,
+            services = completedServices,
+            insurances = emptyList(),
+            inspections = emptyList()
+        )
+
+        assertEquals(33, report.healthScorePercent)
+        assertEquals(true, report.checklist.first { it.title == "روغن موتور" }.isOk)
+        assertEquals(true, report.checklist.first { it.title == "فیلتر روغن" }.isOk)
+        assertEquals(true, report.checklist.first { it.title == "فیلتر هوا" }.isOk)
+        assertEquals(9, report.checklist.size)
+    }
+
+    @Test
     fun genericFilterRecordDoesNotConfirmEitherSpecificFilter() {
         val generic = service(
             id = "filters",
