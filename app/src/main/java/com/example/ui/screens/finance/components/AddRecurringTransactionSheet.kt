@@ -382,8 +382,12 @@ fun AddRecurringTransactionSheet(
                         paymentMethod = paymentMethod,
                         accountName = selectedAccount.name,
                         accountId = selectedAccount.id,
-                        anchorDayOfMonth = nextParts.third,
-                        anchorMonthOfYear = nextParts.second
+                        anchorDayOfMonth = if (
+                            initialItem != null && nextDate == initialItem.nextExecutionDate
+                        ) initialItem.anchorDayOfMonth else nextParts.third,
+                        anchorMonthOfYear = if (
+                            initialItem != null && nextDate == initialItem.nextExecutionDate
+                        ) initialItem.anchorMonthOfYear else nextParts.second
                     )
                     onSubmit(rec)
                 },
