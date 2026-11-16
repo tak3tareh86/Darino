@@ -508,23 +508,55 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         }
     }
 
+    private fun isValidSavingsGoal(goal: SavingsGoal): Boolean {
+        if (goal.id.isBlank() || goal.title.isBlank() || goal.targetAmount <= 0L || goal.currentAmount < 0L) {
+            return false
+        }
+        return runCatching {
+            MoneyAmount.of(goal.targetAmount, goal.amountUnit).asRialsLongExact()
+            MoneyAmount.of(goal.currentAmount, goal.amountUnit).asRialsLongExact()
+        }.isSuccess
+    }
+
     override fun addSavingsGoal(goal: SavingsGoal) {
-        val progress = FinanceEngine.calculateSavingsGoalProgress(goal.currentAmount, goal.targetAmount)
-        val current = _savingsGoals.value.toMutableList()
-        current.add(goal.copy(progressPercentage = progress))
-        _savingsGoals.value = current
+        if (!isValidSavingsGoal(goal) || _savingsGoals.value.any { it.id == goal.id }) return
+        val targetRials = MoneyAmount.of(goal.targetAmount, goal.amountUnit).asRialsLongExact()
+        val currentRials = MoneyAmount.of(goal.currentAmount, goal.amountUnit).asRialsLongExact()
+        val progress = FinanceEngine.calculateSavingsGoalProgress(currentRials, targetRials)
+        val normalized = goal.copy(
+            targetAmount = targetRials,
+            currentAmount = currentRials,
+            amountUnit = AppCurrency.RIAL,
+            progressPercentage = progress,
+            status = if (currentRials >= targetRials) SavingsGoalStatus.COMPLETED else goal.status
+        )
+        _savingsGoals.value = _savingsGoals.value + normalized
         saveMetadataToDisk()
     }
 
     override fun updateSavingsGoal(goal: SavingsGoal) {
-        val progress = FinanceEngine.calculateSavingsGoalProgress(goal.currentAmount, goal.targetAmount)
+        if (!isValidSavingsGoal(goal)) return
         val current = _savingsGoals.value.toMutableList()
         val index = current.indexOfFirst { it.id == goal.id }
-        if (index != -1) {
-            current[index] = goal.copy(progressPercentage = progress)
-            _savingsGoals.value = current
-            saveMetadataToDisk()
+        if (index == -1) return
+
+        val targetRials = MoneyAmount.of(goal.targetAmount, goal.amountUnit).asRialsLongExact()
+        val currentRials = MoneyAmount.of(goal.currentAmount, goal.amountUnit).asRialsLongExact()
+        val progress = FinanceEngine.calculateSavingsGoalProgress(currentRials, targetRials)
+        val updatedStatus = when {
+            currentRials >= targetRials -> SavingsGoalStatus.COMPLETED
+            goal.status == SavingsGoalStatus.PAUSED -> SavingsGoalStatus.PAUSED
+            else -> SavingsGoalStatus.IN_PROGRESS
         }
+        current[index] = goal.copy(
+            targetAmount = targetRials,
+            currentAmount = currentRials,
+            amountUnit = AppCurrency.RIAL,
+            progressPercentage = progress,
+            status = updatedStatus
+        )
+        _savingsGoals.value = current
+        saveMetadataToDisk()
     }
 
     override fun deleteSavingsGoal(id: String) {
@@ -535,15 +567,22 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
     }
 
     override fun depositToSavingsGoal(goalId: String, amount: Long) {
+        if (amount <= 0L) return
         val current = _savingsGoals.value.toMutableList()
         val index = current.indexOfFirst { it.id == goalId }
-        if (index != -1) {
-            val goal = current[index]
+        if (index == -1) return
+
+        val goal = current[index]
+        // Deposits are allowed only while a goal is in progress. This updates
+        // goal metadata only; it never creates a financial transaction or changes an account.
+        if (goal.status != SavingsGoalStatus.IN_PROGRESS) return
+
+        runCatching {
             val targetRials = MoneyAmount.of(goal.targetAmount, goal.amountUnit).asRialsLongExact()
             val currentRials = MoneyAmount.of(goal.currentAmount, goal.amountUnit).asRialsLongExact()
             val newAmount = Math.addExact(currentRials, amount)
             val progress = FinanceEngine.calculateSavingsGoalProgress(newAmount, targetRials)
-            val status = if (newAmount >= targetRials) SavingsGoalStatus.COMPLETED else goal.status
+            val status = if (newAmount >= targetRials) SavingsGoalStatus.COMPLETED else SavingsGoalStatus.IN_PROGRESS
             current[index] = goal.copy(
                 targetAmount = targetRials,
                 currentAmount = newAmount,
@@ -553,18 +592,32 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             )
             _savingsGoals.value = current
             saveMetadataToDisk()
+        }.onFailure { error ->
+            android.util.Log.e("LocalFinanceRepository", "Failed to deposit into savings goal", error)
         }
+    }
+
+    override fun setSavingsGoalStatus(goalId: String, status: SavingsGoalStatus) {
+        if (status != SavingsGoalStatus.IN_PROGRESS && status != SavingsGoalStatus.PAUSED) return
+        val current = _savingsGoals.value.toMutableList()
+        val index = current.indexOfFirst { it.id == goalId }
+        if (index == -1 || current[index].status == SavingsGoalStatus.COMPLETED) return
+        current[index] = current[index].copy(status = status)
+        _savingsGoals.value = current
+        saveMetadataToDisk()
     }
 
     override fun completeSavingsGoal(goalId: String) {
         val current = _savingsGoals.value.toMutableList()
         val index = current.indexOfFirst { it.id == goalId }
-        if (index != -1) {
-            val goal = current[index]
-            current[index] = goal.copy(status = SavingsGoalStatus.COMPLETED)
-            _savingsGoals.value = current
-            saveMetadataToDisk()
-        }
+        if (index == -1) return
+        val goal = current[index]
+        val targetRials = MoneyAmount.of(goal.targetAmount, goal.amountUnit).asRialsLongExact()
+        val currentRials = MoneyAmount.of(goal.currentAmount, goal.amountUnit).asRialsLongExact()
+        if (currentRials < targetRials) return
+        current[index] = goal.copy(status = SavingsGoalStatus.COMPLETED)
+        _savingsGoals.value = current
+        saveMetadataToDisk()
     }
 
     override fun addRecurringTransaction(recurring: RecurringTransaction) {
