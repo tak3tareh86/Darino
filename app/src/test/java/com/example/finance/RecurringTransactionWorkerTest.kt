@@ -71,6 +71,9 @@ class RecurringTransactionWorkerTest {
     private fun today(): String =
         PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
 
+    private fun dueDate(): String =
+        PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis() - 2L * 24L * 60L * 60L * 1000L).toFormattedDate()
+
     private suspend fun defaultAccountId(): String =
         db.accountDao().getAllAccountsList(testUserId)
             .first { it.name == "کارت بانکی" && it.isActive && it.deletedAt == null }
@@ -82,8 +85,8 @@ class RecurringTransactionWorkerTest {
         type: TransactionType = TransactionType.EXPENSE,
         accountId: String? = null,
         accountName: String = "کارت بانکی",
-        startDate: String = today(),
-        nextDate: String = today(),
+        startDate: String = dueDate(),
+        nextDate: String = dueDate(),
         endDate: String? = null,
         enabled: Boolean = true,
         frequency: RecurringFrequency = RecurringFrequency.MONTHLY
@@ -113,7 +116,7 @@ class RecurringTransactionWorkerTest {
 
     @Test
     fun dueExpenseCreatesPendingOccurrenceAndOnlyConfirmationWritesTransaction() = runBlocking {
-        val date = today()
+        val date = dueDate()
         val item = recurring(id = "rec_expense_confirm", title = "اجاره خانه", accountId = defaultAccountId())
         repository.addRecurringTransaction(item)
 
