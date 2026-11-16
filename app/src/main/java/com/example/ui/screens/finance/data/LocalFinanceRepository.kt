@@ -944,7 +944,9 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val endEpoch = endParts?.let {
             PersianCalendarHelper.getJalaliEpochDay(it.first, it.second, it.third)
         }
+        val hasEndDate = !template?.endDate.isNullOrBlank()
         val dateInTemplateRange = occurrenceEpoch != null && startEpoch != null &&
+            (!hasEndDate || endEpoch != null) &&
             occurrenceEpoch >= startEpoch && (endEpoch == null || occurrenceEpoch <= endEpoch)
         val validTemplateOccurrence = template != null &&
             payload.optString("title") == template.title &&
