@@ -118,6 +118,8 @@ fun AddTransactionSheet(
         )
     }
     var title by remember { mutableStateOf(initialTransaction?.title ?: "") }
+    // Preserve an existing or user-entered title; otherwise keep it synchronized with the selected category.
+    var isTitleManuallyEdited by remember { mutableStateOf(initialTransaction != null) }
 
     val availableCategories = remember(selectedType, categories) {
         if (selectedType == TransactionType.INCOME) {
@@ -281,7 +283,7 @@ fun AddTransactionSheet(
                                         selectedSubCategory = selectedCategory.subCategories.firstOrNull()
                                     }
                                 }
-                                if (title.isBlank() || title == FinanceDefaultCategories.transferCategory.title) {
+                                if (!isTitleManuallyEdited) {
                                     title = if (type == TransactionType.TRANSFER) "" else selectedCategory.title
                                 }
                             }
@@ -483,7 +485,7 @@ fun AddTransactionSheet(
                                     .clickable {
                                         selectedCategory = category
                                         selectedSubCategory = category.subCategories.firstOrNull()
-                                        if (title.isBlank()) {
+                                        if (!isTitleManuallyEdited) {
                                             title = category.title
                                         }
                                     }
@@ -521,6 +523,7 @@ fun AddTransactionSheet(
                     value = title,
                     onValueChange = {
                         title = it
+                        isTitleManuallyEdited = true
                         errorMessage = null
                     },
                     modifier = Modifier
