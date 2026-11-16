@@ -140,7 +140,7 @@ fun TransactionDetailSheet(
             DetailRowItem(label = "نوع تراکنش", value = transaction.type.title)
             DetailRowItem(label = "دسته‌بندی", value = "${transaction.category.iconEmoji} ${transaction.category.title}")
             DetailRowItem(label = "تاریخ و زمان", value = "${transaction.datePersian} ساعت ${transaction.timePersian}")
-            DetailRowItem(label = "حساب / روش پرداخت", value = transaction.accountName)
+            DetailRowItem(label = if (transaction.type == TransactionType.TRANSFER) "حساب مبدأ" else "حساب / روش پرداخت", value = transaction.accountName)
             if (transaction.type == TransactionType.TRANSFER && !transaction.transferRecipientName.isNullOrBlank()) {
                 DetailRowItem(label = "دریافت‌کننده", value = transaction.transferRecipientName)
             }
