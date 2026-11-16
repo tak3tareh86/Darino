@@ -766,9 +766,10 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val updatedList = _recurringTransactions.value.toMutableList()
 
         for (item in activeRecurringList) {
-            val nextDateNorm = com.example.calendar.domain.CalendarDateUtils.normalizeDate(item.nextExecutionDate)
-            val partsNext = nextDateNorm.split("/")
-            if (partsNext.size != 3) continue
+            val nextDateNorm = CalendarDateUtils.normalizeDate(item.nextExecutionDate)
+            if (!CalendarDateUtils.isValidJalaliDate(nextDateNorm) ||
+                !CalendarDateUtils.isValidJalaliDate(item.startDate)
+            ) continue
 
             val parsedNext = CalendarDateUtils.parseJalali(nextDateNorm) ?: continue
             val startParts = CalendarDateUtils.parseJalali(item.startDate) ?: continue
@@ -786,6 +787,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             val nextEpochDay = PersianCalendarHelper.getJalaliEpochDay(nextY, nextM, nextD)
 
             if (!item.endDate.isNullOrBlank()) {
+                if (!CalendarDateUtils.isValidJalaliDate(item.endDate)) continue
                 val endParts = CalendarDateUtils.parseJalali(item.endDate) ?: continue
                 val endEpochDay = PersianCalendarHelper.getJalaliEpochDay(endParts.first, endParts.second, endParts.third)
                 if (nextEpochDay > endEpochDay) {
