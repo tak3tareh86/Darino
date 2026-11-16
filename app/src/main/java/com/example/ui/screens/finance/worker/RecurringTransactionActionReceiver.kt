@@ -35,7 +35,8 @@ class RecurringTransactionActionReceiver : BroadcastReceiver() {
                         repository.init(appContext)
                         val confirmed = repository.confirmPendingRecurringTransaction(appContext, occurrenceId)
                         if (!confirmed &&
-                            repository.isPendingRecurringOccurrenceValid(appContext, userId, occurrenceId)
+                            repository.isPendingRecurringOccurrenceValid(appContext, userId, occurrenceId) &&
+                            SessionManager.userId == userId
                         ) {
                             // Keep a still-valid pending occurrence visible if persistence failed.
                             RecurringTransactionNotificationManager.showPendingIfDue(appContext, userId, occurrenceId)
@@ -45,7 +46,9 @@ class RecurringTransactionActionReceiver : BroadcastReceiver() {
                     ACTION_REMIND_LATER -> {
                         val repository = LocalFinanceRepository.instance
                         repository.init(appContext)
-                        if (!repository.isPendingRecurringOccurrenceValid(appContext, userId, occurrenceId)) {
+                        if (!repository.isPendingRecurringOccurrenceValid(appContext, userId, occurrenceId) ||
+                            SessionManager.userId != userId
+                        ) {
                             return@launch
                         }
                         val remindAt = System.currentTimeMillis() + TimeUnit.HOURS.toMillis(24)
