@@ -232,7 +232,7 @@ class RecurringTransactionWorkerTest {
         repository.processDueRecurringTransactions(context)
 
         val id = occurrenceId(item.id, date)
-        assertFalse(RecurringTransactionNotificationManager.hasPending(context, testUserId, id))
+        assertFalse(RecurringTransactionNotificationManager.hasPending(context, "user_B_999", id))
         assertTrue(db.transactionDao().getAllTransactionsList("user_B_999").none { it.title == item.title })
     }
 
