@@ -77,6 +77,7 @@ fun SavingsGoalsScreen(
     onAddGoalClick: () -> Unit,
     onEditGoalClick: (SavingsGoal) -> Unit,
     onDepositClick: (SavingsGoal) -> Unit,
+    onTogglePause: (SavingsGoal) -> Unit,
     onDeleteGoalClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -216,6 +217,7 @@ fun SavingsGoalsScreen(
                             goal = goal,
                             onEdit = { onEditGoalClick(goal) },
                             onDeposit = { onDepositClick(goal) },
+                            onTogglePause = { onTogglePause(goal) },
                             onDelete = { goalToDelete = goal }
                         )
                     }
@@ -253,6 +255,7 @@ fun SavingsGoalCard(
     goal: SavingsGoal,
     onEdit: () -> Unit,
     onDeposit: () -> Unit,
+    onTogglePause: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -311,16 +314,17 @@ fun SavingsGoalCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    if (goal.status == SavingsGoalStatus.COMPLETED) {
+                    if (goal.status != SavingsGoalStatus.IN_PROGRESS) {
+                        val completed = goal.status == SavingsGoalStatus.COMPLETED
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFF10B981).copy(alpha = 0.2f)
+                            color = (if (completed) Color(0xFF10B981) else Color(0xFFF59E0B)).copy(alpha = 0.2f)
                         ) {
                             Text(
-                                text = "تکمیل شده ✨",
+                                text = if (completed) "تکمیل شده ✨" else "متوقف",
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = Color(0xFF10B981)
+                                color = if (completed) Color(0xFF10B981) else Color(0xFFF59E0B)
                             )
                         }
                     }
@@ -396,21 +400,37 @@ fun SavingsGoalCard(
                     )
                 }
 
-                if (goal.status != SavingsGoalStatus.COMPLETED) {
-                    Button(
-                        onClick = onDeposit,
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = "+ واریز",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            ),
-                            color = Color.White
-                        )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    when (goal.status) {
+                        SavingsGoalStatus.IN_PROGRESS -> {
+                            TextButton(onClick = onTogglePause) {
+                                Text("توقف", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Button(
+                                onClick = onDeposit,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "+ واریز",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
+                                    ),
+                                    color = Color.White
+                                )
+                            }
+                        }
+                        SavingsGoalStatus.PAUSED -> {
+                            TextButton(onClick = onTogglePause) {
+                                Text("ادامه", color = Color(0xFF10B981))
+                            }
+                        }
+                        SavingsGoalStatus.COMPLETED -> Unit
                     }
                 }
             }
