@@ -184,7 +184,7 @@ fun ReminderCard(
                             Column(
                                 modifier = Modifier
                                     .align(Alignment.Center)
-                                    .offset(x = (-16).dp)
+                                    .offset(x = 4.dp)
                                     .padding(horizontal = 54.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(1.dp)
