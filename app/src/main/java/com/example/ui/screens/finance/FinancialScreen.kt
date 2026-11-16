@@ -392,6 +392,19 @@ fun FinancialScreen(
                     onDepositClick = { g ->
                         depositingGoal = g
                     },
+                    onTogglePause = { goal ->
+                        val nextStatus = if (goal.status == com.example.ui.screens.finance.model.SavingsGoalStatus.PAUSED) {
+                            com.example.ui.screens.finance.model.SavingsGoalStatus.IN_PROGRESS
+                        } else {
+                            com.example.ui.screens.finance.model.SavingsGoalStatus.PAUSED
+                        }
+                        viewModel.setSavingsGoalStatus(goal.id, nextStatus)
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                if (nextStatus == com.example.ui.screens.finance.model.SavingsGoalStatus.PAUSED) "هدف پس‌انداز متوقف شد" else "پس‌انداز هدف ادامه یافت"
+                            )
+                        }
+                    },
                     onDeleteGoalClick = { gId ->
                         viewModel.deleteSavingsGoal(gId)
                         scope.launch { snackbarHostState.showSnackbar("هدف پس‌انداز حذف شد") }
