@@ -352,8 +352,6 @@ class FinanceStage2Test {
     fun `14 Transaction outside period does not increase budget usage`() {
         val catFood = FinanceDefaultCategories.defaultExpenseCategories.find { it.id == "food" }!!
         val fixedNow = PersianCalendarHelper.jalaliToEpochMillis(1403, 7, 15, 12, 0)
-        val range = FinanceTimeUtils.getTimeRangeForPeriod(FinanceFilterPeriod.THIS_MONTH, fixedNow)
-
         val inMonthTx = TransactionItemData(id = "1", title = "Inside Mehr", amount = 1_000_000, type = TransactionType.EXPENSE, category = catFood, datePersian = "", timePersian = "", dateMillis = fixedNow)
         val outMonthTx = TransactionItemData(id = "2", title = "Inside Mordad", amount = 3_000_000, type = TransactionType.EXPENSE, category = catFood, datePersian = "", timePersian = "", dateMillis = PersianCalendarHelper.jalaliToEpochMillis(1403, 5, 10, 12, 0))
 
@@ -548,7 +546,7 @@ class FinanceStage2Test {
 
     // End-to-End ViewModel Period Test
     @Test
-    fun `FinancialViewModel setPeriod dynamically filters transactions and budget summary`() = runBlocking {
+    fun `FinancialViewModel setPeriod filters transactions while budget summary stays on current Jalali month`() = runBlocking {
         val catFood = FinanceDefaultCategories.defaultExpenseCategories.find { it.id == "food" }!!
         val now = System.currentTimeMillis()
         val monthRange = FinanceTimeUtils.getTimeRangeForPeriod(FinanceFilterPeriod.THIS_MONTH, now)
@@ -598,11 +596,11 @@ class FinanceStage2Test {
         assertEquals(1_000_000L, state.monthlyExpense)
         assertEquals(1_000_000L, state.budgetUsed)
 
-        // 2. With ALL, both transactions (1,000,000 + 2,000,000 = 3,000,000) should be included
+        // 2. ALL changes the transaction list, but the budget remains scoped to the current Jalali month.
         viewModel.setPeriod(FinanceFilterPeriod.ALL)
         state = viewModel.uiState.first { it.monthlyExpense == 3_000_000L }
         assertEquals(3_000_000L, state.monthlyExpense)
-        assertEquals(3_000_000L, state.budgetUsed)
+        assertEquals(1_000_000L, state.budgetUsed)
     }
 
     @Test
