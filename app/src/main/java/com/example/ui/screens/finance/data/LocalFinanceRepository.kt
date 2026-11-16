@@ -971,6 +971,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val payload = RecurringTransactionNotificationManager.getPending(context, userId, occurrenceId)
             ?: return false
         if (payload.optString("userId") != userId || payload.optString("occurrenceId") != occurrenceId) return false
+        if (!isPendingRecurringOccurrenceValid(context, userId, occurrenceId)) return false
 
         // Resolve the template from the active user's persisted data, not a possibly stale in-memory session.
         loadMetadataFromDisk(context.applicationContext, userId)
