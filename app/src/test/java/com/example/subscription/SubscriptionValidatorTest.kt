@@ -9,19 +9,59 @@ import org.junit.Test
 class SubscriptionValidatorTest {
 
     @Test
-    fun testEvaluateStatus_marketConfirmedRenewedSubscriptionRemainsActiveAfterOriginalYear() {
+    fun testEvaluateStatus_marketPurchaseExpiresAtOneYearEvenWhenCachedAsActive() {
         val now = 2_000_000_000_000L
-        val originalEnd = now - 10 * 86_400_000L
+        val purchaseAt = now - 375 * 86_400_000L
         val info = SubscriptionInfo(
-            subscriptionStartAt = now - 375 * 86_400_000L,
-            subscriptionEndAt = originalEnd,
-            subscriptionStatus = SubscriptionStatus.EXPIRED,
+            subscriptionPurchaseAt = purchaseAt,
+            subscriptionEndAt = SubscriptionValidator.calculateSubscriptionEndAt(purchaseAt),
+            subscriptionStatus = SubscriptionStatus.ACTIVE,
             marketAccountState = "MARKET_ACTIVE",
             lastSyncAt = now - 60_000L,
             lastMarketVerificationAt = now - 60_000L
         )
 
+        assertEquals(SubscriptionStatus.EXPIRED, SubscriptionValidator.evaluateStatus(info, now))
+    }
+
+    @Test
+    fun testEvaluateStatus_marketPurchaseRemainsActiveBeforeOneYearEnd() {
+        val now = 2_000_000_000_000L
+        val purchaseAt = now - 200 * 86_400_000L
+        val info = SubscriptionInfo(
+            subscriptionPurchaseAt = purchaseAt,
+            subscriptionEndAt = SubscriptionValidator.calculateSubscriptionEndAt(purchaseAt),
+            marketAccountState = "MARKET_ACTIVE",
+            lastSyncAt = now - 8 * 86_400_000L
+        )
+
         assertEquals(SubscriptionStatus.ACTIVE, SubscriptionValidator.evaluateStatus(info, now))
+    }
+
+    @Test
+    fun testEvaluateStatus_marketActiveWithoutPurchaseTimestampIsLocked() {
+        val info = SubscriptionInfo(
+            marketAccountState = "MARKET_ACTIVE",
+            subscriptionPurchaseAt = null,
+            subscriptionEndAt = null
+        )
+
+        assertEquals(SubscriptionStatus.LOCKED, SubscriptionValidator.evaluateStatus(info, 2_000_000_000_000L))
+    }
+
+    @Test
+    fun testCalculateSubscriptionEndAt_addsOneCalendarYear() {
+        val purchaseAt = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(2024, java.util.Calendar.FEBRUARY, 29, 12, 0, 0)
+        }.timeInMillis
+
+        val expected = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(2025, java.util.Calendar.FEBRUARY, 28, 12, 0, 0)
+        }.timeInMillis
+
+        assertEquals(expected, SubscriptionValidator.calculateSubscriptionEndAt(purchaseAt))
     }
 
     @Test
