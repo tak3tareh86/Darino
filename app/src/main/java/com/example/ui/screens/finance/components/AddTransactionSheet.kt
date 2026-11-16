@@ -87,6 +87,7 @@ import com.example.util.MoneyFormatter
 import com.example.util.MoneyAmount
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
+import com.example.calendar.domain.CalendarDateUtils
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -711,6 +712,28 @@ fun AddTransactionSheet(
                         errorMessage = "لطفاً عنوان دقیق تراکنش را وارد کنید."
                         return@Button
                     }
+                    val parsedDate = CalendarDateUtils.parseJalali(datePersian)
+                    if (parsedDate == null || !CalendarDateUtils.isValidJalaliDate(datePersian)) {
+                        errorMessage = "لطفاً تاریخ معتبر وارد کنید."
+                        return@Button
+                    }
+
+                    val timeParts = IranianPhoneUtils.convertDigitsToEnglish(timePersian).trim().split(":")
+                    val hour = timeParts.getOrNull(0)?.toIntOrNull()
+                    val minute = timeParts.getOrNull(1)?.toIntOrNull()
+                    if (timeParts.size != 2 || hour == null || minute == null || hour !in 0..23 || minute !in 0..59) {
+                        errorMessage = "لطفاً ساعت معتبر وارد کنید."
+                        return@Button
+                    }
+
+                    val transactionDateMillis = PersianCalendarHelper.jalaliToEpochMillis(
+                        parsedDate.first,
+                        parsedDate.second,
+                        parsedDate.third,
+                        hour,
+                        minute
+                    )
+
                     val finalTitle = if (selectedType == TransactionType.TRANSFER) {
                         "انتقال از ${selectedSourceAccount?.name} به ${selectedDestinationAccount?.name}"
                     } else {
@@ -730,6 +753,7 @@ fun AddTransactionSheet(
                         subCategory = selectedSubCategory,
                         datePersian = datePersian,
                         timePersian = timePersian,
+                        dateMillis = transactionDateMillis,
                         description = description,
                         paymentMethod = paymentMethod,
                         accountName = if (selectedType == TransactionType.TRANSFER) 
