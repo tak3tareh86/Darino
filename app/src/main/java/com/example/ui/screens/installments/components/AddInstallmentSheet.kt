@@ -62,6 +62,18 @@ import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.launch
 
+private val INSTALLMENT_IRANIAN_BANK_NAMES = listOf(
+    "ملی", "ملت", "صادرات", "تجارت",
+    "سپه", "رفاه", "مسکن", "کشاورزی",
+    "پاسارگاد", "پارسیان", "سامان", "شهر",
+    "اقتصاد نوین", "کارآفرین", "گردشگری", "دی",
+    "ایران‌زمین", "سینا", "سرمایه", "توسعه تعاون",
+    "پست بانک", "قوامین", "آینده", "مهر ایران",
+    "رسالت", "خاورمیانه", "توسعه صادرات", "صنعت و معدن",
+    "حکمت ایرانیان", "انصار", "موسسه ملل", "موسسه نور"
+)
+
+
 /**
  * World-Class, Ultra-Modern Two-Step Add Installment Flow with Centered Mini Pop-up Dialog for Reminders.
  *
@@ -772,6 +784,8 @@ private fun FormDetailsStep(
     onDismiss: () -> Unit,
     onSubmit: () -> Unit
 ) {
+    var showBankPickerDialog by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -858,6 +872,21 @@ private fun FormDetailsStep(
                         label = { Text("نام بانک/طرف حساب") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
+                        leadingIcon = {
+                            if (category == InstallmentCategory.BANK_LOANS) {
+                                Icon(Icons.Rounded.AccountBalance, contentDescription = null)
+                            }
+                        },
+                        trailingIcon = {
+                            if (category == InstallmentCategory.BANK_LOANS) {
+                                IconButton(onClick = { showBankPickerDialog = true }) {
+                                    Icon(
+                                        Icons.Rounded.ArrowDropDown,
+                                        contentDescription = "انتخاب بانک"
+                                    )
+                                }
+                            }
+                        },
                         shape = RoundedCornerShape(10.dp)
                     )
                 }
@@ -1197,6 +1226,57 @@ private fun FormDetailsStep(
                 )
             }
         }
+    }
+
+    if (showBankPickerDialog && category == InstallmentCategory.BANK_LOANS) {
+        AlertDialog(
+            onDismissRequest = { showBankPickerDialog = false },
+            title = {
+                Text(
+                    "انتخاب بانک",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(INSTALLMENT_IRANIAN_BANK_NAMES) { bank ->
+                        Surface(
+                            onClick = {
+                                onProviderChange(bank)
+                                showBankPickerDialog = false
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (provider == bank) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = bank,
+                                    textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = if (provider == bank) FontWeight.Bold else FontWeight.Medium,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showBankPickerDialog = false }) { Text("بستن") }
+            }
+        )
     }
 }
 
