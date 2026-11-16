@@ -446,7 +446,7 @@ fun FinancialScreen(
         TransferSheet(
             accounts = state.accounts,
             onDismiss = { showTransferSheet = false },
-            onSubmitTransfer = { srcId, destId, amountStr, desc, transferDate, recipientName ->
+            onSubmitTransfer = { srcId, amountStr, desc, transferDate, recipientName ->
                 val parsedAmtRials = com.example.util.IranianAmountUtils.parseAmountToBigDecimal(amountStr)?.let { entered ->
                     runCatching { com.example.util.MoneyAmount(entered, com.example.util.MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull()
                 }
@@ -468,8 +468,9 @@ fun FinancialScreen(
                         datePersian = PersianCalendarHelper.fromEpochMillis(transferDateMillis).toFormattedDate(),
                         timePersian = PersianCalendarHelper.fromEpochMillis(now).toFormattedTime(),
                         description = desc,
+                        accountName = state.accounts.find { it.id == srcId }?.name ?: "کارت بانکی",
                         transferSourceAccountId = srcId,
-                        transferDestinationAccountId = destId,
+                        transferDestinationAccountId = null,
                         transferRecipientName = recipientName.trim().takeIf { it.isNotEmpty() }
                     )
                     viewModel.addTransaction(transferTx) { res ->
