@@ -61,7 +61,10 @@ class FinanceStage2Test {
                 )
             )
             val prefs = context.getSharedPreferences("darino_general_preferences", Context.MODE_PRIVATE)
-            prefs.edit().remove("pref_persisted_budgets_test_user_stage2").commit()
+            prefs.edit()
+                .remove("pref_persisted_budgets_test_user_stage2")
+                .remove("pref_persisted_savings_goals_test_user_stage2")
+                .commit()
             repository.refreshMetadataForCurrentUser()
         }
     }
@@ -626,6 +629,84 @@ class FinanceStage2Test {
 
         val summary = BudgetEngine.calculateTotalMonthlyBudgetUsage(listOf(budget), listOf(expense))
         assertEquals(Int.MAX_VALUE, summary.usagePercentage)
+    }
+
+
+    @Test
+    fun `savings goal validation rejects blank titles invalid amounts and duplicate ids`() = runBlocking {
+        val invalid = SavingsGoal(
+            id = "invalid_goal",
+            title = "   ",
+            targetAmount = 0L,
+            currentAmount = -1L,
+            targetDate = "۱۴۰۵/۱۲/۲۹",
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL
+        )
+        repository.addSavingsGoal(invalid)
+        assertFalse(repository.getSavingsGoals().first().any { it.id == "invalid_goal" })
+
+        val valid = SavingsGoal(
+            id = "valid_goal",
+            title = "هدف معتبر",
+            targetAmount = 1_000L,
+            currentAmount = 100L,
+            targetDate = "۱۴۰۵/۱۲/۲۹",
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL
+        )
+        repository.addSavingsGoal(valid)
+        repository.addSavingsGoal(valid.copy(title = "تکراری"))
+        repository.updateSavingsGoal(valid.copy(currentAmount = -50L))
+
+        val stored = repository.getSavingsGoals().first().filter { it.id == "valid_goal" }
+        assertEquals(1, stored.size)
+        assertEquals(100L, stored.single().currentAmount)
+        assertEquals("هدف معتبر", stored.single().title)
+    }
+
+    @Test
+    fun `paused savings goal rejects deposits and active goal allows deposit beyond target without transactions`() = runBlocking {
+        val goal = SavingsGoal(
+            id = "deposit_goal_test",
+            title = "هدف واریز",
+            targetAmount = 1_000L,
+            currentAmount = 200L,
+            targetDate = "۱۴۰۵/۱۲/۲۹",
+            status = SavingsGoalStatus.PAUSED,
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL
+        )
+        repository.addSavingsGoal(goal)
+        val transactionsBefore = repository.getTransactions().first()
+
+        repository.depositToSavingsGoal(goal.id, 500L)
+        var stored = repository.getSavingsGoals().first().single { it.id == goal.id }
+        assertEquals(200L, stored.currentAmount)
+        assertEquals(SavingsGoalStatus.PAUSED, stored.status)
+
+        repository.setSavingsGoalStatus(goal.id, SavingsGoalStatus.IN_PROGRESS)
+        repository.depositToSavingsGoal(goal.id, 1_500L)
+        stored = repository.getSavingsGoals().first().single { it.id == goal.id }
+
+        assertEquals(1_700L, stored.currentAmount)
+        assertEquals(100, stored.progressPercentage)
+        assertEquals(SavingsGoalStatus.COMPLETED, stored.status)
+        assertEquals(transactionsBefore, repository.getTransactions().first())
+    }
+
+    @Test
+    fun `savings goal completion requires reaching target`() = runBlocking {
+        val goal = SavingsGoal(
+            id = "manual_complete_test",
+            title = "هدف نیمه‌تمام",
+            targetAmount = 2_000L,
+            currentAmount = 1_000L,
+            targetDate = "۱۴۰۵/۱۲/۲۹",
+            amountUnit = com.example.ui.screens.settings.model.AppCurrency.RIAL
+        )
+        repository.addSavingsGoal(goal)
+        repository.completeSavingsGoal(goal.id)
+
+        val stored = repository.getSavingsGoals().first().single { it.id == goal.id }
+        assertEquals(SavingsGoalStatus.IN_PROGRESS, stored.status)
     }
 
 }
