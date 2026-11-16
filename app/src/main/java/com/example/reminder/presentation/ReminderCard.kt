@@ -41,6 +41,7 @@ import com.example.ui.screens.settings.model.AppCurrency
 @Composable
 fun ReminderCard(
     reminder: ReminderEntity,
+    vehiclePlate: String? = null,
     onClick: () -> Unit,
     onToggleCompleted: () -> Unit,
     onSnoozeClick: () -> Unit,
@@ -179,9 +180,25 @@ fun ReminderCard(
                             }
                         }
 
+                        if (!vehiclePlate.isNullOrBlank()) {
+                            Text(
+                                text = vehiclePlate,
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .padding(horizontal = 54.dp),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
                         if (reminder.targetKilometer != null) {
                             Row(
-                                modifier = Modifier.align(Alignment.Center),
+                                modifier = Modifier.align(Alignment.CenterEnd),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
