@@ -46,9 +46,10 @@ class SubscriptionRepositoryImpl(
         when (val marketResult = poolakeyDataSource.getSubscribedProducts()) {
             is PoolakeyResult.Success -> {
                 val darinoPurchases = marketResult.data.filter { it.productId == MarketConfig.YEARLY_PRODUCT_ID }
-                val purchase = darinoPurchases.firstOrNull {
-                    it.purchaseState == PurchaseState.PURCHASED && it.purchaseToken.isNotBlank()
-                } ?: darinoPurchases.firstOrNull { it.purchaseState == PurchaseState.REFUNDED }
+                val purchase = darinoPurchases
+                    .filter { it.purchaseState == PurchaseState.PURCHASED && it.purchaseToken.isNotBlank() }
+                    .maxByOrNull { it.purchaseTime }
+                    ?: darinoPurchases.firstOrNull { it.purchaseState == PurchaseState.REFUNDED }
 
                 val now = System.currentTimeMillis()
                 val updated = when (purchase?.purchaseState) {
