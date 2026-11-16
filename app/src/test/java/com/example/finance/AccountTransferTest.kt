@@ -291,7 +291,7 @@ class AccountTransferTest {
     }
 
     @Test
-    fun `Transfer - mixed Rial and Toman values deduct from source only`() = runBlocking {
+    fun `Transfer - mixed Rial and Toman values are stored without changing balances`() = runBlocking {
         val source = Account(
             id = "mixed_source",
             userId = userA,
@@ -317,7 +317,7 @@ class AccountTransferTest {
             transferRecipientName = "گیرنده"
         )
         assertEquals(TransactionOperationResult.SUCCESS, repository.addTransactionResult(transfer))
-        assertEquals(700_000L, repository.calculateAccountBalance(source.id))
+        assertEquals(1_000_000L, repository.calculateAccountBalance(source.id))
     }
 
     @Test
