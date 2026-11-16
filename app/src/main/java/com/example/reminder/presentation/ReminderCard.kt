@@ -241,10 +241,10 @@ fun ReminderCard(
                 )
             }
 
-            // Row 3: Date/time stay on the right; the amount is centered in the card.
+            // Row 3: Date/time move to the opposite side, beneath the card's main icon; amount stays centered.
             Box(modifier = Modifier.fillMaxWidth()) {
                 Column(
-                    modifier = Modifier.align(Alignment.CenterEnd),
+                    modifier = Modifier.align(Alignment.CenterStart),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
