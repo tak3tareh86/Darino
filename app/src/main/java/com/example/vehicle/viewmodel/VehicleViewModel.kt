@@ -425,13 +425,14 @@ class VehicleViewModel(
             )
             result.onSuccess { createdServices ->
                 val primary = createdServices.first()
+                val failedReminder = createdServices.firstOrNull { it.reminderAlarmFailed }
                 _uiState.update {
-                    if (primary.reminderAlarmFailed) {
+                    if (failedReminder != null) {
                         it.copy(
                             showAddServiceSheet = false,
                             lastAddedService = null,
                             showReminderConfirmationDialog = false,
-                            snackBarMessage = "سوابق ${createdServices.size} سرویس ثبت شد، اما فعال‌سازی یادآور ناموفق بود (${primary.reminderAlarmErrorMessage ?: "خطای مجوز یا سیستم"})."
+                            snackBarMessage = "سوابق ${createdServices.size} سرویس ثبت شد، اما فعال‌سازی یادآور «${failedReminder.title}» ناموفق بود (${failedReminder.reminderAlarmErrorMessage ?: "خطای مجوز یا سیستم"})."
                         )
                     } else {
                         it.copy(
