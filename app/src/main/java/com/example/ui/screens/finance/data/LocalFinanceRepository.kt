@@ -7,6 +7,8 @@ import com.example.data.database.TransactionEntity
 import com.example.data.security.SessionManager
 import com.example.ui.screens.finance.domain.BudgetEngine
 import com.example.ui.screens.finance.domain.FinanceEngine
+import com.example.ui.screens.finance.domain.RecurringDateCalculator
+import com.example.calendar.domain.CalendarDateUtils
 import com.example.ui.screens.finance.model.Budget
 import com.example.ui.screens.finance.model.FinanceDefaultCategories
 import com.example.ui.screens.finance.model.PaymentMethod
@@ -624,42 +626,102 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         saveMetadataToDisk()
     }
 
+    private fun isValidRecurringTransaction(recurring: RecurringTransaction): Boolean {
+        if (recurring.id.isBlank() || recurring.title.isBlank() || recurring.amount <= 0L ||
+            recurring.categoryId.isBlank() || recurring.categoryTitle.isBlank() ||
+            recurring.accountName.isBlank() ||
+            (recurring.type != TransactionType.INCOME && recurring.type != TransactionType.EXPENSE)
+        ) return false
+
+        if (!CalendarDateUtils.isValidJalaliDate(recurring.startDate) ||
+            !CalendarDateUtils.isValidJalaliDate(recurring.nextExecutionDate)
+        ) return false
+
+        val start = CalendarDateUtils.parseJalali(recurring.startDate) ?: return false
+        val next = CalendarDateUtils.parseJalali(recurring.nextExecutionDate) ?: return false
+        val startEpoch = PersianCalendarHelper.getJalaliEpochDay(start.first, start.second, start.third)
+        val nextEpoch = PersianCalendarHelper.getJalaliEpochDay(next.first, next.second, next.third)
+        if (nextEpoch < startEpoch) return false
+
+        if (!recurring.endDate.isNullOrBlank()) {
+            if (!CalendarDateUtils.isValidJalaliDate(recurring.endDate)) return false
+            val end = CalendarDateUtils.parseJalali(recurring.endDate) ?: return false
+            val endEpoch = PersianCalendarHelper.getJalaliEpochDay(end.first, end.second, end.third)
+            if (endEpoch < nextEpoch) return false
+        }
+        return true
+    }
+
     override fun addRecurringTransaction(recurring: RecurringTransaction) {
-        val current = _recurringTransactions.value.toMutableList()
-        current.add(recurring)
-        _recurringTransactions.value = current
+        if (!isValidRecurringTransaction(recurring) || _recurringTransactions.value.any { it.id == recurring.id }) return
+        val nextParts = CalendarDateUtils.parseJalali(recurring.nextExecutionDate) ?: return
+        val normalized = recurring.copy(
+            title = recurring.title.trim(),
+            startDate = CalendarDateUtils.toPersianDisplay(recurring.startDate),
+            endDate = recurring.endDate?.takeIf { it.isNotBlank() }?.let(CalendarDateUtils::toPersianDisplay),
+            nextExecutionDate = CalendarDateUtils.toPersianDisplay(recurring.nextExecutionDate),
+            anchorDayOfMonth = recurring.anchorDayOfMonth.takeIf { it in 1..31 } ?: nextParts.third,
+            anchorMonthOfYear = recurring.anchorMonthOfYear.takeIf { it in 1..12 } ?: nextParts.second
+        )
+        _recurringTransactions.value = _recurringTransactions.value + normalized
         saveMetadataToDisk()
         appContext?.let { com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(it) }
     }
 
     override fun updateRecurringTransaction(recurring: RecurringTransaction) {
+        if (!isValidRecurringTransaction(recurring)) return
         val current = _recurringTransactions.value.toMutableList()
         val index = current.indexOfFirst { it.id == recurring.id }
-        if (index != -1) {
-            current[index] = recurring
-            _recurringTransactions.value = current
-            saveMetadataToDisk()
-            appContext?.let { com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(it) }
+        if (index == -1) return
+
+        val nextParts = CalendarDateUtils.parseJalali(recurring.nextExecutionDate) ?: return
+        val normalized = recurring.copy(
+            title = recurring.title.trim(),
+            startDate = CalendarDateUtils.toPersianDisplay(recurring.startDate),
+            endDate = recurring.endDate?.takeIf { it.isNotBlank() }?.let(CalendarDateUtils::toPersianDisplay),
+            nextExecutionDate = CalendarDateUtils.toPersianDisplay(recurring.nextExecutionDate),
+            anchorDayOfMonth = recurring.anchorDayOfMonth.takeIf { it in 1..31 } ?: nextParts.third,
+            anchorMonthOfYear = recurring.anchorMonthOfYear.takeIf { it in 1..12 } ?: nextParts.second
+        )
+        current[index] = normalized
+        _recurringTransactions.value = current
+        saveMetadataToDisk()
+        val userId = SessionManager.userId
+        val ctx = appContext
+        if (!userId.isNullOrBlank() && ctx != null) {
+            RecurringTransactionNotificationManager.removePendingForRecurring(ctx, userId, recurring.id)
+            com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(ctx)
         }
     }
 
     override fun deleteRecurringTransaction(id: String) {
         val current = _recurringTransactions.value.toMutableList()
-        current.removeAll { it.id == id }
+        val removed = current.removeAll { it.id == id }
+        if (!removed) return
         _recurringTransactions.value = current
         saveMetadataToDisk()
+        val userId = SessionManager.userId
+        val ctx = appContext
+        if (!userId.isNullOrBlank() && ctx != null) {
+            RecurringTransactionNotificationManager.removePendingForRecurring(ctx, userId, id)
+        }
     }
 
     override fun setRecurringEnabled(id: String, enabled: Boolean) {
         val current = _recurringTransactions.value.toMutableList()
         val index = current.indexOfFirst { it.id == id }
-        if (index != -1) {
-            val item = current[index]
-            current[index] = item.copy(enabled = enabled)
-            _recurringTransactions.value = current
-            saveMetadataToDisk()
+        if (index == -1) return
+        current[index] = current[index].copy(enabled = enabled)
+        _recurringTransactions.value = current
+        saveMetadataToDisk()
+
+        val userId = SessionManager.userId
+        val ctx = appContext
+        if (!userId.isNullOrBlank() && ctx != null) {
             if (enabled) {
-                appContext?.let { com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(it) }
+                com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueueOneTime(ctx)
+            } else {
+                RecurringTransactionNotificationManager.removePendingForRecurring(ctx, userId, id)
             }
         }
     }
@@ -676,12 +738,17 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         appContext = context.applicationContext
         val db = AppDatabase.getDatabase(context)
         ensureDefaultAccounts(db, currentUserId)
-        RecurringTransactionNotificationManager.showAllPending(context, currentUserId)
 
         if (_recurringTransactions.value.isEmpty()) {
             loadMetadataFromDisk(context, currentUserId)
         }
         val activeRecurringList = _recurringTransactions.value.filter { it.enabled }.toMutableList()
+        RecurringTransactionNotificationManager.removePendingForInactiveRecurring(
+            context,
+            currentUserId,
+            activeRecurringList.map { it.id }.toSet()
+        )
+        RecurringTransactionNotificationManager.showAllPending(context, currentUserId)
         if (activeRecurringList.isEmpty()) {
             return
         }
@@ -704,34 +771,50 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             val partsNext = nextDateNorm.split("/")
             if (partsNext.size != 3) continue
 
-            val nextY = partsNext[0].toIntOrNull() ?: continue
-            val nextM = partsNext[1].toIntOrNull() ?: continue
-            val nextD = partsNext[2].toIntOrNull() ?: continue
+            val parsedNext = CalendarDateUtils.parseJalali(nextDateNorm) ?: continue
+            val startParts = CalendarDateUtils.parseJalali(item.startDate) ?: continue
+            val startEpochDay = PersianCalendarHelper.getJalaliEpochDay(startParts.first, startParts.second, startParts.third)
+            if (todayEpochDay < startEpochDay) continue
+
+            // If an older saved next date predates the configured start date, start from startDate.
+            val effectiveDate = if (
+                PersianCalendarHelper.getJalaliEpochDay(parsedNext.first, parsedNext.second, parsedNext.third) < startEpochDay
+            ) item.startDate else item.nextExecutionDate
+            val effectiveParts = CalendarDateUtils.parseJalali(effectiveDate) ?: continue
+            val nextY = effectiveParts.first
+            val nextM = effectiveParts.second
+            val nextD = effectiveParts.third
             val nextEpochDay = PersianCalendarHelper.getJalaliEpochDay(nextY, nextM, nextD)
 
-            // Check if item has an endDate and if it's already past the endDate
             if (!item.endDate.isNullOrBlank()) {
-                val endNorm = com.example.calendar.domain.CalendarDateUtils.normalizeDate(item.endDate)
-                val partsEnd = endNorm.split("/")
-                if (partsEnd.size == 3) {
-                    val endY = partsEnd[0].toIntOrNull() ?: 0
-                    val endM = partsEnd[1].toIntOrNull() ?: 0
-                    val endD = partsEnd[2].toIntOrNull() ?: 0
-                    val endEpochDay = PersianCalendarHelper.getJalaliEpochDay(endY, endM, endD)
-                    if (nextEpochDay > endEpochDay) {
-                        val idx = updatedList.indexOfFirst { it.id == item.id }
-                        if (idx != -1) {
-                            updatedList[idx] = updatedList[idx].copy(enabled = false)
-                            hasChanges = true
-                        }
-                        continue
+                val endParts = CalendarDateUtils.parseJalali(item.endDate) ?: continue
+                val endEpochDay = PersianCalendarHelper.getJalaliEpochDay(endParts.first, endParts.second, endParts.third)
+                if (nextEpochDay > endEpochDay) {
+                    val idx = updatedList.indexOfFirst { it.id == item.id }
+                    if (idx != -1) {
+                        updatedList[idx] = updatedList[idx].copy(enabled = false)
+                        hasChanges = true
                     }
+                    RecurringTransactionNotificationManager.removePendingForRecurring(context, currentUserId, item.id)
+                    continue
                 }
             }
 
             // Check if due: nextExecutionDate <= today
             if (nextEpochDay <= todayEpochDay) {
-                val digitsNext = nextDateNorm.replace("/", "").replace("-", "")
+                val accountId = item.accountId?.takeIf { it.isNotBlank() }
+                val scheduledAccount = if (accountId != null) {
+                    db.accountDao().getAccountByStringId(currentUserId, accountId)
+                } else {
+                    db.accountDao().getAllAccountsList(currentUserId)
+                        .firstOrNull { it.name.equals(item.accountName, ignoreCase = true) }
+                }
+                if (scheduledAccount == null || !scheduledAccount.isActive || scheduledAccount.deletedAt != null) {
+                    android.util.Log.w("LocalFinanceRepository", "Skipping recurring " + item.id + ": selected account is unavailable.")
+                    continue
+                }
+
+                val digitsNext = CalendarDateUtils.normalizeDate(effectiveDate).replace("/", "").replace("-", "")
                 val executionStringId = "rec_exec_${item.id}_${digitsNext}"
 
                 // Persist a pending occurrence and notify; never write a transaction before confirmation.
@@ -756,11 +839,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                         put("categoryId", item.categoryId)
                         put("categoryTitle", item.categoryTitle)
                         put("frequency", item.frequency.name)
-                        put("datePersian", item.nextExecutionDate)
+                        put("datePersian", CalendarDateUtils.toPersianDisplay(effectiveDate))
                         put("dateMillis", scheduledMillis)
                         put("paymentMethod", item.paymentMethod.name)
                         put("accountName", item.accountName)
-                        put("accountId", item.accountId ?: "")
+                        put("accountId", scheduledAccount.stringId)
                     }
                     if (RecurringTransactionNotificationManager.savePending(context, currentUserId, executionStringId, payload)) {
                         RecurringTransactionNotificationManager.showPending(context, currentUserId, executionStringId)
@@ -771,22 +854,27 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 }
 
                 if (shouldAdvanceDate) {
-                    // Calculate next execution date
-                    var newNextDate = advanceExecutionDate(item.nextExecutionDate, item.frequency)
+                    // Advance from the actual scheduled occurrence while retaining the original Jalali anchor.
+                    var newNextDate = RecurringDateCalculator.nextDate(
+                        effectiveDate,
+                        item.frequency,
+                        item.anchorDayOfMonth,
+                        item.anchorMonthOfYear
+                    ) ?: continue
 
-                    // Catch-up policy: if newNextDate is still <= today, advance it until it is > today
+                    // Catch up missed periods without drifting the original day/month.
                     var loopCount = 0
                     while (loopCount < 100) {
-                        val newNorm = com.example.calendar.domain.CalendarDateUtils.normalizeDate(newNextDate)
-                        val newParts = newNorm.split("/")
-                        if (newParts.size != 3) break
-                        val ny = newParts[0].toIntOrNull() ?: break
-                        val nm = newParts[1].toIntOrNull() ?: break
-                        val nd = newParts[2].toIntOrNull() ?: break
-                        val newEpoch = PersianCalendarHelper.getJalaliEpochDay(ny, nm, nd)
+                        val newParts = CalendarDateUtils.parseJalali(newNextDate) ?: break
+                        val newEpoch = PersianCalendarHelper.getJalaliEpochDay(newParts.first, newParts.second, newParts.third)
                         if (newEpoch > todayEpochDay) break
 
-                        newNextDate = advanceExecutionDate(newNextDate, item.frequency)
+                        newNextDate = RecurringDateCalculator.nextDate(
+                            newNextDate,
+                            item.frequency,
+                            item.anchorDayOfMonth,
+                            item.anchorMonthOfYear
+                        ) ?: break
                         loopCount++
                     }
 
@@ -815,6 +903,16 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             ?: return false
         if (payload.optString("userId") != userId || payload.optString("occurrenceId") != occurrenceId) return false
 
+        if (_recurringTransactions.value.none { it.id == payload.optString("recurringId") }) {
+            loadMetadataFromDisk(context.applicationContext, userId)
+        }
+        val recurringId = payload.optString("recurringId")
+        val recurringTemplate = _recurringTransactions.value.firstOrNull { it.id == recurringId && it.enabled }
+        if (recurringTemplate == null) {
+            RecurringTransactionNotificationManager.removePending(context, userId, occurrenceId)
+            return false
+        }
+
         val db = AppDatabase.getDatabase(context.applicationContext)
         return try {
             val existing = db.transactionDao().getTransactionIncludingDeleted(userId, occurrenceId)
@@ -837,6 +935,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
             val type = runCatching { TransactionType.valueOf(payload.getString("type")) }.getOrNull() ?: return false
             if (type != TransactionType.INCOME && type != TransactionType.EXPENSE) return false
+            if (payload.optString("title").isBlank() || payload.optLong("amount") <= 0L) return false
+            if (!CalendarDateUtils.isValidJalaliDate(payload.optString("datePersian"))) return false
             val amountUnit = runCatching { AppCurrency.valueOf(payload.getString("amountUnit")) }.getOrNull() ?: return false
             val paymentMethod = runCatching { PaymentMethod.valueOf(payload.getString("paymentMethod")) }.getOrDefault(PaymentMethod.BANK_CARD)
             val frequency = runCatching { RecurringFrequency.valueOf(payload.getString("frequency")) }.getOrNull() ?: return false
@@ -894,28 +994,6 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 false
             }
         }
-    }
-
-    private fun advanceExecutionDate(currentDateStr: String, frequency: RecurringFrequency): String {
-        return when (frequency) {
-            RecurringFrequency.DAILY -> addDaysToPersianDate(currentDateStr, 1)
-            RecurringFrequency.WEEKLY -> addDaysToPersianDate(currentDateStr, 7)
-            RecurringFrequency.MONTHLY -> PersianCalendarHelper.addMonthsToPersianDate(currentDateStr, 1)
-            RecurringFrequency.YEARLY -> PersianCalendarHelper.addMonthsToPersianDate(currentDateStr, 12)
-        }
-    }
-
-    private fun addDaysToPersianDate(persianDate: String, daysToAdd: Int): String {
-        val cleanDate = com.example.calendar.domain.CalendarDateUtils.normalizeDate(persianDate)
-        val parts = cleanDate.split("/")
-        if (parts.size != 3) return persianDate
-        val y = parts[0].toIntOrNull() ?: return persianDate
-        val m = parts[1].toIntOrNull() ?: return persianDate
-        val d = parts[2].toIntOrNull() ?: return persianDate
-
-        val startMillis = PersianCalendarHelper.jalaliToEpochMillis(y, m, d, 9, 0)
-        val targetMillis = startMillis + (daysToAdd * 24 * 3600 * 1000L)
-        return PersianCalendarHelper.fromEpochMillis(targetMillis).toFormattedDate()
     }
 
     override fun clearAllTransactionsData() {
