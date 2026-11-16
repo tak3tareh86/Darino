@@ -32,16 +32,16 @@ class RecurringTransactionWorker(
 
         fun enqueuePeriodic(context: Context) {
             try {
-                val periodicRequest = PeriodicWorkRequestBuilder<RecurringTransactionWorker>(12, TimeUnit.HOURS)
+                val periodicRequest = PeriodicWorkRequestBuilder<RecurringTransactionWorker>(1, TimeUnit.HOURS)
                     .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
                     .build()
 
                 WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                     PERIODIC_WORK_NAME,
-                    ExistingPeriodicWorkPolicy.KEEP,
+                    ExistingPeriodicWorkPolicy.UPDATE,
                     periodicRequest
                 )
-                Log.i(TAG, "Enqueued periodic recurring transaction worker (12h interval)")
+                Log.i(TAG, "Enqueued periodic recurring transaction worker (1h best-effort interval)")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to enqueue periodic WorkManager task: ${e.message}")
             }
