@@ -1090,6 +1090,8 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                 obj.put("paymentMethod", r.paymentMethod.name)
                 obj.put("accountName", r.accountName)
                 obj.put("accountId", r.accountId ?: "")
+                obj.put("anchorDayOfMonth", r.anchorDayOfMonth)
+                obj.put("anchorMonthOfYear", r.anchorMonthOfYear)
                 rArr.put(obj)
             }
             editor.putString(userScopedKey(KEY_RECURRING, currentUserId), rArr.toString())
@@ -1202,7 +1204,19 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
                             enabled = obj.optBoolean("enabled", true),
                             paymentMethod = try { PaymentMethod.valueOf(obj.optString("paymentMethod", "BANK_CARD")) } catch (e: Exception) { PaymentMethod.BANK_CARD },
                             accountName = obj.optString("accountName", "کارت بانکی"),
-                            accountId = obj.optString("accountId").ifBlank { null }
+                            accountId = obj.optString("accountId").ifBlank { null },
+                            anchorDayOfMonth = obj.optInt(
+                                "anchorDayOfMonth",
+                                CalendarDateUtils.parseJalali(obj.getString("startDate"))?.third
+                                    ?: CalendarDateUtils.parseJalali(obj.getString("nextExecutionDate"))?.third
+                                    ?: 0
+                            ),
+                            anchorMonthOfYear = obj.optInt(
+                                "anchorMonthOfYear",
+                                CalendarDateUtils.parseJalali(obj.getString("startDate"))?.second
+                                    ?: CalendarDateUtils.parseJalali(obj.getString("nextExecutionDate"))?.second
+                                    ?: 0
+                            )
                         )
                     )
                 }
