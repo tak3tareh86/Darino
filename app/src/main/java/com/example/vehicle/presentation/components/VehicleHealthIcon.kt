@@ -1,5 +1,7 @@
 package com.example.vehicle.presentation.components
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -25,6 +27,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -39,18 +45,56 @@ fun VehicleHealthIcon(
     modifier: Modifier = Modifier,
     size: Dp = 56.dp
 ) {
+    val normalizedTitle = title.replace("ي", "ی").replace("ك", "ک")
+    val isOilFilter = normalizedTitle.contains("فیلتر روغن")
     val icon = vehicleHealthIconFor(title)
     Surface(
         modifier = modifier.size(size),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.62f)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = title,
-            modifier = Modifier.padding(size * 0.19f),
-            tint = MaterialTheme.colorScheme.primary
-        )
+        if (isOilFilter) {
+            val tint = MaterialTheme.colorScheme.primary
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(size * 0.27f)
+            ) {
+                val strokeWidth = this.size.minDimension * 0.075f
+                val left = this.size.width * 0.25f
+                val top = this.size.height * 0.13f
+                val bodyWidth = this.size.width * 0.5f
+                val bodyHeight = this.size.height * 0.74f
+
+                // Draw a recognizable canister-shaped oil filter.
+                drawRoundRect(
+                    color = tint,
+                    topLeft = Offset(left, top),
+                    size = Size(bodyWidth, bodyHeight),
+                    cornerRadius = CornerRadius(strokeWidth * 2f),
+                    style = Stroke(width = strokeWidth)
+                )
+                drawLine(
+                    color = tint,
+                    start = Offset(left, top + bodyHeight * 0.2f),
+                    end = Offset(left + bodyWidth, top + bodyHeight * 0.2f),
+                    strokeWidth = strokeWidth
+                )
+                drawLine(
+                    color = tint,
+                    start = Offset(left, top + bodyHeight * 0.8f),
+                    end = Offset(left + bodyWidth, top + bodyHeight * 0.8f),
+                    strokeWidth = strokeWidth
+                )
+            }
+        } else {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                modifier = Modifier.padding(size * 0.19f),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
     }
 }
 
