@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.R
 import com.example.reminder.data.ReminderEntity
+import com.example.vehicle.data.VehicleRepository
+import androidx.compose.ui.platform.LocalContext
 import com.example.reminder.domain.ReminderType
 import com.example.reminder.domain.PredefinedOffset
 import com.example.reminder.domain.SnoozeOption
@@ -67,6 +69,30 @@ fun ReminderScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val appContext = LocalContext.current
+    val vehicleRepository = remember { VehicleRepository.instance }
+    val vehicles by vehicleRepository.vehicles.collectAsState()
+    val vehicleServices by vehicleRepository.services.collectAsState()
+
+    LaunchedEffect(vehicleRepository, appContext) {
+        vehicleRepository.initDatabase(appContext)
+    }
+
+    val vehiclePlateForReminder: (ReminderEntity) -> String? = { reminder ->
+        val isVehicleServiceReminder =
+            reminder.title.startsWith("یادآور سرویس:") || reminder.targetKilometer != null
+        if (isVehicleServiceReminder && reminder.sourceType.equals("VEHICLE", ignoreCase = true)) {
+            val serviceId = reminder.sourceId ?: reminder.id
+            val service = vehicleServices.firstOrNull { it.id == serviceId }
+            service?.let { linkedService ->
+                vehicles.firstOrNull { it.id == linkedService.vehicleId }
+                    ?.plate
+                    ?.takeIf { it.isNotBlank() }
+            }
+        } else {
+            null
+        }
+    }
 
     var currentSubScreen by remember { mutableStateOf(ReminderSubScreen.LIST) }
     var selectedReminderForDetail by remember { mutableStateOf<ReminderEntity?>(null) }
@@ -509,6 +535,7 @@ fun ReminderScreen(
                             items(activeReminders, key = { it.id }) { reminder ->
                                 ReminderCard(
                                     reminder = reminder,
+                                    vehiclePlate = vehiclePlateForReminder(reminder),
                                     onClick = {},
                                     onToggleCompleted = {
                                         viewModel.completeReminder(reminder.id)
@@ -574,7 +601,9 @@ fun ReminderScreen(
                                     items(completedReminders, key = { it.id }) { reminder ->
                                         ReminderCard(
                                             reminder = reminder,
-                                            onClick = {},
+                                            vehiclePlate = vehiclePlateForReminder(reminder),
+                                            vehiclePlate = vehiclePlateForReminder(reminder),
+                                        onClick = {},
                                             onToggleCompleted = {
                                                 viewModel.toggleReminderEnabled(reminder.id, true)
                                             },
@@ -590,6 +619,7 @@ fun ReminderScreen(
                                 items(completedReminders, key = { it.id }) { reminder ->
                                     ReminderCard(
                                         reminder = reminder,
+                                        vehiclePlate = vehiclePlateForReminder(reminder),
                                         onClick = {},
                                         onToggleCompleted = {
                                             viewModel.toggleReminderEnabled(reminder.id, true)
