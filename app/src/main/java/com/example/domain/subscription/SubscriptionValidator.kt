@@ -4,8 +4,6 @@ import com.example.util.PersianCalendarHelper
 
 object SubscriptionValidator {
 
-    private const val MARKET_OFFLINE_GRACE_PERIOD_MILLIS = 7L * 24L * 60L * 60L * 1000L
-
     fun calculateTrialDaysRemaining(info: SubscriptionInfo, currentTimeMillis: Long = System.currentTimeMillis()): Long {
         if (info.trialEndAt <= 0L) return 0L
         val diffMillis = info.trialEndAt - currentTimeMillis
@@ -24,8 +22,9 @@ object SubscriptionValidator {
     }
 
     /**
-     * Determines current subscription status based on Trial time, Active subscription time,
-     * and clock manipulation safeguards.
+     * Determines current subscription status based on Trial time, Market-confirmed purchase,
+     * and clock manipulation safeguards. The seven-day limit applies only to the free trial;
+     * a cached Market-confirmed purchase is not expired merely because the app stayed offline.
      */
     fun evaluateStatus(info: SubscriptionInfo, currentTimeMillis: Long = System.currentTimeMillis()): SubscriptionStatus {
         // An active-looking cached timestamp is not sufficient when Market could not provide
@@ -40,16 +39,9 @@ object SubscriptionValidator {
             return SubscriptionStatus.LOCKED
         }
 
-        // A successful Market confirmation grants a bounded offline grace period.
-        // A missing timestamp is not proof of a recent confirmation and must fail closed.
+        // A Market-confirmed PURCHASED state remains cached until Market can be queried again.
+        // The seven-day trial limit must never be applied to an already purchased subscription.
         if (info.marketAccountState == "MARKET_ACTIVE") {
-            if (info.lastMarketVerificationAt <= 0L) return SubscriptionStatus.LOCKED
-            if (currentTimeMillis - info.lastMarketVerificationAt >= MARKET_OFFLINE_GRACE_PERIOD_MILLIS) {
-                return SubscriptionStatus.LOCKED
-            }
-
-            // Market's current PURCHASED result is authoritative; old locally cached expiry
-            // values must not override a more recent successful Market confirmation.
             return SubscriptionStatus.ACTIVE
         }
 
