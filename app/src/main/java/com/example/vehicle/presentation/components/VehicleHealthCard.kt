@@ -172,11 +172,9 @@ fun VehicleHealthCard(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Soft3DIcon(
-                                imageRes = item.iconRes,
-                                contentDescription = item.title,
-                                size = 20.dp,
-                                accentColor = itemColor
+                            VehicleHealthIcon(
+                                title = item.title,
+                                size = 20.dp
                             )
                             Text(
                                 text = item.title,
