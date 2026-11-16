@@ -660,6 +660,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
     override fun addRecurringTransaction(recurring: RecurringTransaction) {
         if (!isValidRecurringTransaction(recurring) || _recurringTransactions.value.any { it.id == recurring.id }) return
+        val previous = current[index]
         val nextParts = CalendarDateUtils.parseJalali(recurring.nextExecutionDate) ?: return
         val normalized = recurring.copy(
             title = recurring.title.trim(),
@@ -689,13 +690,17 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             anchorDayOfMonth = recurring.anchorDayOfMonth.takeIf { it in 1..31 } ?: nextParts.third,
             anchorMonthOfYear = recurring.anchorMonthOfYear.takeIf { it in 1..12 } ?: nextParts.second
         )
+        val scheduleChanged =
+            previous.startDate != normalized.startDate ||
+            previous.nextExecutionDate != normalized.nextExecutionDate ||
+            previous.endDate != normalized.endDate
         current[index] = normalized
         _recurringTransactions.value = current
         saveMetadataToDisk()
         val userId = SessionManager.userId
         val ctx = appContext
         if (!userId.isNullOrBlank() && ctx != null) {
-            if (normalized.enabled) {
+            if (normalized.enabled && !scheduleChanged) {
                 // Keep the already-due occurrence, but refresh its data from the edited template.
                 RecurringTransactionNotificationManager.refreshPendingForRecurring(ctx, userId, normalized)
             } else {
