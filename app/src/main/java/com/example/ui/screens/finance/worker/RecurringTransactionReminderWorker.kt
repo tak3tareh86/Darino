@@ -25,7 +25,9 @@ class RecurringTransactionReminderWorker(
 
             val repository = LocalFinanceRepository.instance
             repository.init(applicationContext)
-            if (repository.isPendingRecurringOccurrenceValid(applicationContext, userId, occurrenceId)) {
+            if (repository.isPendingRecurringOccurrenceValid(applicationContext, userId, occurrenceId) &&
+                SessionManager.userId == userId
+            ) {
                 RecurringTransactionNotificationManager.showPendingIfDue(applicationContext, userId, occurrenceId)
             }
             Result.success()
