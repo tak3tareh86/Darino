@@ -125,8 +125,6 @@ fun VehicleCostChart(
                         }
                     }
 
-                    }
-
                     Spacer(modifier = Modifier.height(6.dp))
 
                     // Full month names are rotated vertically to remain readable
