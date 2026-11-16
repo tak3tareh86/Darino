@@ -96,6 +96,11 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     private val _pendingSmsQueue = MutableStateFlow<List<BankSmsSuggestion>>(emptyList())
     val pendingSmsQueue: StateFlow<List<BankSmsSuggestion>> = _pendingSmsQueue.asStateFlow()
 
+    // Share the Finance menu's live category source with SMS transaction review.
+    private val financeRepository = LocalFinanceRepository.instance
+    private val _financeCategories = MutableStateFlow<List<TransactionCategory>>(emptyList())
+    val financeCategories: StateFlow<List<TransactionCategory>> = _financeCategories.asStateFlow()
+
     // Reactive user accounts for authenticated user
     private val _userAccounts = MutableStateFlow<List<com.example.data.database.AccountEntity>>(emptyList())
     val userAccounts: StateFlow<List<com.example.data.database.AccountEntity>> = _userAccounts.asStateFlow()
@@ -115,6 +120,13 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     private var lastCommittedVersion = 0L
 
     init {
+        financeRepository.init(application)
+        viewModelScope.launch {
+            financeRepository.getCategories().collectLatest { categories ->
+                _financeCategories.value = categories
+            }
+        }
+
         // Robust refresh pipeline: debounced, mutex-serialized (at most one aggregate execution at a time), latest wins (version checked)
         viewModelScope.launch {
             refreshTrigger
