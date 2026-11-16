@@ -294,6 +294,12 @@ class FinancialViewModel(
         }
     }
 
+    fun setSavingsGoalStatus(goalId: String, status: com.example.ui.screens.finance.model.SavingsGoalStatus) {
+        viewModelScope.launch {
+            repository.setSavingsGoalStatus(goalId, status)
+        }
+    }
+
     fun completeSavingsGoal(goalId: String) {
         viewModelScope.launch {
             repository.completeSavingsGoal(goalId)
