@@ -1002,14 +1002,14 @@ class VehicleRepository {
                     }
                 }
                 val vehicleAffected = db.vehicleDao().deleteVehicleByServerId(userId, vehicleId)
-                if (vehicleAffected > 0) {
-                    enqueueVehicleReminderCleanup(
-                        db = db,
-                        userId = userId,
-                        reminderIds = serviceIds + insuranceIds + inspectionIds + listOf(vehicleId),
-                        schedules = allSchedulesToCancel
-                    )
-                }
+                // Queue every reminder whose database rows are removed below, even if the
+                // vehicle row was already missing but orphan child/reminder rows still exist.
+                enqueueVehicleReminderCleanup(
+                    db = db,
+                    userId = userId,
+                    reminderIds = serviceIds + insuranceIds + inspectionIds + listOf(vehicleId),
+                    schedules = allSchedulesToCancel
+                )
                 db.vehicleDao().deleteServicesByVehicleId(userId, vehicleId)
                 db.vehicleDao().deleteExpensesByVehicleId(userId, vehicleId)
                 db.vehicleDao().deleteInsurancesByVehicleId(userId, vehicleId)
