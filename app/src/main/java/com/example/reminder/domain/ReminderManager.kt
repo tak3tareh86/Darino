@@ -154,6 +154,10 @@ class ReminderManager(
         }
 
         val existingReminder = repository.getReminderById(reminder.id)
+            ?: throw NoSuchElementException("یادآور موردنظر برای ویرایش پیدا نشد.")
+        if (existingReminder.userId != reminder.userId) {
+            throw SecurityException("یادآور متعلق به کاربر فعلی نیست.")
+        }
         val existingSchedules = repository.getSchedulesSync(reminder.id)
         scheduler.cancel(reminder.id, existingSchedules)
         NotificationDispatcher(context).cancelReminderNotifications(reminder.id, existingSchedules)
@@ -174,22 +178,26 @@ class ReminderManager(
             )
         }
 
-        repository.updateReminderWithSchedules(reminder, newSchedules)
         val scheduledCount = try {
+            // Persist and arm as one recoverable operation. If either step fails,
+            // restore the exact previous reminder and schedule rows.
+            repository.updateReminderWithSchedules(reminder, newSchedules)
             scheduler.schedule(reminder, newSchedules).also { count ->
-                if (reminder.sourceType.equals("CHECK", ignoreCase = true) && newSchedules.any { it.enabled } && count == 0) {
+                if (reminder.sourceType.equals("CHECK", ignoreCase = true) &&
+                    newSchedules.any { it.enabled } && count == 0
+                ) {
                     throw IllegalStateException("هیچ آلارمی ثبت نشد؛ تنظیمات اعلان و مجوز آلارم دقیق را بررسی کنید.")
                 }
             }
         } catch (e: Exception) {
-            Log.e("ReminderManager", "Failed to schedule alarms during update for reminder ${reminder.id}. Rolling back to previous state.", e)
-            if (existingReminder != null) {
-                try {
-                    repository.updateReminderWithSchedules(existingReminder, existingSchedules)
-                    scheduler.schedule(existingReminder, existingSchedules)
-                } catch (rollbackEx: Exception) {
-                    Log.e("ReminderManager", "Failed to restore previous reminder during update rollback", rollbackEx)
-                }
+            Log.e("ReminderManager", "Failed to update or schedule reminder ${reminder.id}; restoring previous state.", e)
+            try {
+                repository.updateReminderWithSchedules(existingReminder, existingSchedules)
+                scheduler.cancel(reminder.id, newSchedules)
+                scheduler.schedule(existingReminder, existingSchedules)
+            } catch (rollbackEx: Exception) {
+                e.addSuppressed(rollbackEx)
+                Log.e("ReminderManager", "Failed to restore previous reminder during update rollback", rollbackEx)
             }
             throw e
         }
@@ -262,8 +270,15 @@ class ReminderManager(
     suspend fun cancelReminder(reminderId: String) = withContext(Dispatchers.IO) {
         val reminder = repository.getReminderById(reminderId)
         val effectiveReminderId = reminder?.id ?: reminderId
-        repository.updateStatus(reminderId, "CANCELLED")
         val schedules = repository.getSchedulesSync(reminderId)
+        if (reminder != null) {
+            repository.updateReminderWithSchedules(
+                reminder.copy(status = "CANCELLED", cancelledAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis()),
+                schedules.map { it.copy(enabled = false) }
+            )
+        } else {
+            repository.updateStatus(reminderId, "CANCELLED")
+        }
         scheduler.cancel(effectiveReminderId, schedules)
         NotificationDispatcher(context).cancelReminderNotifications(effectiveReminderId, schedules)
         if (reminder?.sourceType.equals("CALENDAR", ignoreCase = true)) {
