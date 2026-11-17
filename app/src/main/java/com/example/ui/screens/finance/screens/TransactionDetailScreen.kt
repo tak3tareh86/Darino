@@ -217,7 +217,11 @@ fun TransactionDetailScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    DetailRow(label = "دسته‌بندی", value = "${transaction.category.iconEmoji} ${transaction.category.title}")
+                    if (transaction.type == TransactionType.TRANSFER) {
+                        DetailRow(label = "نوع تراکنش", value = "انتقال وجه")
+                    } else {
+                        DetailRow(label = "دسته‌بندی", value = "${transaction.category.iconEmoji} ${transaction.category.title}")
+                    }
 
                     transaction.subCategory?.let { sub ->
                         DetailRow(label = "زیردسته‌بندی", value = sub)
