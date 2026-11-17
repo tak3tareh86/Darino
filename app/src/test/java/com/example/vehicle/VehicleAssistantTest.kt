@@ -53,6 +53,83 @@ class VehicleAssistantTest {
     }
 
     @Test
+    fun insuranceEditUpdatesExistingRecordAndRejectsMissingOrForeignVehicleIds() = kotlinx.coroutines.runBlocking {
+        val db = com.example.data.database.AppDatabase.getDatabase(context)
+        val userId = SessionManager.userId!!
+
+        val firstVehicle = repository.addVehicle(
+            brand = "پژو", model = "206", year = "1402", color = "سفید",
+            plate = "۱۲ الف ۳۴۵ ایران ۶۸", currentMileage = 30000
+        ).getOrThrow()
+        val secondVehicle = repository.addVehicle(
+            brand = "سمند", model = "LX", year = "1401", color = "نقره‌ای",
+            plate = "۲۲ ب ۴۵۶ ایران ۷۷", currentMileage = 50000
+        ).getOrThrow()
+
+        val original = repository.saveInsurance(
+            vehicleId = firstVehicle.id,
+            company = "بیمه ایران",
+            type = "شخص ثالث",
+            startDate = "1405/01/01",
+            endDate = "1405/12/29",
+            amount = 5_000_000L,
+            policyNumber = "POLICY-1"
+        ).getOrThrow()
+
+        val updated = repository.saveInsurance(
+            vehicleId = firstVehicle.id,
+            company = "بیمه البرز",
+            type = "شخص ثالث",
+            startDate = "1405/02/01",
+            endDate = "1406/01/29",
+            amount = 7_000_000L,
+            policyNumber = "POLICY-2",
+            recordId = original.id
+        ).getOrThrow()
+
+        assertEquals(original.id, updated.id)
+        val savedRows = db.vehicleDao().getAllInsurancesList(userId).filter { it.id == original.id }
+        assertEquals("Editing must update exactly one insurance row", 1, savedRows.size)
+        assertEquals(firstVehicle.id, savedRows.single().vehicleId)
+        assertEquals("بیمه البرز", savedRows.single().company)
+        assertEquals(7_000_000L, savedRows.single().amount)
+
+        val linkedExpense = db.vehicleDao().getExpenseById(userId, "exp_ins_${original.id}")
+        assertNotNull(linkedExpense)
+        assertEquals(firstVehicle.id, linkedExpense!!.vehicleId)
+        assertEquals(7_000_000L, linkedExpense.amount)
+
+        val missingIdResult = repository.saveInsurance(
+            vehicleId = firstVehicle.id,
+            company = "بیمه تست",
+            type = "شخص ثالث",
+            startDate = "1405/01/01",
+            endDate = "1405/12/29",
+            amount = 1_000_000L,
+            policyNumber = "MISSING",
+            recordId = "missing-insurance-id"
+        )
+        assertTrue("A missing edit ID must fail instead of inserting a new record", missingIdResult.isFailure)
+        assertEquals(1, db.vehicleDao().getAllInsurancesList(userId).count { it.id == "missing-insurance-id" })
+
+        val foreignVehicleResult = repository.saveInsurance(
+            vehicleId = secondVehicle.id,
+            company = "بیمه منتقل‌شده",
+            type = "شخص ثالث",
+            startDate = "1405/01/01",
+            endDate = "1405/12/29",
+            amount = 9_000_000L,
+            policyNumber = "FOREIGN",
+            recordId = original.id
+        )
+        assertTrue("An insurance record must not be reassigned to another vehicle", foreignVehicleResult.isFailure)
+        val unchanged = db.vehicleDao().getInsuranceById(userId, original.id)
+        assertNotNull(unchanged)
+        assertEquals(firstVehicle.id, unchanged!!.vehicleId)
+        assertEquals("بیمه البرز", unchanged.company)
+    }
+
+    @Test
     fun testAddVehicleAndServiceWorkflow() = kotlinx.coroutines.runBlocking {
         // 1. Add Peugeot 207 (1402, 45,000 km)
         val carResult = repository.addVehicle(
