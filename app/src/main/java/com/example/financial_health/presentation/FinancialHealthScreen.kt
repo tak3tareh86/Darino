@@ -291,12 +291,23 @@ private fun HealthOverviewHeroCard(
                                 fontSize = 10.5.sp,
                                 lineHeight = 14.sp
                             ),
-                            maxLines = 2,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
+
+            }
+
+            // Centered status badge and monthly pressure percentage
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 if (hasValidPressure) {
                     Surface(
                         shape = RoundedCornerShape(9.dp),
@@ -331,47 +342,41 @@ private fun HealthOverviewHeroCard(
                         )
                     }
                 }
-            }
 
-            // Big Percentage Centerpiece
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Row(
-                        verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) "${formatFinancialPercentage(state.pressurePercentage)}٪" else "—",
-                            style = MaterialTheme.typography.displaySmall.copy(
-                                fontWeight = FontWeight.Black,
-                                fontSize = 42.sp
-                            ),
-                            color = statusColor
-                        )
-                        Text(
-                            text = "فشار مالی ماهانه",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 13.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    }
-                    Text(
-                        text = if (state.hasIncomeData && state.hasFixedExpensesData && state.hasInstallmentScheduleData) status.defaultMessage else "برای محاسبه معتبر، درآمد و هزینه‌های ثابت را ثبت کنید و برنامه پرداخت همه اقساط فعال را کامل نگه دارید.",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
-                            fontWeight = FontWeight.Medium
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                Text(
+                    text = if (hasValidPressure) "${formatFinancialPercentage(state.pressurePercentage)}٪" else "—",
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontWeight = FontWeight.Black,
+                        fontSize = 42.sp
+                    ),
+                    color = statusColor,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "فشار مالی ماهانه",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = if (hasValidPressure) status.defaultMessage else "برای محاسبه معتبر، درآمد و هزینه‌های ثابت را ثبت کنید و برنامه پرداخت همه اقساط فعال را کامل نگه دارید.",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             // Progress Bar with 3-zone markers
