@@ -50,7 +50,22 @@ fun ReminderDetailScreen(
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
-    val isCompleted = reminder.status == "COMPLETED"
+    val normalizedStatus = reminder.status.uppercase()
+    val isCompleted = normalizedStatus == "COMPLETED"
+    val statusLabel = when (normalizedStatus) {
+        "ACTIVE" -> "فعال"
+        "COMPLETED" -> "انجام شده"
+        "MISSED" -> "از دست رفته"
+        "DISABLED" -> "غیرفعال"
+        "CANCELLED" -> "لغوشده"
+        else -> "نامشخص"
+    }
+    val statusColor = when (normalizedStatus) {
+        "ACTIVE" -> EmeraldPrimaryLight
+        "COMPLETED", "DISABLED", "CANCELLED" -> Color(0xFF64748B)
+        "MISSED" -> ExpenseRoseLight
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
     val reminderType = when (reminder.type) {
         "FINANCE" -> ReminderType.FINANCE
         "INSTALLMENT" -> ReminderType.INSTALLMENT
@@ -151,13 +166,12 @@ fun ReminderDetailScreen(
                             )
                         }
 
-                        val statusColor = if (isCompleted) Color(0xFF64748B) else EmeraldPrimaryLight
                         Surface(
                             shape = RoundedCornerShape(RadiusSM),
                             color = statusColor.copy(alpha = 0.12f)
                         ) {
                             Text(
-                                text = if (isCompleted) "انجام شده" else "فعال",
+                                text = statusLabel,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.SemiBold,
