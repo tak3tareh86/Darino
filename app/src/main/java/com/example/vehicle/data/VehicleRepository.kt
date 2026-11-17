@@ -126,19 +126,18 @@ class VehicleRepository {
         val scheduler = com.example.reminder.domain.ReminderScheduler(context)
 
         dao.getPendingForUser(userId).forEach { pending ->
-            val schedules = try {
+            val schedules = mutableListOf<com.example.reminder.data.ReminderScheduleEntity>()
+            try {
                 val json = JSONArray(pending.schedulesJson)
-                buildList {
-                    for (index in 0 until json.length()) {
-                        val item = json.getJSONObject(index)
-                        add(
-                            com.example.reminder.data.ReminderScheduleEntity(
-                                id = item.getString("id"),
-                                reminderId = pending.reminderId,
-                                triggerDateTime = item.getLong("triggerDateTime")
-                            )
+                for (index in 0 until json.length()) {
+                    val item = json.getJSONObject(index)
+                    schedules.add(
+                        com.example.reminder.data.ReminderScheduleEntity(
+                            id = item.getString("id"),
+                            reminderId = pending.reminderId,
+                            triggerDateTime = item.getLong("triggerDateTime")
                         )
-                    }
+                    )
                 }
             } catch (e: Exception) {
                 android.util.Log.e(
