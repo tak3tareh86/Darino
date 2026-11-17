@@ -8,12 +8,17 @@ import com.example.data.security.SessionState
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import com.example.reminder.domain.ReminderScheduler
+import com.example.reminder.domain.RepeatType
 
 interface ReminderRepository {
     fun getAllReminders(): Flow<List<ReminderEntity>>
@@ -57,44 +62,141 @@ private fun SessionState.userIdOrNull(): String? = when (this) {
 
 class LocalReminderRepository(context: Context) : ReminderRepository {
 
-    private val db = AppDatabase.getDatabase(context)
+    private val appContext = context.applicationContext
+    private val db = AppDatabase.getDatabase(appContext)
     private val dao = db.smartReminderDao()
 
     private fun requireUserId(): String =
         SessionManager.userId ?: throw IllegalStateException("Authenticated user is required for reminder access")
 
     init {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val userId = SessionManager.userId ?: return@launch
-                val current = dao.getAllReminders(userId).first()
-                if (current.isEmpty()) {
-                    val legacyList = db.reminderDao().getActiveRemindersSnapshot(userId)
-                    if (legacyList.isNotEmpty()) {
-                        val migrated = legacyList.map { leg ->
-                            ReminderEntity(
-                                id = if (leg.serverId.isNullOrBlank()) leg.id.toString() else leg.serverId,
-                                userId = userId,
-                                title = leg.title,
-                                description = leg.description,
-                                type = leg.type,
-                                sourceType = leg.sourceType ?: "MANUAL",
-                                sourceId = leg.sourceId?.toString(),
-                                status = if (leg.completedAt != null) "COMPLETED" else if (leg.enabled) "ACTIVE" else "DISABLED",
-                                date = PersianCalendarHelper.fromEpochMillis(leg.scheduledDateTime).toFormattedDate(),
-                                time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(leg.scheduledDateTime)),
-                                notificationEnabled = leg.notificationEnabled,
-                                smsEnabled = leg.smsEnabled,
-                                phoneNumber = leg.phoneNumber
-                            )
-                        }
-                        dao.insertReminders(migrated)
+        // Session may not be restored when this repository is first constructed.
+        // Observe it so a safely owner-scoped legacy migration is retried after login.
+        migrationScope.launch {
+            SessionManager.sessionState.collect { state ->
+                val userId = state.userIdOrNull() ?: return@collect
+                runCatching { migrateLegacyReminders(userId) }
+                    .onFailure {
+                        android.util.Log.e("LocalReminderRepository", "Legacy reminder migration failed for the authenticated user.", it)
                     }
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("LocalReminderRepository", "Legacy reminder migration failed", e)
             }
         }
+    }
+
+    private suspend fun migrateLegacyReminders(userId: String) = migrationMutex.withLock {
+        val legacyList = db.reminderDao().getAllRemindersForBackup(userId)
+            .filter { it.deletedAt == null }
+        if (legacyList.isEmpty()) return@withLock
+
+        val existing = dao.getAllRemindersList(userId)
+        val existingIds = existing.mapTo(mutableSetOf()) { it.id }
+        val existingSources = existing.mapNotNull { reminder ->
+            reminder.sourceId?.let { reminder.sourceType.uppercase() to it }
+        }.toMutableSet()
+        val legacySchedules = db.reminderDao().getAllSchedulesForBackup(userId)
+            .groupBy { it.reminderId }
+        val now = System.currentTimeMillis()
+
+        val migratedReminders = mutableListOf<ReminderEntity>()
+        val migratedSchedules = mutableListOf<ReminderScheduleEntity>()
+
+        legacyList.forEach { legacy ->
+            val id = "legacy_reminder_${legacy.serverId?.takeIf { it.isNotBlank() } ?: legacy.id}"
+            val sourceType = when (legacy.sourceType?.uppercase()) {
+                "VEHICLE_SERVICE" -> "VEHICLE"
+                null, "" -> "MANUAL"
+                else -> legacy.sourceType.uppercase()
+            }
+            val sourceId = legacy.sourceId?.toString()
+            val sourceKey = sourceId?.let { sourceType to it }
+            if (id in existingIds || (sourceKey != null && sourceKey in existingSources)) return@forEach
+
+            val status = when {
+                legacy.completedAt != null -> "COMPLETED"
+                !legacy.enabled -> "DISABLED"
+                else -> "ACTIVE"
+            }
+            val reminder = ReminderEntity(
+                id = id,
+                userId = userId,
+                title = legacy.title,
+                description = legacy.description,
+                type = legacy.type,
+                sourceType = sourceType,
+                sourceId = sourceId,
+                status = status,
+                date = PersianCalendarHelper.fromEpochMillis(legacy.scheduledDateTime).toFormattedDate(),
+                time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                    .format(java.util.Date(legacy.scheduledDateTime)),
+                notificationEnabled = legacy.notificationEnabled,
+                fullScreenAlarmEnabled = false,
+                smsEnabled = false,
+                phoneNumber = null,
+                createdAt = legacy.createdAt,
+                updatedAt = legacy.updatedAt,
+                completedAt = legacy.completedAt
+            )
+            migratedReminders += reminder
+            if (sourceKey != null) existingSources += sourceKey
+
+            val oldSchedules = legacySchedules[legacy.id].orEmpty()
+                .filterNot { it.status.equals("CANCELLED", true) }
+            val repeatType = RepeatType.entries.firstOrNull {
+                it.name.equals(legacy.repeatRule ?: "NONE", ignoreCase = true)
+            } ?: RepeatType.NONE
+            val schedulesForReminder = if (oldSchedules.isNotEmpty()) {
+                oldSchedules.map { old ->
+                    ReminderScheduleEntity(
+                        id = "legacy_schedule_${old.id}",
+                        reminderId = id,
+                        triggerType = "EXACT",
+                        offsetValue = 0,
+                        offsetUnit = "MINUTE",
+                        triggerDateTime = old.triggerDateTime,
+                        repeatType = repeatType.name,
+                        enabled = status == "ACTIVE" && legacy.notificationEnabled &&
+                            old.triggerDateTime > now &&
+                            (old.status.equals("PENDING", true) || old.status.equals("SCHEDULED", true)),
+                        createdAt = legacy.createdAt
+                    )
+                }
+            } else if (status == "ACTIVE" && legacy.notificationEnabled && legacy.scheduledDateTime > now) {
+                listOf(
+                    ReminderScheduleEntity(
+                        id = "legacy_schedule_reminder_${legacy.id}",
+                        reminderId = id,
+                        triggerType = "EXACT",
+                        offsetValue = 0,
+                        offsetUnit = "MINUTE",
+                        triggerDateTime = legacy.scheduledDateTime,
+                        repeatType = repeatType.name,
+                        enabled = true,
+                        createdAt = legacy.createdAt
+                    )
+                )
+            } else {
+                emptyList()
+            }
+            migratedSchedules += schedulesForReminder
+        }
+
+        if (migratedReminders.isNotEmpty()) {
+            db.withTransaction {
+                dao.insertReminders(migratedReminders)
+                if (migratedSchedules.isNotEmpty()) dao.insertSchedules(migratedSchedules)
+            }
+            // Rebuild is user-scoped and respects both the global alert mode and each
+            // migrated reminder's explicit notification opt-in.
+            runCatching { ReminderScheduler(appContext).rebuildAllSchedules() }
+                .onFailure {
+                    android.util.Log.e("LocalReminderRepository", "Unable to arm migrated reminder schedules.", it)
+                }
+        }
+    }
+
+    companion object {
+        private val migrationMutex = Mutex()
+        private val migrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
     override fun getAllReminders(): Flow<List<ReminderEntity>> =
