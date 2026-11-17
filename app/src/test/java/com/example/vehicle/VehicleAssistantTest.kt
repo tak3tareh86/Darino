@@ -236,6 +236,36 @@ class VehicleAssistantTest {
     }
 
     @Test
+    fun insuranceRenewalRejectsPastExpiryButKeepsSameDateRecovery() = kotlinx.coroutines.runBlocking {
+        val current = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val userId = SessionManager.userId!!
+        val vehicle = repository.addVehicle(
+            brand = "پژو", model = "206", year = "1402", color = "سفید",
+            plate = "۱۲ الف ۳۴۵ ایران ۶۸", currentMileage = 30000
+        ).getOrThrow()
+        val insurance = repository.saveInsurance(
+            vehicleId = vehicle.id,
+            company = "بیمه ایران",
+            type = "شخص ثالث",
+            startDate = "%04d/01/01".format(current.year - 3),
+            endDate = "%04d/01/01".format(current.year - 2),
+            amount = 5_000_000L,
+            policyNumber = "PAST-RENEWAL"
+        ).getOrThrow()
+
+        val result = repository.renewInsurance(
+            insurance.id,
+            "%04d/01/01".format(current.year - 1)
+        )
+        assertTrue("A new renewal must reject an expiry date in the past", result.isFailure)
+
+        val unchanged = com.example.data.database.AppDatabase.getDatabase(context)
+            .vehicleDao().getInsuranceById(userId, insurance.id)
+        assertNotNull(unchanged)
+        assertEquals(insurance.endDate, unchanged!!.endDate)
+    }
+
+    @Test
     fun testAddVehicleAndServiceWorkflow() = kotlinx.coroutines.runBlocking {
         // 1. Add Peugeot 207 (1402, 45,000 km)
         val carResult = repository.addVehicle(
