@@ -88,4 +88,15 @@ object ReminderPolicyEngine {
         return reminder.sourceType.equals("VEHICLE", ignoreCase = true) ||
             reminder.notificationEnabled || reminder.fullScreenAlarmEnabled
     }
+
+    fun upcomingByDateTime(
+        reminders: List<ReminderEntity>,
+        nowMillis: Long,
+        parseDateTime: (String, String) -> Long
+    ): List<ReminderEntity> =
+        reminders.mapNotNull { reminder ->
+            runCatching { reminder to parseDateTime(reminder.date, reminder.time) }
+                .getOrNull()
+                ?.takeIf { it.second >= nowMillis }
+        }.sortedBy { it.second }.map { it.first }
 }
