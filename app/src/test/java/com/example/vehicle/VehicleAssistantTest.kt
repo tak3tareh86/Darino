@@ -1522,10 +1522,9 @@ class VehicleAssistantTest {
     @Test
     fun healthChecklistDoesNotTreatFutureInsuranceAsActiveOrRejectedInspectionAsValid() {
         val current = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
-        val today = "%04d/%02d/%02d".format(current.year, current.month, current.day)
-        val past = "%04d/%02d/%02d".format(current.year - 1, current.month, current.day)
-        val futureStart = "%04d/%02d/%02d".format(current.year + 1, current.month, current.day)
-        val futureExpiry = "%04d/%02d/%02d".format(current.year + 2, current.month, current.day)
+        val past = "%04d/01/01".format(current.year - 1)
+        val futureStart = "%04d/01/01".format(current.year + 1)
+        val futureExpiry = "%04d/01/01".format(current.year + 2)
         val car = com.example.vehicle.data.VehicleEntity(
             id = "car_document_status_test",
             brand = "پژو",
