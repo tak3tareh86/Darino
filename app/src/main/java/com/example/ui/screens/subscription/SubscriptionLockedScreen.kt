@@ -149,11 +149,7 @@ fun SubscriptionLockedScreenContent(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(Modifier.weight(1f).height(2.dp).background(PremiumGold))
-                Text(
-                    text = "♥",
-                    fontSize = 48.sp,
-                    lineHeight = 54.sp
-                )
+                HandshakeMark(Modifier.size(width = 58.dp, height = 54.dp))
                 Text(
                     text = "دوست خوبم",
                     color = PremiumGold,
@@ -221,12 +217,7 @@ fun SubscriptionLockedScreenContent(
                         .padding(horizontal = 22.dp, vertical = 17.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "◇",
-                        fontSize = 64.sp,
-                        modifier = Modifier.width(82.dp),
-                        textAlign = TextAlign.Center
-                    )
+                    DiamondMark(Modifier.width(82.dp).height(68.dp))
                     Box(
                         modifier = Modifier
                             .width(2.dp)
@@ -424,6 +415,42 @@ private fun ImageLogo() {
     )
 }
 
+
+
+@Composable
+private fun HandshakeMark(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        drawContext.transform.scale(size.width / 100f, size.height / 100f, pivot = Offset.Zero)
+        val gold = Color(0xFFFFBE16)
+        val ink = Color(0xFF09234D)
+        val hand = Path().apply {
+            moveTo(7f, 35f); lineTo(25f, 17f); lineTo(39f, 21f); lineTo(50f, 32f)
+            lineTo(62f, 19f); lineTo(76f, 23f); lineTo(94f, 41f); lineTo(77f, 59f)
+            lineTo(54f, 83f); lineTo(43f, 73f); lineTo(21f, 53f); close()
+        }
+        drawPath(hand, gold)
+        drawLine(ink, Offset(38f, 29f), Offset(27f, 40f), 8f)
+        drawLine(ink, Offset(27f, 40f), Offset(39f, 51f), 8f)
+        drawLine(ink, Offset(50f, 34f), Offset(68f, 51f), 8f)
+        drawLine(ink, Offset(41f, 49f), Offset(56f, 64f), 7f)
+        drawLine(ink, Offset(33f, 58f), Offset(47f, 72f), 7f)
+        drawLine(ink, Offset(26f, 66f), Offset(38f, 77f), 7f)
+    }
+}
+
+@Composable
+private fun DiamondMark(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        drawContext.transform.scale(size.width / 100f, size.height / 80f, pivot = Offset.Zero)
+        val gem = Path().apply {
+            moveTo(20f, 8f); lineTo(80f, 8f); lineTo(98f, 29f); lineTo(50f, 76f); lineTo(2f, 29f); close()
+        }
+        drawPath(gem, Brush.verticalGradient(listOf(Color(0xFFFFE34F), Color(0xFFFFA900)), startY = 0f, endY = 80f))
+        drawLine(Color(0xFF9B6900), Offset(20f, 8f), Offset(50f, 76f), 2f)
+        drawLine(Color(0xFF9B6900), Offset(80f, 8f), Offset(50f, 76f), 2f)
+        drawLine(Color(0xFF9B6900), Offset(2f, 29f), Offset(98f, 29f), 2f)
+    }
+}
 
 @Composable
 private fun ExpiredSubscriptionIllustration(modifier: Modifier = Modifier) {
