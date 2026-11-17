@@ -561,23 +561,26 @@ private fun FinancialCommitmentsBreakdownCard(
                     Text(
                         text = if (hasCompleteFinancialData) "مجموع تعهدات ماهانه (نه مانده بدهی)" else "مجموع مبالغ ثبت‌شده",
                         modifier = Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp
                         ),
                         color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = if (hasCompleteFinancialData) {
                             MoneyFormatter.formatExact(MoneyAmount.of(state.totalCommitments, AppCurrency.RIAL))
                         } else "اطلاعات ناقص",
                         modifier = Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 15.sp
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
                         ),
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         maxLines = 1,
                         softWrap = false,
