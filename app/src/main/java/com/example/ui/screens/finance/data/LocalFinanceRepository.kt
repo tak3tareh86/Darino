@@ -1380,7 +1380,10 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             accountId = item.accountId,
             transferSourceAccountId = item.transferSourceAccountId,
             transferDestinationAccountId = item.transferDestinationAccountId,
-            transferRecipientName = item.transferRecipientName?.trim()?.takeIf { it.isNotEmpty() }
+            transferRecipientName = item.transferRecipientName?.trim()?.takeIf { it.isNotEmpty() },
+            categoryId = item.categoryId,
+            tagsJson = JSONArray(item.tags).toString(),
+            recurringFrequency = item.recurringFrequency?.name
         )
     }
 
@@ -1390,8 +1393,11 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         } catch (e: Exception) {
             TransactionType.EXPENSE
         }
-        val cat = allCats.find {
-            it.title.equals(entity.category, ignoreCase = true) || it.id.equals(entity.category, ignoreCase = true)
+        val cat = allCats.firstOrNull {
+            it.id.equals(entity.categoryId, ignoreCase = true) && it.type == typeEnum
+        } ?: allCats.firstOrNull {
+            (it.title.equals(entity.category, ignoreCase = true) || it.id.equals(entity.category, ignoreCase = true)) &&
+                it.type == typeEnum
         } ?: TransactionCategory(
             id = "cat_${entity.category.hashCode()}",
             title = entity.category.ifBlank { "عمومی" },
@@ -1426,8 +1432,15 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
             accountName = entity.accountName.ifBlank { "کارت بانکی" },
             sourceType = srcType,
             sourceId = entity.sourceId,
-            tags = emptyList(),
+            tags = runCatching {
+                JSONArray(entity.tagsJson).let { array ->
+                    List(array.length()) { index -> array.optString(index) }.filter { it.isNotBlank() }
+                }
+            }.getOrDefault(emptyList()),
             isRecurring = entity.isRecurring,
+            recurringFrequency = entity.recurringFrequency?.let {
+                runCatching { RecurringFrequency.valueOf(it) }.getOrNull()
+            },
             accountId = entity.accountId,
             transferSourceAccountId = entity.transferSourceAccountId,
             transferDestinationAccountId = entity.transferDestinationAccountId,
