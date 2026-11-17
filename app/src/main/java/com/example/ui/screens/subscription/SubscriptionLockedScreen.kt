@@ -429,10 +429,10 @@ private fun ExpiredSubscriptionIllustration(modifier: Modifier = Modifier) {
         val leaf = Path().apply { moveTo(70f, 210f); quadraticTo(5f, 135f, 36f, 88f); quadraticTo(93f, 94f, 111f, 177f); close() }
         drawPath(leaf, androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF328DFF), Color(0xFF0647B8))))
         val leaf2 = Path().apply { moveTo(320f, 211f); quadraticTo(345f, 137f, 391f, 153f); quadraticTo(391f, 207f, 337f, 231f); close() }
-        drawPath(leaf2, Brush.linearGradient(listOf(Color(0xFF328DFF), Color(0xFF0647B8))))
+        drawPath(leaf2, androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF328DFF), Color(0xFF0647B8))))
         drawRoundRect(Color(0x66000A24), Offset(111f, 39f), Size(220f, 183f), androidx.compose.ui.geometry.CornerRadius(23f))
-        drawRoundRect(Brush.linearGradient(listOf(Color.White, Color(0xFFCAD7F4))), Offset(104f, 28f), Size(220f, 184f), androidx.compose.ui.geometry.CornerRadius(22f))
-        drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF398AFF), Color(0xFF064CC5))), Offset(104f, 28f), Size(220f, 65f), androidx.compose.ui.geometry.CornerRadius(22f))
+        drawRoundRect(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White, Color(0xFFCAD7F4))), Offset(104f, 28f), Size(220f, 184f), androidx.compose.ui.geometry.CornerRadius(22f))
+        drawRoundRect(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF398AFF), Color(0xFF064CC5))), Offset(104f, 28f), Size(220f, 65f), androidx.compose.ui.geometry.CornerRadius(22f))
         drawRect(Color(0xFF175FD9), Offset(104f, 70f), Size(220f, 23f))
         for (x in listOf(139f, 184f, 229f, 274f)) {
             drawLine(Color(0xFF063C9E), Offset(x, 13f), Offset(x, 48f), 13f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
@@ -441,12 +441,12 @@ private fun ExpiredSubscriptionIllustration(modifier: Modifier = Modifier) {
         for (r in 0..2) for (col in 0..3) {
             val x = 122f + col * 47f
             val y = 104f + r * 34f
-            drawRoundRect(Brush.linearGradient(listOf(Color(0xFFE9EEFF), Color(0xFFB8C8EE))), Offset(x, y), Size(34f, 27f), androidx.compose.ui.geometry.CornerRadius(6f))
+            drawRoundRect(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFFE9EEFF), Color(0xFFB8C8EE))), Offset(x, y), Size(34f, 27f), androidx.compose.ui.geometry.CornerRadius(6f))
         }
         drawCircle(Color(0xFF073A9C), 77f, Offset(91f, 202f))
-        drawCircle(Brush.linearGradient(listOf(Color(0xFF8ADFFF), blue)), 72f, Offset(88f, 196f))
+        drawCircle(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF8ADFFF), blue)), 72f, Offset(88f, 196f))
         drawCircle(Color(0xFF0C4FC5), 63f, Offset(88f, 196f))
-        drawCircle(Brush.radialGradient(listOf(Color.White, Color(0xFFE2E9FF), Color(0xFFB4C8F8))), 55f, Offset(88f, 196f))
+        drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color.White, Color(0xFFE2E9FF), Color(0xFFB4C8F8))), 55f, Offset(88f, 196f))
         for (a in 0 until 12) {
             val rad = Math.toRadians(a * 30.0)
             val p1 = Offset(88f + kotlin.math.sin(rad).toFloat() * 44f, 196f - kotlin.math.cos(rad).toFloat() * 44f)
@@ -464,9 +464,9 @@ private fun ExpiredSubscriptionIllustration(modifier: Modifier = Modifier) {
             moveTo(292f, 181f); lineTo(277f, 132f); lineTo(310f, 158f); lineTo(329f, 111f)
             lineTo(345f, 157f); lineTo(373f, 133f); lineTo(361f, 190f); quadraticTo(328f, 208f, 292f, 181f); close()
         }
-        drawPath(crown, Brush.linearGradient(listOf(Color(0xFFFFE66A), Color(0xFFFFB000), Color(0xFFE98500))))
+        drawPath(crown, androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFFFFE66A), Color(0xFFFFB000), Color(0xFFE98500))))
         drawPath(crown, gold, style = Stroke(3f))
-        drawRoundRect(Brush.verticalGradient(listOf(Color(0xFFFFD34A), Color(0xFFE98900))), Offset(286f, 179f), Size(80f, 24f), androidx.compose.ui.geometry.CornerRadius(10f))
+        drawRoundRect(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFFFFD34A), Color(0xFFE98900))), Offset(286f, 179f), Size(80f, 24f), androidx.compose.ui.geometry.CornerRadius(10f))
         for (p in listOf(Offset(277f, 130f), Offset(329f, 108f), Offset(373f, 131f))) drawCircle(gold, 8f, p)
         drawLine(gold, Offset(300f, 73f), Offset(305f, 49f), 5f)
         drawLine(gold, Offset(328f, 88f), Offset(345f, 69f), 5f)
