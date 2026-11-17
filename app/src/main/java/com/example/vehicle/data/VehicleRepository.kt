@@ -2386,56 +2386,75 @@ class VehicleRepository {
                 ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
 
             val insuranceId = recordId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
-            val newInsurance = VehicleInsuranceEntity(
-                id = insuranceId,
-                vehicleId = vehicleId,
-                company = company.trim(),
-                type = type.trim(),
-                startDate = startDate.trim(),
-                endDate = endDate.trim(),
-                amount = amount,
-                amountUnit = AppCurrency.RIAL,
-                policyNumber = policyNumber.trim(),
-                reminderDays = reminderDays.distinct(),
-                reminderEnabled = reminderEnabled,
-                reminderTime = effectiveReminderTime
-            )
+            var insuranceAmountUnit = AppCurrency.RIAL
 
             db.withTransaction {
-                db.vehicleDao().insertInsurance(
-                    VehicleInsuranceRoomEntity(
-                        id = insuranceId,
+                val existingInsurance = if (recordId.isNullOrBlank()) {
+                    null
+                } else {
+                    db.vehicleDao().getInsuranceById(userId, insuranceId)
+                        ?: throw NoSuchElementException("بیمه‌نامه موردنظر برای ویرایش پیدا نشد؛ برای جلوگیری از ثبت تکراری، تغییری ذخیره نشد.")
+                }
+                if (existingInsurance != null) {
+                    check(existingInsurance.vehicleId == vehicleId) {
+                        "بیمه‌نامه انتخاب‌شده متعلق به خودروی دیگری است؛ تغییری ذخیره نشد."
+                    }
+                    insuranceAmountUnit = runCatching { AppCurrency.valueOf(existingInsurance.amountUnit) }
+                        .getOrDefault(AppCurrency.RIAL)
+                }
+
+                val insuranceRow = VehicleInsuranceRoomEntity(
+                    id = insuranceId,
+                    userId = userId,
+                    vehicleId = vehicleId,
+                    company = company.trim(),
+                    type = type.trim(),
+                    startDate = startDate.trim(),
+                    endDate = endDate.trim(),
+                    amount = amount,
+                    amountUnit = insuranceAmountUnit.name,
+                    policyNumber = policyNumber.trim(),
+                    reminderDays = reminderDays.distinct().joinToString(","),
+                    reminderEnabled = reminderEnabled,
+                    reminderTime = effectiveReminderTime
+                )
+                if (existingInsurance == null) {
+                    db.vehicleDao().insertInsurance(insuranceRow)
+                } else {
+                    check(db.vehicleDao().updateInsurance(insuranceRow) > 0) {
+                        "بروزرسانی بیمه‌نامه شکست خورد؛ تغییری ذخیره نشد."
+                    }
+                }
+
+                val expenseId = "exp_ins_$insuranceId"
+                val existingExpense = db.vehicleDao().getExpenseById(userId, expenseId)
+                if (existingExpense != null) {
+                    check(existingExpense.vehicleId == vehicleId) {
+                        "هزینه مرتبط با این بیمه‌نامه متعلق به خودروی دیگری است؛ تغییری ذخیره نشد."
+                    }
+                }
+                if (amount > 0L) {
+                    val updatedExpense = VehicleExpenseRoomEntity(
+                        id = expenseId,
                         userId = userId,
                         vehicleId = vehicleId,
-                        company = company.trim(),
-                        type = type.trim(),
-                        startDate = startDate.trim(),
-                        endDate = endDate.trim(),
+                        title = "تمدید ${type.trim()} (${company.trim()})",
+                        category = VehicleExpenseCategory.INSURANCE.name,
                         amount = amount,
-                        amountUnit = AppCurrency.RIAL.name,
-                        policyNumber = policyNumber.trim(),
-                        reminderDays = newInsurance.reminderDays.joinToString(","),
-                        reminderEnabled = newInsurance.reminderEnabled,
-                        reminderTime = newInsurance.reminderTime
+                        amountUnit = insuranceAmountUnit.name,
+                        date = startDate.trim(),
+                        description = "شماره بیمه‌نامه: ${policyNumber.trim()}",
+                        receiptImageUri = existingExpense?.receiptImageUri
                     )
-                )
-
-                if (amount > 0L) {
-                    db.vehicleDao().insertExpense(
-                        VehicleExpenseRoomEntity(
-                            id = "exp_ins_$insuranceId",
-                            userId = userId,
-                            vehicleId = vehicleId,
-                            title = "تمدید ${type.trim()} (${company.trim()})",
-                            category = VehicleExpenseCategory.INSURANCE.name,
-                            amount = amount,
-                            amountUnit = AppCurrency.RIAL.name,
-                            date = startDate.trim(),
-                            description = "شماره بیمه‌نامه: ${policyNumber.trim()}"
-                        )
-                    )
-                } else {
-                    db.vehicleDao().deleteExpenseById(userId, "exp_ins_$insuranceId")
+                    if (existingExpense == null) {
+                        db.vehicleDao().insertExpense(updatedExpense)
+                    } else {
+                        check(db.vehicleDao().updateExpense(updatedExpense) > 0) {
+                            "بروزرسانی هزینه بیمه‌نامه شکست خورد؛ تغییری ذخیره نشد."
+                        }
+                    }
+                } else if (existingExpense != null) {
+                    db.vehicleDao().deleteExpenseById(userId, expenseId)
                 }
 
                 // Sync Reminder for Insurance in the same database transaction
@@ -2452,6 +2471,21 @@ class VehicleRepository {
                     offsets = reminderDays.distinct().mapNotNull { day -> predefinedOffsetForDays(day) }
                 )
             }
+
+            val newInsurance = VehicleInsuranceEntity(
+                id = insuranceId,
+                vehicleId = vehicleId,
+                company = company.trim(),
+                type = type.trim(),
+                startDate = startDate.trim(),
+                endDate = endDate.trim(),
+                amount = amount,
+                amountUnit = insuranceAmountUnit,
+                policyNumber = policyNumber.trim(),
+                reminderDays = reminderDays.distinct(),
+                reminderEnabled = reminderEnabled,
+                reminderTime = effectiveReminderTime
+            )
 
             // Register system alarms AFTER successful database transaction commit
             try {
