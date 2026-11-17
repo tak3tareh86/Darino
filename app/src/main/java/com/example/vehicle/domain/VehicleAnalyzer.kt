@@ -422,15 +422,15 @@ object VehicleAnalyzer {
             )
         }
 
-        // Service, insurance, and inspection costs are already represented by their
-        // dedicated timeline events. Keep them in expense totals/reports, but do not
-        // render their linked expense rows as a second timeline event.
-        expenses.filter {
-            it.vehicleId == vehicleId &&
-                it.category != VehicleExpenseCategory.SERVICE &&
-                it.category != VehicleExpenseCategory.INSURANCE &&
-                it.category != VehicleExpenseCategory.INSPECTION
-        }.forEach { e ->
+        // Hide only the deterministic expense rows generated for these records.
+        // Category-only filtering incorrectly hid independent expenses that users
+        // manually recorded under SERVICE, INSURANCE, or INSPECTION.
+        val linkedExpenseIds = buildSet {
+            services.filter { it.vehicleId == vehicleId }.forEach { add("exp_svc_${it.id}") }
+            insurances.filter { it.vehicleId == vehicleId }.forEach { add("exp_ins_${it.id}") }
+            inspections.filter { it.vehicleId == vehicleId }.forEach { add("exp_insp_${it.id}") }
+        }
+        expenses.filter { it.vehicleId == vehicleId && it.id !in linkedExpenseIds }.forEach { e ->
             timeline.add(
                 VehicleTimelineEvent.ExpenseEvent(
                     id = e.id,
