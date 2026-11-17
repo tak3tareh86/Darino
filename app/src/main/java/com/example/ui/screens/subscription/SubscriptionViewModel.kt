@@ -152,6 +152,9 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
                 }
             }
         }
+            // Refresh the displayed annual price after a manual Market restore attempt.
+            loadAnnualSubscriptionPrice()
+        }
     }
 
     fun startPurchaseFlow(registry: ActivityResultRegistry, onSuccessNavigation: () -> Unit) {
