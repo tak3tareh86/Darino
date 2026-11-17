@@ -295,7 +295,7 @@ interface VehicleDao {
     @Delete
     suspend fun deleteVehicle(vehicle: VehicleEntity)
 
-    @Query("SELECT serverId FROM vehicle_services WHERE userId = :userId AND vehicleId = :vehicleId")
+    @Query("SELECT COALESCE(NULLIF(serverId, ''), CAST(id AS TEXT)) FROM vehicle_services WHERE userId = :userId AND vehicleId = :vehicleId")
     suspend fun getServiceServerIdsByVehicleId(userId: String, vehicleId: String): List<String>
 
     @Query("SELECT id FROM vehicle_insurances WHERE userId = :userId AND vehicleId = :vehicleId")
