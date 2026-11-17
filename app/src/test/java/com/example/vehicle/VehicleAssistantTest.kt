@@ -203,6 +203,39 @@ class VehicleAssistantTest {
     }
 
     @Test
+    fun insuranceRenewalRecoveryRestoresExpenseUsingInsuranceCurrency() = kotlinx.coroutines.runBlocking {
+        val db = com.example.data.database.AppDatabase.getDatabase(context)
+        val userId = SessionManager.userId!!
+
+        val vehicle = repository.addVehicle(
+            brand = "پژو", model = "206", year = "1402", color = "سفید",
+            plate = "۱۲ الف ۳۴۵ ایران ۶۸", currentMileage = 30000
+        ).getOrThrow()
+        val insurance = repository.saveInsurance(
+            vehicleId = vehicle.id,
+            company = "بیمه ایران",
+            type = "شخص ثالث",
+            startDate = "1405/01/01",
+            endDate = "1405/11/29",
+            amount = 5_000_000L,
+            policyNumber = "CURRENCY-RECOVERY"
+        ).getOrThrow()
+
+        val insuranceRow = db.vehicleDao().getInsuranceById(userId, insurance.id)!!
+        db.vehicleDao().updateInsurance(insuranceRow.copy(amountUnit = "TOMAN"))
+        db.vehicleDao().deleteExpenseById(userId, "exp_ins_${insurance.id}")
+
+        val recoveryResult = repository.renewInsurance(insurance.id, insurance.endDate)
+        assertTrue("Idempotent renewal recovery must succeed", recoveryResult.isSuccess)
+
+        val recoveredExpense = db.vehicleDao().getExpenseById(userId, "exp_ins_${insurance.id}")
+        assertNotNull(recoveredExpense)
+        assertEquals("TOMAN", recoveredExpense!!.amountUnit)
+        assertEquals(insurance.amount, recoveredExpense.amount)
+        assertEquals(vehicle.id, recoveredExpense.vehicleId)
+    }
+
+    @Test
     fun testAddVehicleAndServiceWorkflow() = kotlinx.coroutines.runBlocking {
         // 1. Add Peugeot 207 (1402, 45,000 km)
         val carResult = repository.addVehicle(
