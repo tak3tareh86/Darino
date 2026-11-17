@@ -56,6 +56,32 @@ class ReminderEngineTest {
     }
 
     @Test
+    fun snoozeRequiresActiveReminderAndExplicitAndroidDelivery() {
+        val activeOptedIn = ReminderEntity(
+            title = "یادآور فعال",
+            date = "۱۴۰۵/۰۸/۲۰",
+            notificationEnabled = true
+        )
+        val smsOnlyLegacy = activeOptedIn.copy(
+            notificationEnabled = false,
+            fullScreenAlarmEnabled = false,
+            smsEnabled = true
+        )
+        val disabled = activeOptedIn.copy(status = "DISABLED")
+        val vehicleReminder = activeOptedIn.copy(
+            sourceType = "VEHICLE",
+            notificationEnabled = false,
+            fullScreenAlarmEnabled = false
+        )
+
+        assertTrue(ReminderPolicyEngine.canSnooze(activeOptedIn, true))
+        assertFalse(ReminderPolicyEngine.canSnooze(activeOptedIn, false))
+        assertFalse(ReminderPolicyEngine.canSnooze(smsOnlyLegacy, true))
+        assertFalse(ReminderPolicyEngine.canSnooze(disabled, true))
+        assertTrue(ReminderPolicyEngine.canSnooze(vehicleReminder, true))
+    }
+
+    @Test
     fun testNotificationIdGeneratorIsDeterministic() {
         val reminderId = "rem_test_123"
         val scheduleId = "sch_test_456"
