@@ -71,7 +71,7 @@ class VehicleAssistantTest {
             company = "بیمه ایران",
             type = "شخص ثالث",
             startDate = "1405/01/01",
-            endDate = "1405/12/29",
+            endDate = "1405/12/28",
             amount = 5_000_000L,
             policyNumber = "POLICY-1"
         ).getOrThrow()
@@ -104,20 +104,20 @@ class VehicleAssistantTest {
             company = "بیمه تست",
             type = "شخص ثالث",
             startDate = "1405/01/01",
-            endDate = "1405/12/29",
+            endDate = "1405/12/28",
             amount = 1_000_000L,
             policyNumber = "MISSING",
             recordId = "missing-insurance-id"
         )
         assertTrue("A missing edit ID must fail instead of inserting a new record", missingIdResult.isFailure)
-        assertEquals(1, db.vehicleDao().getAllInsurancesList(userId).count { it.id == "missing-insurance-id" })
+        assertEquals(0, db.vehicleDao().getAllInsurancesList(userId).count { it.id == "missing-insurance-id" })
 
         val foreignVehicleResult = repository.saveInsurance(
             vehicleId = secondVehicle.id,
             company = "بیمه منتقل‌شده",
             type = "شخص ثالث",
             startDate = "1405/01/01",
-            endDate = "1405/12/29",
+            endDate = "1405/12/28",
             amount = 9_000_000L,
             policyNumber = "FOREIGN",
             recordId = original.id
