@@ -2567,7 +2567,7 @@ class VehicleRepository {
                                 title = "تمدید ${existing.type.trim()} (${existing.company.trim()})",
                                 category = VehicleExpenseCategory.INSURANCE.name,
                                 amount = insAmount,
-                            amountUnit = AppCurrency.RIAL.name,
+                                amountUnit = existing.amountUnit,
                                 date = today,
                                 description = "شماره بیمه‌نامه: ${existing.policyNumber.trim()}"
                             )
