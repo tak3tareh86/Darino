@@ -264,7 +264,7 @@ object VehicleAnalyzer {
             val start = parseAndValidateJalaliDate(insurance.startDate)
             val expiry = parseAndValidateJalaliDate(insurance.endDate)
             return when {
-                start == null || expiry == null ->
+                start == null || expiry == null || expiry < start ->
                     VehicleHealthCheckItem(title, "تاریخ نامعتبر یا ثبت نشده", false, true, iconRes)
                 start > today ->
                     VehicleHealthCheckItem(title, "هنوز شروع نشده", false, true, iconRes)
@@ -292,7 +292,7 @@ object VehicleAnalyzer {
                         statusText.contains("تایید") ||
                         statusText.contains("تأیید")
                     when {
-                        lastInspection == null || expiry == null ->
+                        lastInspection == null || expiry == null || expiry < lastInspection ->
                             VehicleHealthCheckItem("معاینه فنی", "تاریخ نامعتبر یا ثبت نشده", false, true, R.drawable.fani)
                         lastInspection > today ->
                             VehicleHealthCheckItem("معاینه فنی", "تاریخ معاینه در آینده است", false, true, R.drawable.fani)
