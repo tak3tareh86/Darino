@@ -181,4 +181,83 @@ class VehicleAnalyzerServiceHistoryTest {
             )
         )
     }
+    @Test
+    fun timelineHidesOnlyLinkedExpensesAndKeepsIndependentExpensesInSameCategories() {
+        val service = VehicleServiceEntity(
+            id = "service-1",
+            vehicleId = "vehicle-1",
+            title = "تعویض روغن",
+            serviceType = ServiceType.OIL_CHANGE,
+            date = "1405/08/10",
+            mileage = 50000,
+            cost = 100L
+        )
+        val insurance = com.example.vehicle.data.VehicleInsuranceEntity(
+            id = "insurance-1",
+            vehicleId = "vehicle-1",
+            company = "بیمه تست",
+            type = "شخص ثالث",
+            startDate = "1405/08/10",
+            endDate = "1406/08/10",
+            amount = 200L
+        )
+        val inspection = com.example.vehicle.data.VehicleInspectionEntity(
+            id = "inspection-1",
+            vehicleId = "vehicle-1",
+            lastInspectionDate = "1405/08/10",
+            expiryDate = "1406/08/10",
+            cost = 300L
+        )
+        val expenses = listOf(
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "exp_svc_service-1", vehicleId = "vehicle-1", title = "هزینه سرویس",
+                category = com.example.vehicle.data.VehicleExpenseCategory.SERVICE,
+                amount = 100L, date = "1405/08/10"
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "exp_ins_insurance-1", vehicleId = "vehicle-1", title = "حق بیمه",
+                category = com.example.vehicle.data.VehicleExpenseCategory.INSURANCE,
+                amount = 200L, date = "1405/08/10"
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "exp_insp_inspection-1", vehicleId = "vehicle-1", title = "هزینه معاینه",
+                category = com.example.vehicle.data.VehicleExpenseCategory.INSPECTION,
+                amount = 300L, date = "1405/08/10"
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "manual-service", vehicleId = "vehicle-1", title = "هزینه مستقل سرویس",
+                category = com.example.vehicle.data.VehicleExpenseCategory.SERVICE,
+                amount = 40L, date = "1405/08/11"
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "manual-insurance", vehicleId = "vehicle-1", title = "هزینه مستقل بیمه",
+                category = com.example.vehicle.data.VehicleExpenseCategory.INSURANCE,
+                amount = 50L, date = "1405/08/11"
+            ),
+            com.example.vehicle.data.VehicleExpenseEntity(
+                id = "manual-inspection", vehicleId = "vehicle-1", title = "هزینه مستقل معاینه",
+                category = com.example.vehicle.data.VehicleExpenseCategory.INSPECTION,
+                amount = 60L, date = "1405/08/11"
+            )
+        )
+
+        val timeline = VehicleAnalyzer.buildTimeline(
+            vehicleId = "vehicle-1",
+            services = listOf(service),
+            expenses = expenses,
+            insurances = listOf(insurance),
+            inspections = listOf(inspection)
+        )
+
+        val expenseEventIds = timeline
+            .filterIsInstance<com.example.vehicle.data.VehicleTimelineEvent.ExpenseEvent>()
+            .map { it.id }
+
+        assertEquals(
+            setOf("manual-service", "manual-insurance", "manual-inspection"),
+            expenseEventIds.toSet()
+        )
+        assertEquals(3, expenseEventIds.size)
+    }
+
 }
