@@ -5,7 +5,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -737,7 +736,7 @@ fun TransactionsScreen(
                             value = transferSearchQuery,
                             onValueChange = { transferSearchQuery = it },
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("جستجو در انتقال وجه (حساب مبدأ/مقصد)...", style = MaterialTheme.typography.bodySmall) },
+                            placeholder = { Text("جستجو در انتقال وجه (حساب مبدأ/دریافت‌کننده)...", style = MaterialTheme.typography.bodySmall) },
                             leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                             trailingIcon = {
                                 if (transferSearchQuery.isNotEmpty()) {
