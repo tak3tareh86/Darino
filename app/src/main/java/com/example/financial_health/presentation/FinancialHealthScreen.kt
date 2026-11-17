@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -802,12 +803,14 @@ private fun AnalysisMetricTile(
             )
             Text(
                 text = value,
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.5.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 ),
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             Text(
