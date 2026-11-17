@@ -211,7 +211,7 @@ class ReminderScheduler(private val context: Context) {
      * Rebuilds and re-arms all active schedules from the Room database.
      * Called after device boot, app update, timezone change, or process recovery.
      */
-    suspend fun rebuildAllSchedules(): Int {
+    suspend fun rebuildAllSchedules(): Int = withContext(Dispatchers.IO) {
         val db = AppDatabase.getDatabase(context)
         if (com.example.data.security.SessionManager.userId == null) {
             com.example.data.security.SessionManager.init(context)
