@@ -46,7 +46,8 @@ fun ReminderCard(
     onToggleCompleted: () -> Unit,
     onSnoozeClick: () -> Unit,
     onDeleteClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showSnooze: Boolean = true
 ) {
     var showDeleteConfirmDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val isCompleted = reminder.status.equals("COMPLETED", ignoreCase = true)
@@ -410,7 +411,7 @@ fun ReminderCard(
                 }
             }
 
-            if (!isCompleted) {
+            if (!isCompleted && !isMissed && reminder.status.equals("ACTIVE", ignoreCase = true) && showSnooze) {
                 IconButton(
                     onClick = onSnoozeClick,
                     modifier = Modifier
