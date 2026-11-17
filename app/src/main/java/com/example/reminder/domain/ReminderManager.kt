@@ -653,7 +653,7 @@ class ReminderManager(
         }
 
         if (!reminder.status.equals("ACTIVE", ignoreCase = true) ||
-            !reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled && !reminder.smsEnabled
+            !reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled
         ) {
             return@withContext 0
         }
