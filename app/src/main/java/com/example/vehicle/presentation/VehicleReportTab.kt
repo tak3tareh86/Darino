@@ -24,6 +24,7 @@ import com.example.ui.components.Layered3DCard
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.domain.VehicleStatistics
+import com.example.vehicle.domain.VehicleAnalyzer
 import com.example.vehicle.data.VehicleExpenseEntity
 import com.example.vehicle.data.VehicleExpenseCategory
 import com.example.util.PersianCalendarHelper
@@ -63,10 +64,14 @@ fun VehicleReportTab(
     val shortMonthNames = listOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
     val parsedExpenses = remember(expenses) {
         expenses.mapNotNull { expense ->
-            val parts = IranianPhoneUtils.convertDigitsToEnglish(expense.date).trim().split("/")
-            val year = parts.getOrNull(0)?.toIntOrNull()
-            val month = parts.getOrNull(1)?.toIntOrNull()
-            if (year != null && month != null && year in 1300..1500 && month in 1..12) Triple(expense, year, month) else null
+            // Reuse the domain date validator so annual charts accept both supported
+            // separators and Persian/English digits, while rejecting impossible days.
+            val normalizedDate = VehicleAnalyzer.parseAndValidateJalaliDate(expense.date)
+                ?: return@mapNotNull null
+            val parts = normalizedDate.split("/")
+            val year = parts[0].toIntOrNull() ?: return@mapNotNull null
+            val month = parts[1].toIntOrNull() ?: return@mapNotNull null
+            Triple(expense, year, month)
         }
     }
     val availableYears = remember(parsedExpenses, currentYear) {
