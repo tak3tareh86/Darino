@@ -358,15 +358,15 @@ fun AddInstallmentSheet(
                                 submitValidationError = "مبلغ هر قسط باید بیشتر از صفر باشد."
                                 return@FormDetailsStep
                             }
-                            val scheduledTotal = runCatching {
-                                Math.multiplyExact(parsedMonthlyForValidation, totalCountValue.toLong())
+                            val previousInstallmentsTotal = runCatching {
+                                Math.multiplyExact(parsedMonthlyForValidation, (totalCountValue - 1).toLong())
                             }.getOrNull()
-                            if (scheduledTotal == null) {
+                            if (previousInstallmentsTotal == null) {
                                 submitValidationError = "مبلغ یا تعداد اقساط بیش از محدوده قابل محاسبه است؛ لطفاً مقادیر را کاهش دهید."
                                 return@FormDetailsStep
                             }
-                            if (scheduledTotal < parsedTotalForValidation) {
-                                submitValidationError = "مجموع مبلغ اقساط نمی‌تواند از مبلغ کل وام کمتر باشد؛ لطفاً مبالغ را بررسی کنید."
+                            if (totalCountValue > 1 && previousInstallmentsTotal >= parsedTotalForValidation) {
+                                submitValidationError = "مبلغ اقساط پیش از قسط آخر باید کمتر از مبلغ کل وام باشد تا مبلغ قسط پایانی مثبت بماند."
                                 return@FormDetailsStep
                             }
                         }
