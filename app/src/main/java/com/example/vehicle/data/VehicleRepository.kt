@@ -2385,6 +2385,11 @@ class VehicleRepository {
             val vehicle = db.vehicleDao().getVehicleByServerId(userId, existing.vehicleId)
                 ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
 
+            // Preserve the user's current opt-in state across renewal.
+            val reminderWasEnabled = db.smartReminderDao()
+                .getReminderById(userId, insuranceId)
+                ?.let { it.status == "ACTIVE" && it.notificationEnabled } == true
+
             // 1. Fetch any existing schedules to cancel before database modification
             val schedulesToCancel = db.smartReminderDao().getSchedulesForReminderSync(userId, insuranceId)
 
@@ -2431,7 +2436,7 @@ class VehicleRepository {
                         .cancelReminderNotifications(insuranceId, schedulesToCancel)
 
                     val reminderManager = com.example.reminder.domain.ReminderManager(context)
-                    reminderManager.enableReminder(insuranceId)
+                    if (reminderWasEnabled) reminderManager.enableReminder(insuranceId) else reminderManager.disableReminder(insuranceId)
                 } catch (e: Exception) {
                     android.util.Log.w("VehicleRepository", "Alarm scheduling/cancellation failed for insurance $insuranceId", e)
                 }
@@ -2507,7 +2512,7 @@ class VehicleRepository {
                         .cancelReminderNotifications(insuranceId, schedulesToCancel)
 
                 val reminderManager = com.example.reminder.domain.ReminderManager(context)
-                reminderManager.enableReminder(insuranceId)
+                if (reminderWasEnabled) reminderManager.enableReminder(insuranceId) else reminderManager.disableReminder(insuranceId)
             } catch (e: Exception) {
                 android.util.Log.w("VehicleRepository", "Alarm scheduling/cancellation failed for insurance $insuranceId, but insurance was successfully renewed in Room.", e)
             }
