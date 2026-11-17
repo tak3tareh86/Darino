@@ -1250,7 +1250,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                             "مردود", "رد شده", "ردشده", "نامعتبر", "غیرمعتبر",
                             "غیر قابل قبول", "غیرقابل قبول", "عدم تایید", "عدم تأیید",
                             "تایید نشده", "تأیید نشده", "نقص", "نیاز به تعمیر"
-                        ).any(normalizedInspectionStatus::contains)
+                        ).any { normalizedInspectionStatus.contains(it) }
                         val inspectionStatusApproved = !inspectionStatusRejected && (
                             inspectionStatusText.isBlank() ||
                                 normalizedInspectionStatus.contains("معتبر") ||
