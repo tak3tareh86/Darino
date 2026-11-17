@@ -77,4 +77,15 @@ object ReminderPolicyEngine {
 
         return DispatchDecision.DeliverNow
     }
+
+    /**
+     * Snooze is available only for active reminders that have an explicitly
+     * opted-in Android delivery channel and an enabled global delivery mode.
+     * Legacy SMS flags are intentionally ignored.
+     */
+    fun canSnooze(reminder: ReminderEntity, globalDeliveryConfigured: Boolean): Boolean {
+        if (!globalDeliveryConfigured || !reminder.status.equals("ACTIVE", ignoreCase = true)) return false
+        return reminder.sourceType.equals("VEHICLE", ignoreCase = true) ||
+            reminder.notificationEnabled || reminder.fullScreenAlarmEnabled
+    }
 }
