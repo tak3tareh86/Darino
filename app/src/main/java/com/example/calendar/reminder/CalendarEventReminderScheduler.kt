@@ -42,7 +42,8 @@ class CalendarEventReminderScheduler(private val context: Context) {
     }
 
     fun schedule(event: FinancialEvent) {
-        cancel(event.id)
+        // Rebuilding the primary reminder must not cancel an independently scheduled snooze.
+        cancelPrimary(event.id)
         val triggerAt = triggerAtMillis(event) ?: return
         if (triggerAt <= System.currentTimeMillis()) return
         val pendingIntent = pendingIntent(event.id, event.title, event.description)
@@ -85,6 +86,11 @@ class CalendarEventReminderScheduler(private val context: Context) {
     }
 
     fun cancel(eventId: String) {
+        cancelPrimary(eventId)
+        cancelSnooze(eventId)
+    }
+
+    private fun cancelPrimary(eventId: String) {
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             eventId.hashCode(),
@@ -95,7 +101,6 @@ class CalendarEventReminderScheduler(private val context: Context) {
             alarmManager.cancel(it)
             it.cancel()
         }
-        cancelSnooze(eventId)
     }
 
     private fun cancelSnooze(eventId: String) {
