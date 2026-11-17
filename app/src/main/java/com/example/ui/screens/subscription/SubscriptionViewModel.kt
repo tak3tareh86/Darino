@@ -137,8 +137,9 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
 
     fun manualRestorePurchase() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isSyncing = true, userMessage = "در حال ارتباط با بازار...") }
-            val result = manager.syncWithMarket()
+            _uiState.update { it.copy(isSyncing = true, userMessage = "در حال ارتباط با بازار...", isError = false) }
+            val result = withTimeoutOrNull(20_000L) { manager.syncWithMarket() }
+                ?: Result.failure(IllegalStateException("مهلت ارتباط با کافه‌بازار تمام شد. لطفاً بازار و اینترنت را بررسی و دوباره تلاش کنید."))
             result.onSuccess { info ->
                 val msg = if (info.subscriptionStatus == SubscriptionStatus.ACTIVE) {
                     "اشتراک شما با موفقیت بازیابی شد."
