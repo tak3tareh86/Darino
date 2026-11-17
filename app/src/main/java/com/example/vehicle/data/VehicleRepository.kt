@@ -2517,6 +2517,16 @@ class VehicleRepository {
             val existing = db.vehicleDao().getInsuranceById(userId, insuranceId)
                 ?: return@withContext Result.failure(NoSuchElementException("بیمه‌نامه مورد نظر یافت نشد."))
 
+            // A new renewal must not create an already-expired policy. Keep the
+            // same-date idempotent recovery path available for interrupted saves.
+            if (existing.endDate != newEndDate.trim()) {
+                val todayMs = parseJalaliToTimestamp(today)
+                    ?: return@withContext Result.failure(IllegalStateException("تاریخ امروز برای بررسی تمدید بیمه قابل محاسبه نیست."))
+                if (endMs < todayMs) {
+                    return@withContext Result.failure(IllegalArgumentException("تاریخ پایان بیمه جدید نمی‌تواند قبل از امروز باشد."))
+                }
+            }
+
             val insAmount = if (financialTransaction != null && financialTransaction.amount > 0L) {
                 financialTransaction.amount
             } else {
