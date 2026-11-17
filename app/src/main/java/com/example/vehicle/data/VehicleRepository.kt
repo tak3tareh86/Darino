@@ -933,14 +933,26 @@ class VehicleRepository {
                 return@withContext Result.failure(IllegalStateException("هیچ خودرویی برای حذف یافت نشد."))
             }
 
-            // Cancel all corresponding system alarms and visible notifications after commit.
+            // Database deletion is authoritative. Attempt every external cleanup independently
+            // so one failed alarm cancellation cannot skip the remaining alarms or misreport deletion.
+            val cleanupErrors = mutableListOf<Throwable>()
             val scheduler = com.example.reminder.domain.ReminderScheduler(context)
             allSchedulesToCancel.forEach { schedule ->
-                scheduler.cancelSchedule(schedule.id)
+                runCatching { scheduler.cancelSchedule(schedule.id) }
+                    .onFailure { cleanupErrors.add(it) }
             }
             val notificationDispatcher = com.example.reminder.domain.NotificationDispatcher(context)
             allSchedulesToCancel.groupBy { it.reminderId }.forEach { (reminderId, schedules) ->
-                notificationDispatcher.cancelReminderNotifications(reminderId, schedules)
+                runCatching {
+                    notificationDispatcher.cancelReminderNotifications(reminderId, schedules)
+                }.onFailure { cleanupErrors.add(it) }
+            }
+            if (cleanupErrors.isNotEmpty()) {
+                android.util.Log.w(
+                    "VehicleRepository",
+                    "Vehicle $vehicleId was deleted, but ${cleanupErrors.size} reminder cleanup operation(s) failed.",
+                    cleanupErrors.first()
+                )
             }
 
             Result.success(Unit)
