@@ -67,7 +67,10 @@ data class TransactionEntity(
     val accountId: String? = null,
     val transferSourceAccountId: String? = null,
     val transferDestinationAccountId: String? = null,
-    val transferRecipientName: String? = null
+    val transferRecipientName: String? = null,
+    @ColumnInfo(defaultValue = "''") val categoryId: String = "",
+    @ColumnInfo(defaultValue = "'[]'") val tagsJson: String = "[]",
+    val recurringFrequency: String? = null
 )
 
 @Entity(tableName = "installments")
