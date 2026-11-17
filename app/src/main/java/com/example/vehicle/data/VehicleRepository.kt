@@ -546,7 +546,9 @@ class VehicleRepository {
         targetKilometer: Int? = null,
         currentKilometer: Int? = null,
         offsets: List<com.example.reminder.domain.PredefinedOffset> = emptyList(),
-        reminderEnabled: Boolean = false
+        reminderEnabled: Boolean = false,
+        notificationEnabled: Boolean = reminderEnabled,
+        fullScreenAlarmEnabled: Boolean = false
     ) {
         val effectiveDate = date?.takeIf { it.isNotBlank() }
             ?: PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
@@ -563,7 +565,8 @@ class VehicleRepository {
             sourceId = id,
             date = persianDate,
             time = persianTime,
-            notificationEnabled = reminderEnabled,
+            notificationEnabled = notificationEnabled,
+            fullScreenAlarmEnabled = fullScreenAlarmEnabled,
             status = if (reminderEnabled) "ACTIVE" else "DISABLED",
             targetKilometer = targetKilometer?.toLong(),
             currentKilometer = currentKilometer?.toLong()
@@ -727,8 +730,9 @@ class VehicleRepository {
         // Renewal must preserve the user's existing reminder choice instead of silently
         // enabling a disabled reminder or replacing custom offsets with hard-coded values.
         val previousReminder = db.smartReminderDao().getReminderById(userId, existing.id)
-        val reminderEnabled = previousReminder?.status == "ACTIVE" &&
-            previousReminder.notificationEnabled
+        val reminderEnabled = previousReminder?.status == "ACTIVE"
+        val notificationEnabled = previousReminder?.notificationEnabled ?: false
+        val fullScreenAlarmEnabled = previousReminder?.fullScreenAlarmEnabled ?: false
         val reminderTime = previousReminder?.time?.takeIf { it.isNotBlank() } ?: defaultReminderTime()
         val offsets = existing.reminderDays
             .split(",")
@@ -746,7 +750,9 @@ class VehicleRepository {
             time = reminderTime,
             type = "INSURANCE",
             offsets = offsets,
-            reminderEnabled = reminderEnabled
+            reminderEnabled = reminderEnabled,
+            notificationEnabled = notificationEnabled,
+            fullScreenAlarmEnabled = fullScreenAlarmEnabled
         )
         val confirmedRem = db.smartReminderDao().getReminderById(userId, existing.id)
         val expectedStatus = if (reminderEnabled) "ACTIVE" else "DISABLED"
@@ -2401,7 +2407,7 @@ class VehicleRepository {
             // Preserve the user's current opt-in state across renewal.
             val reminderWasEnabled = db.smartReminderDao()
                 .getReminderById(userId, insuranceId)
-                ?.let { it.status == "ACTIVE" && it.notificationEnabled } == true
+                ?.let { it.status == "ACTIVE" } == true
 
             // 1. Fetch any existing schedules to cancel before database modification
             val schedulesToCancel = db.smartReminderDao().getSchedulesForReminderSync(userId, insuranceId)
