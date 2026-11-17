@@ -294,7 +294,7 @@ object BackupFolderStorage {
 
         val requestedFrequencies = namePrefixes.mapNotNull { prefix ->
             prefix.substringBefore("_auto_backup_", missingDelimiterValue = "")
-                .takeIf { it == "daily" || it == "weekly"" }
+                .takeIf { it == "daily" || it == "weekly" }
         }.toSet()
         if (requestedFrequencies.isEmpty()) return emptyList()
 
