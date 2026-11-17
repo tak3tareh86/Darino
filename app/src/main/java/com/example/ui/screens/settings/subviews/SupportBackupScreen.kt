@@ -336,9 +336,19 @@ fun SupportBackupScreen(
                         readBoundedBytes(input, MAX_PORTABLE_BACKUP_BYTES + 1024)
                     } ?: throw java.io.IOException("امکان خواندن فایل انتخاب‌شده وجود ندارد.")
                     if (com.example.data.backup.BackupEncryption.isEncrypted(payload)) {
+                        // Portable manual backups are protected by the user's six-digit passphrase.
                         pendingEncryptedRestorePayload = payload
                         restorePassphrase = ""
                         showRestorePasswordDialog = true
+                    } else if (com.example.data.backup.DeviceBackupEncryption.isDeviceEncrypted(payload)) {
+                        // Daily/weekly automatic backups use this device's Android Keystore key,
+                        // not the portable-backup passphrase format.
+                        val json = withContext(Dispatchers.Default) {
+                            com.example.data.backup.DeviceBackupEncryption.decrypt(payload)
+                        }.toString(Charsets.UTF_8)
+                        val backup = com.example.data.backup.BackupFileCodec.decode(json)
+                        pendingRestoreBackup = backup
+                        showRestoreConfirmation = true
                     } else {
                         // Backward compatibility: older unencrypted JSON backups remain importable.
                         val backup = com.example.data.backup.BackupFileCodec.decode(payload.toString(Charsets.UTF_8))
