@@ -181,7 +181,9 @@ data class VehicleInsuranceRoomEntity(
     val amount: Long,
     @ColumnInfo(defaultValue = "'TOMAN'") val amountUnit: String = "TOMAN",
     val policyNumber: String = "",
-    val reminderDays: String = "30,15,7"
+    val reminderDays: String = "30,15,7",
+    @ColumnInfo(defaultValue = "0") val reminderEnabled: Boolean = false,
+    @ColumnInfo(defaultValue = "'۰۹:۰۰'") val reminderTime: String = "۰۹:۰۰"
 )
 
 @Entity(tableName = "vehicle_inspections", primaryKeys = ["id", "userId"])
@@ -194,7 +196,10 @@ data class VehicleInspectionRoomEntity(
     val cost: Long,
     @ColumnInfo(defaultValue = "'TOMAN'") val costUnit: String = "TOMAN",
     val status: String = "معتبر",
-    val centerName: String = ""
+    val centerName: String = "",
+    @ColumnInfo(defaultValue = "0") val reminderEnabled: Boolean = false,
+    @ColumnInfo(defaultValue = "'۰۹:۰۰'") val reminderTime: String = "۰۹:۰۰",
+    @ColumnInfo(defaultValue = "''") val reminderDays: String = ""
 )
 
 @Entity(tableName = "reminders")
