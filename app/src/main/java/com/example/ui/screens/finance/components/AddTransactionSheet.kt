@@ -709,7 +709,7 @@ fun AddTransactionSheet(
                             (selectedSourceAccount?.name ?: "کارت بانکی")
                         else
                             (selectedAccount?.name ?: paymentMethod.title),
-                        accountId = selectedAccount?.id,
+                        accountId = if (selectedType == TransactionType.TRANSFER) null else selectedAccount?.id,
                         transferSourceAccountId = if (selectedType == TransactionType.TRANSFER) selectedSourceAccount?.id else null,
                         transferDestinationAccountId = null,
                         transferRecipientName = if (selectedType == TransactionType.TRANSFER) transferRecipientName.trim().takeIf { it.isNotEmpty() } else null,
