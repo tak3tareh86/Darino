@@ -85,10 +85,23 @@ class VehicleRepository {
         schedules: List<com.example.reminder.data.ReminderScheduleEntity>
     ) {
         val dao = db.vehicleReminderCleanupQueueDao()
+        val pendingByReminder = dao.getPendingForUser(userId).associateBy { it.reminderId }
         reminderIds.distinct().forEach { reminderId ->
+            val mergedSchedules = linkedMapOf<String, Long>()
+            pendingByReminder[reminderId]?.let { pending ->
+                // Never overwrite an earlier failed cleanup attempt with a newer edit.
+                val existingJson = JSONArray(pending.schedulesJson)
+                for (index in 0 until existingJson.length()) {
+                    val item = existingJson.getJSONObject(index)
+                    mergedSchedules[item.getString("id")] = item.getLong("triggerDateTime")
+                }
+            }
+            schedules.filter { it.reminderId == reminderId }.forEach { schedule ->
+                mergedSchedules[schedule.id] = schedule.triggerDateTime
+            }
             val scheduleJson = JSONArray().apply {
-                schedules.filter { it.reminderId == reminderId }.forEach { schedule ->
-                    put(JSONObject().put("id", schedule.id).put("triggerDateTime", schedule.triggerDateTime))
+                mergedSchedules.forEach { (scheduleId, triggerDateTime) ->
+                    put(JSONObject().put("id", scheduleId).put("triggerDateTime", triggerDateTime))
                 }
             }.toString()
             dao.upsert(
@@ -96,7 +109,7 @@ class VehicleRepository {
                     userId = userId,
                     reminderId = reminderId,
                     schedulesJson = scheduleJson,
-                    createdAt = System.currentTimeMillis()
+                    createdAt = pendingByReminder[reminderId]?.createdAt ?: System.currentTimeMillis()
                 )
             )
         }
