@@ -52,6 +52,7 @@ fun ReminderCard(
     var showDeleteConfirmDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val isCompleted = reminder.status.equals("COMPLETED", ignoreCase = true)
     val isMissed = reminder.status.equals("MISSED", ignoreCase = true)
+    val isCancelled = reminder.status.equals("CANCELLED", ignoreCase = true)
 
     val reminderType = ReminderType.fromKey(reminder.type)
     val priority = Priority.fromKey(reminder.priority)
@@ -59,7 +60,7 @@ fun ReminderCard(
     val statusColor = when {
         isCompleted -> Color(0xFF94A3B8)
         isMissed -> ExpenseRoseLight
-        reminder.status.equals("DISABLED", ignoreCase = true) -> Color(0xFF64748B)
+        reminder.status.equals("DISABLED", ignoreCase = true) || isCancelled -> Color(0xFF64748B)
         else -> EmeraldPrimaryLight
     }
 
@@ -67,6 +68,7 @@ fun ReminderCard(
         isCompleted -> "انجام شده"
         isMissed -> "از دست رفته"
         reminder.status.equals("DISABLED", ignoreCase = true) -> "غیرفعال"
+        isCancelled -> "لغوشده"
         else -> "فعال"
     }
 
