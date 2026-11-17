@@ -27,8 +27,7 @@ class ReminderScheduler(private val context: Context) {
         val androidDeliveryEnabled = reminderOptedIn &&
             preferences.notificationsEnabled.value &&
             preferences.alertDelivery.value != AlertDeliveryPreference.NONE
-        val smsDeliveryEnabled = reminder.smsEnabled && preferences.smsNotificationsEnabled.value
-        return androidDeliveryEnabled || smsDeliveryEnabled
+        return androidDeliveryEnabled
     }
 
     /**
@@ -218,21 +217,16 @@ class ReminderScheduler(private val context: Context) {
             com.example.data.security.SessionManager.init(context)
         }
         val userId = com.example.data.security.SessionManager.userId
-        val activeReminders = if (userId != null) {
-            db.smartReminderDao().getActiveRemindersList(userId)
-        } else {
-            Log.w("ReminderScheduler", "SessionManager.userId is null during rebuild; querying all active reminders globally.")
-            db.smartReminderDao().getAllActiveRemindersGlobal()
-        }
+            ?: run {
+                Log.i("ReminderScheduler", "No authenticated user; reminder schedules will not be rebuilt.")
+                return@withContext 0
+            }
+        val activeReminders = db.smartReminderDao().getActiveRemindersList(userId)
 
         // Remove stale PendingIntents first. This also makes switching to NONE or disabling
         // the global push channel actually stop previously armed Android alarms.
         val reminderSchedules = activeReminders.map { reminder ->
-            val schedules = if (userId != null) {
-                db.smartReminderDao().getSchedulesForReminderSync(userId, reminder.id)
-            } else {
-                db.smartReminderDao().getSchedulesForReminderGlobal(reminder.id)
-            }
+            val schedules = db.smartReminderDao().getSchedulesForReminderSync(userId, reminder.id)
             reminder to schedules
         }
         reminderSchedules.flatMap { it.second }.forEach { schedule ->
