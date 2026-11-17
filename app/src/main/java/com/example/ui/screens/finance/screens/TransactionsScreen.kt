@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -47,7 +46,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,7 +54,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -120,6 +117,7 @@ fun TransactionsScreen(
 
     // Search queries per tab
     var allSearchQuery by remember { mutableStateOf("") }
+    var expenseSearchQuery by remember { mutableStateOf("") }
     var incomeSearchQuery by remember { mutableStateOf("") }
     var transferSearchQuery by remember { mutableStateOf("") }
 
@@ -154,6 +152,7 @@ fun TransactionsScreen(
         transactions,
         selectedTabIndex,
         allSearchQuery,
+        expenseSearchQuery,
         selectedExpenseCategory,
         incomeSearchQuery,
         transferSearchQuery,
@@ -166,13 +165,19 @@ fun TransactionsScreen(
                             tx.title.contains(allSearchQuery, ignoreCase = true) ||
                             tx.category.title.contains(allSearchQuery, ignoreCase = true) ||
                             tx.description.contains(allSearchQuery, ignoreCase = true) ||
-                            tx.accountName.contains(allSearchQuery, ignoreCase = true)
+                            tx.accountName.contains(allSearchQuery, ignoreCase = true) ||
+                            (tx.transferRecipientName?.contains(allSearchQuery, ignoreCase = true) == true)
                 }
             }
             1 -> { // هزینه‌ها
                 transactions.filter { tx ->
                     tx.type == TransactionType.EXPENSE &&
-                            (selectedExpenseCategory == "همه دسته‌بندی‌ها" || tx.category.title.contains(selectedExpenseCategory, ignoreCase = true))
+                            (selectedExpenseCategory == "همه دسته‌بندی‌ها" || tx.category.title.contains(selectedExpenseCategory, ignoreCase = true)) &&
+                            (expenseSearchQuery.isBlank() ||
+                                    tx.title.contains(expenseSearchQuery, ignoreCase = true) ||
+                                    tx.category.title.contains(expenseSearchQuery, ignoreCase = true) ||
+                                    tx.description.contains(expenseSearchQuery, ignoreCase = true) ||
+                                    tx.accountName.contains(expenseSearchQuery, ignoreCase = true))
                 }
             }
             2 -> { // درآمدها
@@ -191,7 +196,8 @@ fun TransactionsScreen(
                             (transferSearchQuery.isBlank() ||
                                     tx.title.contains(transferSearchQuery, ignoreCase = true) ||
                                     tx.description.contains(transferSearchQuery, ignoreCase = true) ||
-                                    tx.accountName.contains(transferSearchQuery, ignoreCase = true))
+                                    tx.accountName.contains(transferSearchQuery, ignoreCase = true) ||
+                                    (tx.transferRecipientName?.contains(transferSearchQuery, ignoreCase = true) == true))
                 }
             }
             else -> transactions
@@ -262,6 +268,15 @@ fun TransactionsScreen(
                     containerColor = MaterialTheme.colorScheme.background
                 )
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddNewTransaction,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(Icons.Rounded.Add, contentDescription = "ثبت تراکنش جدید")
+            }
         }
     ) { innerPadding ->
         Column(
@@ -269,27 +284,34 @@ fun TransactionsScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // 4 Tabs Row Header
-            ScrollableTabRow(
-                selectedTabIndex = selectedTabIndex,
-                edgePadding = 16.dp,
-                containerColor = MaterialTheme.colorScheme.background,
-                contentColor = MaterialTheme.colorScheme.primary
+            // Four compact tabs in a fixed 2x2 layout; no horizontal scrolling.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                tabTitles.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
-                        text = {
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 13.sp
-                                )
+                listOf(0..1, 2..3).forEach { rowIndexes ->
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        rowIndexes.forEach { index ->
+                            Tab(
+                                modifier = Modifier.weight(1f),
+                                selected = selectedTabIndex == index,
+                                onClick = { selectedTabIndex = index },
+                                text = {
+                                    Text(
+                                        text = tabTitles[index],
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
+                                            fontSize = 12.sp
+                                        )
+                                    )
+                                }
                             )
                         }
-                    )
+                    }
                 }
             }
 
@@ -477,7 +499,23 @@ fun TransactionsScreen(
 
                     1 -> {
                         // ================= TAB 1: هزینه‌ها =================
-                        // Modern Category Selector Bar & Chip Selector
+                        OutlinedTextField(
+                            value = expenseSearchQuery,
+                            onValueChange = { expenseSearchQuery = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("جستجو در هزینه‌ها (عنوان، حساب، توضیحات)...", style = MaterialTheme.typography.bodySmall) },
+                            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            trailingIcon = {
+                                if (expenseSearchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { expenseSearchQuery = "" }) {
+                                        Icon(Icons.Rounded.Clear, contentDescription = "پاک کردن", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        // Category selector
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Surface(
                                 modifier = Modifier
@@ -536,17 +574,6 @@ fun TransactionsScreen(
                                 }
                             }
 
-                            // Horizontal Chip Bar for quick switching top categories
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                items(expenseCategories) { categoryName ->
-                                    val isSelected = categoryName == selectedExpenseCategory
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { selectedExpenseCategory = categoryName },
-                                        label = { Text(categoryName, fontSize = 11.sp) }
-                                    )
-                                }
-                            }
                         }
 
                         // Bottom Sheet for full category picker
@@ -804,7 +831,7 @@ fun TransactionsScreen(
                     LazyColumn(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(bottom = 16.dp)
+                        contentPadding = PaddingValues(bottom = 88.dp)
                     ) {
                         items(displayedTransactions, key = { it.id }) { tx ->
                             TransactionCard(
