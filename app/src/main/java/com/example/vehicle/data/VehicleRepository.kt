@@ -464,11 +464,15 @@ class VehicleRepository {
                             amount = ins.amount,
                             amountUnit = AppCurrency.valueOf(ins.amountUnit),
                             policyNumber = ins.policyNumber,
-                            reminderDays = if (reminder?.notificationEnabled == true && reminder.status == "ACTIVE") {
+                            reminderDays = if (reminder != null) {
+                                if (reminder.notificationEnabled && reminder.status == "ACTIVE") {
+                                    ins.reminderDays.split(",").mapNotNull { it.toIntOrNull() }
+                                } else emptyList()
+                            } else if (ins.reminderEnabled) {
                                 ins.reminderDays.split(",").mapNotNull { it.toIntOrNull() }
                             } else emptyList(),
-                            reminderEnabled = reminder?.notificationEnabled == true && reminder.status == "ACTIVE",
-                            reminderTime = reminder?.time ?: defaultReminderTime()
+                            reminderEnabled = reminder?.let { it.notificationEnabled && it.status == "ACTIVE" } ?: ins.reminderEnabled,
+                            reminderTime = reminder?.time ?: ins.reminderTime
                         )
                     }
                     _insurances.value = mappedInsurances
@@ -487,7 +491,9 @@ class VehicleRepository {
                                 schedule.offsetUnit.equals("DAY", ignoreCase = true) -> schedule.offsetValue
                                 else -> null
                             }
-                        }.distinct().sortedDescending().ifEmpty { emptyList() }
+                        }.distinct().sortedDescending().ifEmpty {
+                            insp.reminderDays.split(",").mapNotNull { it.toIntOrNull() }.distinct().sortedDescending()
+                        }
                         mappedInspections += VehicleInspectionEntity(
                             id = insp.id,
                             vehicleId = insp.vehicleId,
@@ -497,8 +503,8 @@ class VehicleRepository {
                             costUnit = AppCurrency.valueOf(insp.costUnit),
                             status = insp.status,
                             centerName = insp.centerName,
-                            reminderEnabled = reminder?.notificationEnabled == true && reminder.status == "ACTIVE",
-                            reminderTime = reminder?.time ?: defaultReminderTime(),
+                            reminderEnabled = reminder?.let { it.notificationEnabled && it.status == "ACTIVE" } ?: insp.reminderEnabled,
+                            reminderTime = reminder?.time ?: insp.reminderTime,
                             reminderDays = reminderDays
                         )
                     }
@@ -2317,7 +2323,9 @@ class VehicleRepository {
                         amount = amount,
                         amountUnit = AppCurrency.RIAL.name,
                         policyNumber = policyNumber.trim(),
-                        reminderDays = newInsurance.reminderDays.joinToString(",")
+                        reminderDays = newInsurance.reminderDays.joinToString(","),
+                        reminderEnabled = newInsurance.reminderEnabled,
+                        reminderTime = newInsurance.reminderTime
                     )
                 )
 
@@ -2655,7 +2663,10 @@ class VehicleRepository {
                     cost = cost,
                     costUnit = AppCurrency.RIAL.name,
                     status = status.trim(),
-                    centerName = centerName.trim()
+                    centerName = centerName.trim(),
+                    reminderEnabled = newInspection.reminderEnabled,
+                    reminderTime = newInspection.reminderTime,
+                    reminderDays = newInspection.reminderDays.joinToString(",")
                 )
                 if (recordId.isNullOrBlank()) {
                     db.vehicleDao().insertInspection(inspectionRow)
