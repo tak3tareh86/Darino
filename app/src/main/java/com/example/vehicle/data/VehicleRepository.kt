@@ -52,6 +52,28 @@ class VehicleRepository {
     private var roomCollectorsJob: Job? = null
 
     /**
+     * Attempts every cleanup operation independently so one platform failure does not
+     * prevent the remaining alarms and already-posted notifications from being cancelled.
+     */
+    private fun cancelServiceReminderEffects(
+        context: Context,
+        serviceId: String,
+        schedules: List<com.example.reminder.data.ReminderScheduleEntity>
+    ): List<Throwable> {
+        val errors = mutableListOf<Throwable>()
+        val scheduler = com.example.reminder.domain.ReminderScheduler(context)
+        schedules.forEach { schedule ->
+            runCatching { scheduler.cancel(serviceId, listOf(schedule)) }
+                .onFailure(errors::add)
+        }
+        runCatching {
+            com.example.reminder.domain.NotificationDispatcher(context)
+                .cancelReminderNotifications(serviceId, schedules)
+        }.onFailure(errors::add)
+        return errors
+    }
+
+    /**
      * Initializes the Room SQLite database and loads user-specific vehicle records.
      */
     fun initDatabase(context: Context) {
@@ -1520,19 +1542,16 @@ class VehicleRepository {
                 }
             }
 
-            var cancelFailed = false
-            var cancelErrorMsg: String? = null
-            if (schedulesToCancel.isNotEmpty()) {
-                try {
-                    val scheduler = com.example.reminder.domain.ReminderScheduler(context)
-                    scheduler.cancel(serviceId, schedulesToCancel)
-                    com.example.reminder.domain.NotificationDispatcher(context)
-                        .cancelReminderNotifications(serviceId, schedulesToCancel)
-                } catch (ce: Exception) {
-                    android.util.Log.w("VehicleRepository", "Cancelling previous alarms failed for service $serviceId", ce)
-                    cancelFailed = true
-                    cancelErrorMsg = ce.message ?: "لغو هشدارهای قبلی ناموفق بود"
-                }
+            val cancellationErrors = cancelServiceReminderEffects(context, serviceId, schedulesToCancel)
+            val cancelFailed = cancellationErrors.isNotEmpty()
+            val cancelErrorMsg = cancellationErrors
+                .joinToString("؛ ") { it.message ?: it.javaClass.simpleName }
+                .ifBlank { null }
+            if (cancelFailed) {
+                android.util.Log.w(
+                    "VehicleRepository",
+                    "One or more previous reminder effects could not be cancelled for service $serviceId: $cancelErrorMsg"
+                )
             }
 
             var alarmFailed = false
@@ -1557,11 +1576,11 @@ class VehicleRepository {
 
             // Distinguish cancellation failures from scheduling failures
             if (cancelFailed) {
-                if (alarmFailed) {
-                    alarmErrorMsg = "لغو هشدارهای تاریخ قبلی و ثبت هشدار جدید هر دو با خطا مواجه شدند ($cancelErrorMsg)."
-                } else if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
-                    alarmFailed = true
-                    alarmErrorMsg = "هشدار جدید ثبت شد، اما لغو هشدارهای تاریخ قبلی ناموفق بود ($cancelErrorMsg)."
+                alarmFailed = true
+                alarmErrorMsg = if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
+                    "هشدار جدید ثبت شد، اما لغو هشدارهای قبلی ناموفق بود ($cancelErrorMsg)."
+                } else {
+                    "لغو هشدارهای قبلی ناموفق بود ($cancelErrorMsg)."
                 }
             }
 
@@ -1625,6 +1644,8 @@ class VehicleRepository {
         }
 
         try {
+            com.example.reminder.domain.NotificationDispatcher(context)
+                .cancelReminderNotifications(serviceId)
             val reminderManager = com.example.reminder.domain.ReminderManager(context)
             reminderManager.enableReminder(serviceId)
 
@@ -1725,17 +1746,13 @@ class VehicleRepository {
                 }
 
                 // Cancel alarms outside transaction after commit
-                if (schedulesToCancel.isNotEmpty()) {
-                    try {
-                        val scheduler = com.example.reminder.domain.ReminderScheduler(context)
-                        scheduler.cancel(serviceId, schedulesToCancel)
-                    com.example.reminder.domain.NotificationDispatcher(context)
-                        .cancelReminderNotifications(serviceId, schedulesToCancel)
-                        val reminderManager = com.example.reminder.domain.ReminderManager(context)
-                        reminderManager.disableReminder(serviceId)
-                    } catch (e: Exception) {
-                        android.util.Log.w("VehicleRepository", "Alarm cancellation failed for service $serviceId", e)
-                    }
+                val cancellationErrors = cancelServiceReminderEffects(context, serviceId, schedulesToCancel)
+                if (cancellationErrors.isNotEmpty()) {
+                    android.util.Log.w(
+                        "VehicleRepository",
+                        "Service $serviceId was completed or deleted, but reminder cleanup was incomplete.",
+                        cancellationErrors.first()
+                    )
                 }
 
                 if (financialTransaction != null) {
@@ -1793,17 +1810,13 @@ class VehicleRepository {
             }
 
             // Cancel alarm in system AlarmManager after successful database commit
-            if (schedulesToCancel.isNotEmpty()) {
-                try {
-                    val scheduler = com.example.reminder.domain.ReminderScheduler(context)
-                    scheduler.cancel(serviceId, schedulesToCancel)
-                    com.example.reminder.domain.NotificationDispatcher(context)
-                        .cancelReminderNotifications(serviceId, schedulesToCancel)
-                    val reminderManager = com.example.reminder.domain.ReminderManager(context)
-                    reminderManager.disableReminder(serviceId)
-                } catch (e: Exception) {
-                    android.util.Log.w("VehicleRepository", "Alarm cancellation failed for service $serviceId", e)
-                }
+            val cancellationErrors = cancelServiceReminderEffects(context, serviceId, schedulesToCancel)
+            if (cancellationErrors.isNotEmpty()) {
+                android.util.Log.w(
+                    "VehicleRepository",
+                    "Service $serviceId was completed or deleted, but reminder cleanup was incomplete.",
+                    cancellationErrors.first()
+                )
             }
 
             if (financialTransaction != null) {
