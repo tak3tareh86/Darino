@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 
 class SubscriptionViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -55,7 +56,9 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
     private fun loadAnnualSubscriptionPrice() {
         viewModelScope.launch {
             _uiState.update { it.copy(isPriceLoading = true) }
-            manager.getAnnualSubscriptionPrice().onSuccess { price ->
+            val priceResult = withTimeoutOrNull(20_000L) { manager.getAnnualSubscriptionPrice() }
+                ?: Result.failure(IllegalStateException("پاسخی از کافه‌بازار برای دریافت قیمت دریافت نشد."))
+            priceResult.onSuccess { price ->
                 _uiState.update {
                     it.copy(
                         priceDisplay = price.display,
@@ -116,7 +119,8 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
     fun syncWithMarketOnStartup() {
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true, userMessage = null) }
-            val result = manager.syncWithMarket()
+            val result = withTimeoutOrNull(20_000L) { manager.syncWithMarket() }
+                ?: Result.failure(IllegalStateException("مهلت ارتباط با کافه‌بازار تمام شد. لطفاً دوباره تلاش کنید."))
             result.onSuccess { info ->
                 _uiState.update { it.copy(isSyncing = false) }
             }.onFailure { error ->
@@ -156,13 +160,18 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    fun startPurchaseFlow(registry: ActivityResultRegistry, onSuccessNavigation: () -> Unit) {
-        _uiState.update { it.copy(isLoading = true, userMessage = null) }
+    fun showActionError(message: String) {
+        _uiState.update { it.copy(isLoading = false, isSyncing = false, userMessage = message, isError = true) }
+    }
 
+    fun startPurchaseFlow(registry: ActivityResultRegistry, onSuccessNavigation: () -> Unit) {
+        _uiState.update { it.copy(isLoading = true, userMessage = null, isError = false) }
+
+        try {
         manager.launchPurchaseFlow(
             registry = registry,
             onFlowBegan = {
-                _uiState.update { it.copy(userMessage = "در حال انتقال به درگاه بازار...") }
+                _uiState.update { it.copy(userMessage = "در حال انتقال به درگاه بازار...", isError = false) }
             },
             onFailedToBegin = { errorMsg ->
                 _uiState.update { it.copy(isLoading = false, userMessage = errorMsg, isError = true) }
@@ -212,6 +221,9 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
                 _uiState.update { it.copy(isLoading = false, userMessage = errorMsg, isError = true) }
             }
         )
+        } catch (error: Exception) {
+            _uiState.update { it.copy(isLoading = false, userMessage = error.localizedMessage ?: "شروع فرایند خرید از بازار ممکن نشد.", isError = true) }
+        }
     }
 
     fun clearUserMessage() {
