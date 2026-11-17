@@ -42,8 +42,8 @@ class LoanCalculatorEngine {
         if (duration == null) return ValidationResult.Invalid("لطفاً مدت زمان بازپرداخت را مشخص کنید")
         if (duration <= 0) return ValidationResult.Invalid("مدت بازپرداخت باید بیشتر از صفر باشد")
         val months = if (durationType == DurationType.YEARS) duration.toLong() * 12L else duration.toLong()
-        if (months > MAX_DURATION_MONTHS) {
-            return ValidationResult.Invalid("مدت بازپرداخت نمی‌تواند بیشتر از ۶۰۰ ماه باشد")
+        if (months > Int.MAX_VALUE.toLong()) {
+            return ValidationResult.Invalid("مدت بازپرداخت از ظرفیت محاسباتی برنامه بیشتر است")
         }
         return ValidationResult.Valid
     }
@@ -60,7 +60,7 @@ class LoanCalculatorEngine {
         require(validateInputs(amount, interestRate, duration, interestPeriod, durationType, amountUnit) is ValidationResult.Valid) {
             "ورودی‌های محاسبه تسهیلات معتبر نیستند"
         }
-        val totalMonths = if (durationType == DurationType.YEARS) duration * 12 else duration
+        val totalMonths = Math.toIntExact(if (durationType == DurationType.YEARS) duration.toLong() * 12L else duration.toLong())
         val annualRate = if (interestPeriod == InterestPeriod.MONTHLY) interestRate * 12.0 else interestRate
         return when (method) {
             CalculationMethod.ANNUITY -> calculateAnnuity(amount, annualRate, totalMonths, amountUnit)
@@ -85,7 +85,7 @@ class LoanCalculatorEngine {
                 .multiply(growth, MONEY_CONTEXT)
                 .divide(growth.subtract(BigDecimal.ONE, MONEY_CONTEXT), 0, RoundingMode.HALF_UP)
         }
-        val payment = paymentValue.longValueExact().coerceAtLeast(1L)
+        val payment = paymentValue.setScale(0, RoundingMode.CEILING).longValueExact().coerceAtLeast(1L)
         val totalPayment = Math.multiplyExact(payment, months.toLong())
         val totalInterest = Math.subtractExact(totalPayment, principal).coerceAtLeast(0L)
         return result(principal, annualRate, months, payment, totalPayment, totalInterest, CalculationMethod.ANNUITY, amountUnit)
@@ -103,7 +103,7 @@ class LoanCalculatorEngine {
             .longValueExact()
         val total = Math.addExact(principal, interest)
         val payment = BigDecimal.valueOf(total)
-            .divide(BigDecimal.valueOf(months.toLong()), 0, RoundingMode.HALF_UP)
+            .divide(BigDecimal.valueOf(months.toLong()), 0, RoundingMode.CEILING)
             .longValueExact()
         val reconciledTotal = Math.multiplyExact(payment, months.toLong())
         val reconciledInterest = Math.subtractExact(reconciledTotal, principal).coerceAtLeast(0L)
@@ -167,6 +167,5 @@ class LoanCalculatorEngine {
         private val MONEY_CONTEXT = MathContext.DECIMAL128
         private const val MAX_PRINCIPAL = 1_000_000_000_000_000L
         private const val MAX_ANNUAL_RATE = 1000.0
-        private const val MAX_DURATION_MONTHS = 600L
     }
 }
