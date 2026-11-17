@@ -296,6 +296,7 @@ fun AppNavigationContainer(
     val lockUiState by lockViewModel.uiState.collectAsState()
 
     val subscriptionViewModel: SubscriptionViewModel = viewModel()
+    var showSubscriptionPreview by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -376,7 +377,8 @@ fun AppNavigationContainer(
         LocalAppLanguage provides currentLanguage,
         com.example.util.LocalNumberDisplayMode provides currentNumberMode
     ) {
-        SubscriptionGate(subscriptionViewModel = subscriptionViewModel) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            SubscriptionGate(subscriptionViewModel = subscriptionViewModel) {
             // Back navigation interceptors
         BackHandler(enabled = isSettingsOpen || isNotificationsOpen || isFinancialHealthOpen || tabBackStack.size > 1) {
             when {
@@ -637,6 +639,49 @@ fun AppNavigationContainer(
             }
         }
     }
+            if (BuildConfig.DEBUG) {
+                if (showSubscriptionPreview) {
+                    BackHandler(enabled = true) {
+                        showSubscriptionPreview = false
+                    }
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        com.example.ui.screens.subscription.SubscriptionLockedScreenContent(
+                            uiState = com.example.ui.screens.subscription.SubscriptionState(
+                                info = com.example.domain.subscription.SubscriptionInfo(
+                                    subscriptionStatus = com.example.domain.subscription.SubscriptionStatus.EXPIRED
+                                ),
+                                priceDisplay = "قیمت اشتراک از بازار دریافت می‌شود"
+                            ),
+                            requiresMarketReverification = false,
+                            onPurchaseClick = {},
+                            onRestoreClick = {},
+                            actionsEnabled = false
+                        )
+                        androidx.compose.material3.TextButton(
+                            onClick = { showSubscriptionPreview = false },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 8.dp, end = 12.dp)
+                        ) {
+                            androidx.compose.material3.Text(
+                                text = "بازگشت به برنامه",
+                                color = androidx.compose.ui.graphics.Color.White
+                            )
+                        }
+                    }
+                } else {
+                    androidx.compose.material3.ExtendedFloatingActionButton(
+                        onClick = { showSubscriptionPreview = true },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp),
+                        text = {
+                            androidx.compose.material3.Text("پیش‌نمایش پایان آزمایشی")
+                        }
+                    )
+                }
+            }
+        }
+    }
 }
 }
-
