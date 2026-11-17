@@ -86,8 +86,8 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                 reminder to ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
             }.getOrNull()?.takeIf { it.second >= now }
         }
-        val todayReminders = futureActiveReminders.filter { it.first.date == todayPersian }.map { it.first }
-        val tomorrowReminders = futureActiveReminders.filter { it.first.date == tomorrowPersian }.map { it.first }
+        val todayReminders = activeList.filter { it.date == todayPersian }
+        val tomorrowReminders = activeList.filter { it.date == tomorrowPersian }
         val upcomingReminders = futureActiveReminders.sortedBy { it.second }.map { it.first }
 
         // Filter by Tab
