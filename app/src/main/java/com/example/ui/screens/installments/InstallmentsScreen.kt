@@ -461,8 +461,15 @@ fun InstallmentsScreen(
                 val parsedCount = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(countStr).filter { it.isDigit() }.toIntOrNull() ?: 0
                 val requestedPaidCount = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(paidCountStr).filter { it.isDigit() }.toIntOrNull() ?: 0
 
+                if (parsedCount !in 1..60) {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("تعداد اقساط باید بین ۱ تا ۶۰ باشد.")
+                    }
+                    return@AddInstallmentSheet false
+                }
+
                 if (customScheduleItems.isNullOrEmpty()) {
-                    if (rawTotalRials <= 0L || parsedCount <= 0 || rawMonthlyRials <= 0L) {
+                    if (rawTotalRials <= 0L || rawMonthlyRials <= 0L) {
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("مبلغ کل، مبلغ هر قسط و تعداد اقساط باید معتبر و بزرگتر از صفر باشند.")
                         }
@@ -500,16 +507,23 @@ fun InstallmentsScreen(
                     val hasOutOfOrderDates = chronologicalItems.zipWithNext().any { (first, second) ->
                         val firstDate = com.example.calendar.domain.CalendarDateUtils.parseJalali(first.dueDate)
                         val secondDate = com.example.calendar.domain.CalendarDateUtils.parseJalali(second.dueDate)
-                        if (firstDate == null || secondDate == null) {
+                        if (!com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(first.dueDate) ||
+                            !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(second.dueDate) ||
+                            firstDate == null || secondDate == null
+                        ) {
                             true
                         } else {
-                            val firstMillis = PersianCalendarHelper.jalaliToEpochMillis(
-                                firstDate.first, firstDate.second, firstDate.third, 9, 0
-                            )
-                            val secondMillis = PersianCalendarHelper.jalaliToEpochMillis(
-                                secondDate.first, secondDate.second, secondDate.third, 9, 0
-                            )
-                            secondMillis < firstMillis
+                            val firstMillis = runCatching {
+                                PersianCalendarHelper.jalaliToEpochMillis(
+                                    firstDate.first, firstDate.second, firstDate.third, 9, 0
+                                )
+                            }.getOrNull()
+                            val secondMillis = runCatching {
+                                PersianCalendarHelper.jalaliToEpochMillis(
+                                    secondDate.first, secondDate.second, secondDate.third, 9, 0
+                                )
+                            }.getOrNull()
+                            firstMillis == null || secondMillis == null || secondMillis < firstMillis
                         }
                     }
                     if (parsedTotal <= 0L || customScheduleItems.size != parsedCount ||
