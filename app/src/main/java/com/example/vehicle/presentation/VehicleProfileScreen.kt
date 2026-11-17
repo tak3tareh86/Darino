@@ -58,9 +58,9 @@ fun VehicleProfileScreen(
         color: String,
         plate: String,
         vin: String,
-        estimatedValue: Long
+        estimatedValue: Long,
+        currentMileage: Int
     ) -> Unit,
-    onUpdateMileage: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var brand by remember(vehicle) { mutableStateOf(vehicle.brand) }
@@ -383,8 +383,7 @@ listOf("الف", "ب", "پ", "ت", "ث", "ج", "چ", "ح", "خ", "د", "ذ", "ر
                         onClick = {
                         val estVal = parsedEstimatedValueRials ?: 0L
                             val km = IranianPhoneUtils.convertDigitsToEnglish(currentMileageText).filter { it.isDigit() }.toIntOrNull() ?: vehicle.currentMileage
-                            onUpdateMileage(km)
-                            onSaveSpecs(brand, model, year, color, plate, vin, estVal)
+                            onSaveSpecs(brand, model, year, color, plate, vin, estVal, km)
                             onBack()
                         },
                         enabled = !estimatedValueInputInvalid,
