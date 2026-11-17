@@ -22,7 +22,7 @@ object FinancialAnalyzerEngine {
             if (total > Long.MAX_VALUE - amount) return false
             total += amount
         }
-        return total == contractTotal
+        return total >= contractTotal
     }
 
     fun calculateHealthStatus(pressurePercentage: Float): FinancialHealthStatus = when {
