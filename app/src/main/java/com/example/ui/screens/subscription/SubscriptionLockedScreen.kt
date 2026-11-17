@@ -1,6 +1,9 @@
 package com.example.ui.screens.subscription
 
+import android.content.Context
+import android.content.ContextWrapper
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -72,8 +75,10 @@ fun SubscriptionLockedScreen(
         onPurchaseClick = {
             // Poolakey opens the official Cafe Bazaar purchase sheet. Entitlement is
             // granted only after Poolakey returns a verified PURCHASED result.
-            val activity = context as? androidx.activity.ComponentActivity
-            if (activity != null) {
+            val activity = context.findComponentActivity()
+            if (activity == null) {
+                viewModel.showActionError("امکان باز کردن درگاه خرید در این صفحه وجود ندارد. لطفاً برنامه را دوباره باز کنید.")
+            } else {
                 viewModel.startPurchaseFlow(activity.activityResultRegistry) {
                     Toast.makeText(context, "اشتراک با موفقیت فعال شد.", Toast.LENGTH_LONG).show()
                 }
@@ -472,4 +477,11 @@ private fun ExpiredSubscriptionIllustration(modifier: Modifier = Modifier) {
         drawLine(gold, Offset(328f, 88f), Offset(345f, 69f), 5f)
         drawLine(gold, Offset(355f, 105f), Offset(376f, 99f), 5f)
     }
+}
+
+
+private tailrec fun Context.findComponentActivity(): ComponentActivity? = when (this) {
+    is ComponentActivity -> this
+    is ContextWrapper -> baseContext.findComponentActivity()
+    else -> null
 }
