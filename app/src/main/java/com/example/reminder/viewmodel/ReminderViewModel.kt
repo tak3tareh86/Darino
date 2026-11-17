@@ -87,20 +87,22 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val todayReminders = activeList.filter { it.date == todayPersian }
         val tomorrowReminders = activeList.filter { it.date == tomorrowPersian }
 
-        // Filter by Tab
+        val visibleReminders = allReminders.filterNot { it.status.equals("CANCELLED", ignoreCase = true) }
+
+        // Filter by Tab. Cancelled reminders stay out of every normal list.
         val tabFiltered = when (filters.tab) {
-            ReminderTab.ALL -> allReminders.filter { !it.status.equals("CANCELLED", ignoreCase = true) }
+            ReminderTab.ALL -> visibleReminders
             ReminderTab.TODAY -> todayReminders
             ReminderTab.UPCOMING -> upcomingReminders
-            ReminderTab.FINANCE -> allReminders.filter { it.type.equals("FINANCE", ignoreCase = true) }
-            ReminderTab.INSTALLMENT -> allReminders.filter { it.type.equals("INSTALLMENT", ignoreCase = true) }
-            ReminderTab.VEHICLE -> allReminders.filter {
+            ReminderTab.FINANCE -> visibleReminders.filter { it.type.equals("FINANCE", ignoreCase = true) }
+            ReminderTab.INSTALLMENT -> visibleReminders.filter { it.type.equals("INSTALLMENT", ignoreCase = true) }
+            ReminderTab.VEHICLE -> visibleReminders.filter {
                 it.type.equals("VEHICLE", ignoreCase = true) ||
                 it.type.equals("MAINTENANCE", ignoreCase = true) ||
                 it.type.equals("INSURANCE", ignoreCase = true) ||
                 it.type.equals("FUEL", ignoreCase = true)
             }
-            ReminderTab.PERSONAL -> allReminders.filter {
+            ReminderTab.PERSONAL -> visibleReminders.filter {
                 it.type.equals("PERSONAL", ignoreCase = true) || it.type.equals("GENERAL", ignoreCase = true)
             }
             ReminderTab.COMPLETED -> completedList
