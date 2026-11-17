@@ -10,7 +10,6 @@ import com.example.data.security.SessionManager
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.calendar.reminder.CalendarEventReminderScheduler
 import com.example.reminder.domain.DispatchDecision
-import com.example.reminder.domain.MockSmsDispatcher
 import com.example.reminder.domain.NotificationDispatcher
 import com.example.reminder.domain.QuietHoursConfig
 import com.example.reminder.domain.RecurrenceEngine
@@ -183,36 +182,6 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                     reminder.notificationEnabled || reminder.fullScreenAlarmEnabled
                 ) {
                     NotificationDispatcher(context).dispatchNotification(reminder, schedule)
-                }
-
-                if (reminder.smsEnabled &&
-                    AppPreferencesRepository.getInstance(context).smsNotificationsEnabled.value &&
-                    !reminder.phoneNumber.isNullOrBlank()
-                ) {
-                    val result = MockSmsDispatcher().sendSms(
-                        phoneNumber = reminder.phoneNumber,
-                        message = buildString {
-                            append(reminder.title)
-                            if (reminder.description.isNotBlank()) {
-                                append("\n")
-                                append(reminder.description)
-                            }
-                        },
-                        reminderType = reminder.type
-                    )
-
-                    dao.insertDeliveryLog(
-                        com.example.reminder.data.ReminderDeliveryLogEntity(
-                            reminderId = reminder.id,
-                            scheduleId = schedule.id,
-                            channel = "SMS",
-                            scheduledAt = schedule.triggerDateTime,
-                            triggeredAt = System.currentTimeMillis(),
-                            status = if (result.success) "SENT" else "FAILED",
-                            errorMessage = result.errorReason,
-                            providerMessageId = result.providerMessageId
-                        )
-                    )
                 }
 
             }
