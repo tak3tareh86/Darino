@@ -2386,8 +2386,6 @@ class VehicleRepository {
                 ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
 
             val insuranceId = recordId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
-            var insuranceAmountUnit = AppCurrency.RIAL
-
             db.withTransaction {
                 val existingInsurance = if (recordId.isNullOrBlank()) {
                     null
@@ -2399,8 +2397,6 @@ class VehicleRepository {
                     check(existingInsurance.vehicleId == vehicleId) {
                         "بیمه‌نامه انتخاب‌شده متعلق به خودروی دیگری است؛ تغییری ذخیره نشد."
                     }
-                    insuranceAmountUnit = runCatching { AppCurrency.valueOf(existingInsurance.amountUnit) }
-                        .getOrElse { throw IllegalStateException("واحد پول بیمه‌نامه نامعتبر است؛ برای جلوگیری از تغییر مبلغ، ویرایش انجام نشد.", it) }
                 }
 
                 val insuranceRow = VehicleInsuranceRoomEntity(
@@ -2412,7 +2408,7 @@ class VehicleRepository {
                     startDate = startDate.trim(),
                     endDate = endDate.trim(),
                     amount = amount,
-                    amountUnit = insuranceAmountUnit.name,
+                    amountUnit = AppCurrency.RIAL.name,
                     policyNumber = policyNumber.trim(),
                     reminderDays = reminderDays.distinct().joinToString(","),
                     reminderEnabled = reminderEnabled,
@@ -2480,7 +2476,7 @@ class VehicleRepository {
                 startDate = startDate.trim(),
                 endDate = endDate.trim(),
                 amount = amount,
-                amountUnit = insuranceAmountUnit,
+                amountUnit = AppCurrency.RIAL,
                 policyNumber = policyNumber.trim(),
                 reminderDays = reminderDays.distinct(),
                 reminderEnabled = reminderEnabled,
@@ -2764,8 +2760,6 @@ class VehicleRepository {
                 ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
 
             val inspectionId = recordId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
-            var inspectionCostUnit = AppCurrency.RIAL
-
             db.withTransaction {
                 val existingInspection = if (recordId.isNullOrBlank()) {
                     null
@@ -2777,8 +2771,6 @@ class VehicleRepository {
                     check(existingInspection.vehicleId == vehicleId) {
                         "معاینه فنی انتخاب‌شده متعلق به خودروی دیگری است؛ تغییری ذخیره نشد."
                     }
-                    inspectionCostUnit = runCatching { AppCurrency.valueOf(existingInspection.costUnit) }
-                        .getOrElse { throw IllegalStateException("واحد پول معاینه فنی نامعتبر است؛ برای جلوگیری از تغییر مبلغ، ویرایش انجام نشد.", it) }
                 }
 
                 val inspectionRow = VehicleInspectionRoomEntity(
@@ -2788,7 +2780,7 @@ class VehicleRepository {
                     lastInspectionDate = lastInspectionDate.trim(),
                     expiryDate = expiryDate.trim(),
                     cost = cost,
-                    costUnit = inspectionCostUnit.name,
+                    costUnit = AppCurrency.RIAL.name,
                     status = status.trim(),
                     centerName = centerName.trim(),
                     reminderEnabled = reminderEnabled,
@@ -2818,7 +2810,7 @@ class VehicleRepository {
                         title = "معاینه فنی خودرو ($centerName)",
                         category = VehicleExpenseCategory.INSPECTION.name,
                         amount = cost,
-                        amountUnit = inspectionCostUnit.name,
+                        amountUnit = AppCurrency.RIAL.name,
                         date = lastInspectionDate.trim(),
                         description = "مرکز معاینه فنی: $centerName",
                         receiptImageUri = existingExpense?.receiptImageUri
@@ -2855,7 +2847,7 @@ class VehicleRepository {
                 lastInspectionDate = lastInspectionDate.trim(),
                 expiryDate = expiryDate.trim(),
                 cost = cost,
-                costUnit = inspectionCostUnit,
+                costUnit = AppCurrency.RIAL,
                 status = status.trim(),
                 centerName = centerName.trim(),
                 reminderEnabled = reminderEnabled,
