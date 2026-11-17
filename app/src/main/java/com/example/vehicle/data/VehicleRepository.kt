@@ -730,6 +730,25 @@ class VehicleRepository {
                 return@withContext Result.failure(IllegalArgumentException("شماره پلاک وارد شده متعلق به خودروی دیگری در پرونده است."))
             }
 
+            val canonicalVehicleId = existing.serverId ?: existing.id.toString()
+            val mileageChanged = updated.currentMileage != existing.currentMileage
+            val leadKilometers = com.example.data.preferences.AppPreferencesRepository
+                .getInstance(context).vehicleReminderKilometers.value
+            val crossedMileageReminders = if (mileageChanged) {
+                db.vehicleDao().getAllServices(userId).first().filter { service ->
+                    service.vehicleId == canonicalVehicleId &&
+                        service.status != "COMPLETED" &&
+                        service.reminderEnabled &&
+                        com.example.vehicle.domain.VehicleMileageReminderPolicy.isDue(
+                            currentMileage = updated.currentMileage,
+                            targetMileage = service.dueMileage,
+                            leadKilometers = leadKilometers
+                        )
+                }
+            } else {
+                emptyList()
+            }
+
             val updatedEntity = existing.copy(
                 brand = updated.brand.trim(),
                 model = updated.model.trim(),
@@ -745,9 +764,22 @@ class VehicleRepository {
                 updatedAt = System.currentTimeMillis()
             )
 
-            val affectedRows = db.vehicleDao().updateVehicle(updatedEntity)
+            val affectedRows = db.withTransaction {
+                db.vehicleDao().updateVehicle(updatedEntity)
+            }
             if (affectedRows == 0) {
                 return@withContext Result.failure(IllegalStateException("بروزرسانی مشخصات خودرو در پایگاه داده شکست خورد."))
+            }
+
+            // Mileage and profile fields are persisted together. Dispatch odometer
+            // reminders only after the atomic database update has committed.
+            if (crossedMileageReminders.isNotEmpty()) {
+                dispatchMileageThresholdNotifications(
+                    context = context,
+                    userId = userId,
+                    crossedServices = crossedMileageReminders,
+                    currentMileage = updated.currentMileage
+                )
             }
             Result.success(updated)
         } catch (e: Exception) {
