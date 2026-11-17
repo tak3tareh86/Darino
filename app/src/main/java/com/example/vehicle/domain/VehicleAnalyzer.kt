@@ -191,19 +191,19 @@ object VehicleAnalyzer {
 
             var dueSoon = false
             var hasUnconfiguredPendingDue = false
-            var hasActiveService = false
+            var hasPendingService = false
             for ((type, record) in records) {
-                // A completed service is historical. Its old due fields must not continue
-                // to mark the vehicle overdue; a new pending record represents the next cycle.
-                if (record.status.equals("COMPLETED", ignoreCase = true)) continue
-                hasActiveService = true
+                val isCompleted = record.status.equals("COMPLETED", ignoreCase = true)
+                if (!isCompleted) hasPendingService = true
 
+                // Explicit next due values remain meaningful even after the performed
+                // service is marked completed; only the fabricated default interval is removed.
                 // Reminder values on legacy combined/generic rows belong to their primary
                 // service only; do not incorrectly apply them to every service named in title.
                 val hasTypeSpecificRecord = record.serviceType == type
                 val nextKm = if (hasTypeSpecificRecord) record.nextReminderMileage else null
                 val nextDate = if (hasTypeSpecificRecord) record.nextReminderDate else null
-                if (nextKm == null && nextDate.isNullOrBlank()) {
+                if (nextKm == null && nextDate.isNullOrBlank() && !isCompleted) {
                     hasUnconfiguredPendingDue = true
                 }
 
@@ -230,7 +230,7 @@ object VehicleAnalyzer {
             return when {
                 dueSoon -> VehicleHealthCheckItem(title, "نیاز به بررسی موعد", false, true, iconRes)
                 hasUnconfiguredPendingDue -> VehicleHealthCheckItem(title, "موعد بعدی مشخص نشده", false, true, iconRes)
-                !hasActiveService -> VehicleHealthCheckItem(title, "سرویس انجام شده", true, false, iconRes)
+                !hasPendingService -> VehicleHealthCheckItem(title, "سرویس انجام شده", true, false, iconRes)
                 else -> VehicleHealthCheckItem(title, "در موعد سرویس", true, false, iconRes)
             }
         }
