@@ -198,10 +198,10 @@ class CalendarManager(private val context: Context) {
                                 null
                             },
                             sourceId = svc.id,
-                            status = if (svc.isReminderEnabled) {
-                                FinancialEventStatus.PENDING
-                            } else {
-                                FinancialEventStatus.PAID
+                            status = when (svc.status.uppercase()) {
+                                "COMPLETED" -> FinancialEventStatus.PAID
+                                "OVERDUE" -> FinancialEventStatus.OVERDUE
+                                else -> FinancialEventStatus.PENDING
                             }
                         )
                     )
@@ -344,23 +344,18 @@ class CalendarManager(private val context: Context) {
             } else {
                 manager.completeReminder(reminderId)
             }
-        } else if (event.id.startsWith("auto_inst_")) {
-            val instIdStr = event.id.removePrefix("auto_inst_")
-            val instId = instIdStr.toIntOrNull()
-            if (instId != null) {
-                val inst = database.installmentDao().getInstallmentById(userId, instId)
-                if (inst != null) {
-                    val newStatus = if (event.status == FinancialEventStatus.PAID) "PENDING" else "PAID"
-                    database.installmentDao().updateInstallment(inst.copy(status = newStatus, updatedAt = System.currentTimeMillis()))
-                    com.example.ui.screens.installments.data.LocalInstallmentRepository.instance.reloadFromDatabase(context)
-                }
-            }
-        } else if (event.id.startsWith("auto_veh_")) {
-            if (event.id.startsWith("auto_veh_svc_")) {
+        } else if (event.id.startsWith("auto_veh_svc_")) {
+            // A service can only be completed from the calendar while its persisted
+            // lifecycle status is still pending. Reminder enablement is independent.
+            if (event.status != FinancialEventStatus.PAID) {
                 val svcId = event.id.removePrefix("auto_veh_svc_")
                 val todayPersian = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
                 VehicleRepository.instance.completeService(svcId, todayPersian)
             }
+        } else if (event.id.startsWith("auto_")) {
+            // Aggregated installment contracts, insurance, inspections and vehicle
+            // expenses do not expose a valid per-event status mutation here.
+            return
         } else {
             val newStatus = if (event.status == FinancialEventStatus.PAID) {
                 FinancialEventStatus.PENDING
