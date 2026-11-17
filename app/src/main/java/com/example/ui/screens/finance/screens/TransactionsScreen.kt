@@ -104,7 +104,7 @@ fun TransactionsScreen(
     categories: List<TransactionCategory> = FinanceDefaultCategories.allDefaultCategories,
     onBackClick: () -> Unit,
     onTransactionClick: (TransactionItemData) -> Unit,
-    onAddNewTransaction: () -> Unit = {},
+    onAddNewTransaction: (TransactionType) -> Unit = {},
     onDuplicateTransaction: (String) -> Unit,
     onDeleteTransaction: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -270,7 +270,14 @@ fun TransactionsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onAddNewTransaction,
+                onClick = {
+                    val initialType = when (selectedTabIndex) {
+                        2 -> TransactionType.INCOME
+                        3 -> TransactionType.TRANSFER
+                        else -> TransactionType.EXPENSE
+                    }
+                    onAddNewTransaction(initialType)
+                },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
