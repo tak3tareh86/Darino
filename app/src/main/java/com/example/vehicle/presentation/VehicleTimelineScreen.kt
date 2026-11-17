@@ -141,7 +141,7 @@ fun VehicleTimelineScreen(
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     val timelineItems = buildTimelineDisplayItems(filteredEvents)
-                    itemsIndexed(timelineItems, key = { _, item -> item.primary.id }) { index, item ->
+                    itemsIndexed(timelineItems, key = { _, item -> vehicleTimelineEventKey(item.primary) }) { index, item ->
                         TimelineItemRow(
                             item = item,
                             isLast = index == timelineItems.lastIndex
@@ -291,6 +291,14 @@ private fun TimelineFilterControls(
             }
         }
     }
+}
+
+
+internal fun vehicleTimelineEventKey(event: VehicleTimelineEvent): String = when (event) {
+    is VehicleTimelineEvent.ServiceEvent -> "service:${event.id}"
+    is VehicleTimelineEvent.ExpenseEvent -> "expense:${event.id}"
+    is VehicleTimelineEvent.InsuranceEvent -> "insurance:${event.id}"
+    is VehicleTimelineEvent.InspectionEvent -> "inspection:${event.id}"
 }
 
 private data class TimelineDisplayItem(
