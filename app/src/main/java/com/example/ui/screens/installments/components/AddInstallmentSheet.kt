@@ -295,7 +295,11 @@ fun AddInstallmentSheet(
                     remind1WeekBefore = remind1WeekBefore,
                     onOpenReminderModal = { showReminderModal = true },
                     onOpenCustomSchedule = {
-                        if (dueDate.isBlank() || !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(dueDate)) {
+                        val requestedCount = IranianPhoneUtils.convertDigitsToEnglish(installmentsCount)
+                            .filter { it.isDigit() }.toIntOrNull() ?: 0
+                        if (requestedCount !in 1..60) {
+                            submitValidationError = "برای تنظیم اقساط غیرهمسان، تعداد اقساط باید بین ۱ تا ۶۰ باشد."
+                        } else if (dueDate.isBlank() || !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(dueDate)) {
                             submitValidationError = "ابتدا تاریخ واقعی اولین قسط را وارد یا از تقویم انتخاب کنید."
                         } else {
                             submitValidationError = null
