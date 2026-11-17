@@ -668,7 +668,6 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
 
     override fun addRecurringTransaction(recurring: RecurringTransaction) {
         if (!isValidRecurringTransaction(recurring) || _recurringTransactions.value.any { it.id == recurring.id }) return
-        val previous = current[index]
         val nextParts = CalendarDateUtils.parseJalali(recurring.nextExecutionDate) ?: return
         val normalized = recurring.copy(
             title = recurring.title.trim(),
@@ -688,6 +687,7 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val current = _recurringTransactions.value.toMutableList()
         val index = current.indexOfFirst { it.id == recurring.id }
         if (index == -1) return
+        val previous = current[index]
 
         val nextParts = CalendarDateUtils.parseJalali(recurring.nextExecutionDate) ?: return
         val normalized = recurring.copy(
