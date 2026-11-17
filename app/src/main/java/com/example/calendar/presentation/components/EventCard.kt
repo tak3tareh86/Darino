@@ -66,6 +66,12 @@ fun EventCard(
     } else {
         event.status.title
     }
+    val overdueMessage = when {
+        isVehicleService -> "این سرویس انجام نشده است (عقب افتاده)"
+        event.id.startsWith("auto_veh_ins_") -> "مهلت بیمه خودرو به پایان رسیده است"
+        event.id.startsWith("auto_veh_insp_") -> "مهلت معاینه فنی خودرو به پایان رسیده است"
+        else -> "این پرداخت انجام نشده است (عقب افتاده)"
+    }
     val canToggleStatus = when {
         event.id.startsWith("auto_rem_") -> true
         event.id.startsWith("auto_veh_svc_") -> !isPaid
@@ -122,7 +128,7 @@ fun EventCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = if (isVehicleService) "این سرویس انجام نشده است (عقب افتاده)" else "این پرداخت انجام نشده است (عقب افتاده)",
+                            text = overdueMessage,
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = ExpenseRoseLight
                         )
