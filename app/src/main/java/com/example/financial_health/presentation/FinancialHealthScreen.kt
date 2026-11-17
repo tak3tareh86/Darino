@@ -387,8 +387,7 @@ private fun HealthOverviewHeroCard(
                         .height(12.dp)
                         .clip(CircleShape)
                         .background(if (isDark) Color(0xFF1E2B42) else Color(0xFFE2E8F0))
-                ) {
-                    Box(
+                ) {                    Box(
                         modifier = Modifier
                             .fillMaxWidth(animatedProgress)
                             .fillMaxHeight()
@@ -507,7 +506,8 @@ private fun FinancialCommitmentsBreakdownCard(
                             append(PersianCalendarHelper.fromEpochMillis(state.profileUpdatedAt).toFormattedDate())
                         }
                     },
-                    amountLabelOverride = if (state.hasIncomeData) null else "ثبت نشده"
+                    amountLabelOverride = if (state.hasIncomeData) null else "ثبت نشده",
+                    inlineAmountWithTitle = true
                 )
 
                 HorizontalDivider(
@@ -611,7 +611,8 @@ private fun CommitmentRowItem(
     color: Color,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     percentageText: String,
-    amountLabelOverride: String? = null
+    amountLabelOverride: String? = null,
+    inlineAmountWithTitle: Boolean = false
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -636,15 +637,52 @@ private fun CommitmentRowItem(
                     modifier = Modifier.size(17.dp)
                 )
             }
-            Column {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                val amountText = amountLabelOverride
+                    ?: MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.RIAL))
+                if (inlineAmountWithTitle) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = title,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = amountText,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Clip
+                        )
+                    }
+                } else {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
                 Text(
                     text = percentageText,
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
@@ -653,14 +691,16 @@ private fun CommitmentRowItem(
             }
         }
 
-        Text(
-            text = amountLabelOverride ?: MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.RIAL)),
-            style = MaterialTheme.typography.titleSmall.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.5.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        if (!inlineAmountWithTitle) {
+            Text(
+                text = amountLabelOverride ?: MoneyFormatter.formatExact(MoneyAmount.of(amount, AppCurrency.RIAL)),
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }
 
@@ -777,8 +817,7 @@ private fun InstallmentsAnalysisSectionCard(
 private fun AnalysisMetricTile(
     title: String,
     value: String,
-    subtext: String,
-    modifier: Modifier = Modifier,
+    subtext: String,    modifier: Modifier = Modifier,
     accentColor: Color
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
