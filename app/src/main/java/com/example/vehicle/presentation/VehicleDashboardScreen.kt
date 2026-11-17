@@ -1170,7 +1170,8 @@ private fun VehicleInsuranceDocumentsTabContent(
                         val costStr = MoneyFormatter.formatExact(MoneyAmount.of(ins.amount, ins.amountUnit))
                         val normalizedStart = VehicleAnalyzer.parseAndValidateJalaliDate(ins.startDate)
                         val normalizedExpiry = VehicleAnalyzer.parseAndValidateJalaliDate(ins.endDate)
-                        val invalidDates = normalizedStart == null || normalizedExpiry == null
+                        val invalidDates = normalizedStart == null || normalizedExpiry == null ||
+                            (normalizedStart != null && normalizedExpiry != null && normalizedExpiry < normalizedStart)
                         val notStarted = !invalidDates && normalizedStart!! > today
                         val expired = !invalidDates && normalizedExpiry!! < today
                         val insuranceStatusColor = when {
@@ -1238,8 +1239,10 @@ private fun VehicleInsuranceDocumentsTabContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(inspections, key = { it.id }) { insp ->
+                        val normalizedLastInspection = VehicleAnalyzer.parseAndValidateJalaliDate(insp.lastInspectionDate)
                         val normalizedExpiry = VehicleAnalyzer.parseAndValidateJalaliDate(insp.expiryDate)
-                        val invalidExpiry = normalizedExpiry == null
+                        val invalidExpiry = normalizedLastInspection == null || normalizedExpiry == null ||
+                            (normalizedLastInspection != null && normalizedExpiry != null && normalizedExpiry < normalizedLastInspection)
                         val expired = !invalidExpiry && normalizedExpiry!! < today
                         val inspectionStatusText = insp.status.trim().ifBlank { "دارای اعتبار" }
                         val normalizedInspectionStatus = inspectionStatusText.lowercase()
