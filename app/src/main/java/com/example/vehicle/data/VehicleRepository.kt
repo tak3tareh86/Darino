@@ -1801,6 +1801,27 @@ class VehicleRepository {
                 // Cancel alarms outside transaction after commit
                 val cancellationErrors = cancelServiceReminderEffects(context, serviceId, schedulesToCancel)
                 if (cancellationErrors.isNotEmpty()) {
+                    val cleanupMessage = cancellationErrors.joinToString("؛ ") {
+                        it.message ?: it.javaClass.simpleName
+                    }
+                    val parsedNotes = parseServiceNotes(existing.notes)
+                    runCatching {
+                        db.vehicleDao().updateServiceNotes(
+                            userId,
+                            serviceId,
+                            encodeServiceNotes(
+                                if (existing.cost > 0L) existing.cost else parsedNotes.cost,
+                                parsedNotes.description,
+                                "سرویس تکمیل شده است؛ پاک‌سازی هشدارهای قبلی ناموفق بود: $cleanupMessage"
+                            )
+                        )
+                    }.onFailure { notesError ->
+                        android.util.Log.e(
+                            "VehicleRepository",
+                            "Failed to persist reminder cleanup error for completed service $serviceId.",
+                            notesError
+                        )
+                    }
                     android.util.Log.w(
                         "VehicleRepository",
                         "Service $serviceId was completed, but reminder cleanup was incomplete.",
@@ -1865,6 +1886,27 @@ class VehicleRepository {
             // Cancel alarm in system AlarmManager after successful database commit
             val cancellationErrors = cancelServiceReminderEffects(context, serviceId, schedulesToCancel)
             if (cancellationErrors.isNotEmpty()) {
+                val cleanupMessage = cancellationErrors.joinToString("؛ ") {
+                    it.message ?: it.javaClass.simpleName
+                }
+                val parsedNotes = parseServiceNotes(existing.notes)
+                runCatching {
+                    db.vehicleDao().updateServiceNotes(
+                        userId,
+                        serviceId,
+                        encodeServiceNotes(
+                            if (existing.cost > 0L) existing.cost else parsedNotes.cost,
+                            parsedNotes.description,
+                            "سرویس تکمیل شده است؛ پاک‌سازی هشدارهای قبلی ناموفق بود: $cleanupMessage"
+                        )
+                    )
+                }.onFailure { notesError ->
+                    android.util.Log.e(
+                        "VehicleRepository",
+                        "Failed to persist reminder cleanup error for completed service $serviceId.",
+                        notesError
+                    )
+                }
                 android.util.Log.w(
                     "VehicleRepository",
                     "Service $serviceId was completed, but reminder cleanup was incomplete.",
