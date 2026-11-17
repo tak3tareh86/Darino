@@ -101,6 +101,8 @@ class TransactionCoreTest {
 
         assertNotNull(duplicate)
         assertNotEquals("tx_orig", duplicate!!.id)
+        assertNotEquals("امروز", duplicate.datePersian)
+        assertTrue(duplicate.timePersian.isNotBlank())
 
         val db = AppDatabase.getDatabase(context)
         val list = db.transactionDao().getAllTransactionsList("test_user_tx")
