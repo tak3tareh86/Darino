@@ -384,7 +384,7 @@ private fun CalculatorMainTab(
                     PersianAmountInputField(
                         value = state.amountInput,
                         onValueChange = { activeViewModel.onAmountInputChanged(it) },
-                        label = null,
+                        label = "مبلغ",
                         allowDecimalInput = true,
                         onRawDecimalAmountChange = { rawValue, _ -> activeViewModel.onAmountInputChanged(rawValue) },
                         unitLabel = MoneyFormatter.getUnitLabel(),
