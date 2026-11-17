@@ -54,6 +54,18 @@ fun EventCard(
     val isPaid = event.status == FinancialEventStatus.PAID
     val isOverdue = event.status == FinancialEventStatus.OVERDUE || event.isOverdue
     val isDueSoon = event.isDueSoon && !isPaid && !isOverdue
+    val isVehicleService = event.id.startsWith("auto_veh_svc_")
+    val showStatusChip = !event.id.startsWith("auto_veh_ins_") &&
+        !event.id.startsWith("auto_veh_insp_")
+    val statusTitle = if (isVehicleService) {
+        when (event.status) {
+            FinancialEventStatus.PAID -> "انجام شده"
+            FinancialEventStatus.OVERDUE -> "عقب افتاده"
+            FinancialEventStatus.PENDING -> "در انتظار انجام"
+        }
+    } else {
+        event.status.title
+    }
     val canToggleStatus = when {
         event.id.startsWith("auto_rem_") -> true
         event.id.startsWith("auto_veh_svc_") -> !isPaid
@@ -110,7 +122,7 @@ fun EventCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "این پرداخت انجام نشده است (عقب افتاده)",
+                            text = if (isVehicleService) "این سرویس انجام نشده است (عقب افتاده)" else "این پرداخت انجام نشده است (عقب افتاده)",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = ExpenseRoseLight
                         )
@@ -246,7 +258,8 @@ fun EventCard(
                     }
                 }
 
-                    // Status Action stays in its original position within the shared section.
+                    // Show lifecycle status only when the source record has a meaningful status.
+                    if (showStatusChip) {
                     Column(
                         horizontalAlignment = Alignment.End,
                         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -283,7 +296,7 @@ fun EventCard(
                                 modifier = Modifier.size(13.dp)
                             )
                             Text(
-                                text = event.status.title,
+                                text = statusTitle,
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 10.5.sp
@@ -292,6 +305,7 @@ fun EventCard(
                             )
                         }
                         }
+                    }
                     }
                 }
             }
