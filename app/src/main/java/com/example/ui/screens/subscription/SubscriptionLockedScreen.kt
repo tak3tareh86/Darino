@@ -61,16 +61,29 @@ private val PremiumText = Color(0xFFF6F7FF)
 
 @Composable
 fun SubscriptionLockedScreen(
-    viewModel: SubscriptionViewModel = viewModel()
+    viewModel: SubscriptionViewModel = viewModel(),
+    forceLockedForDebug: Boolean = false
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    // The debug launcher can keep the expired-screen UI visible while still using
+    // the real ViewModel, Bazaar price lookup, purchase flow, and restore flow.
+    val screenState = if (forceLockedForDebug) {
+        uiState.copy(
+            info = uiState.info.copy(
+                subscriptionStatus = com.example.domain.subscription.SubscriptionStatus.EXPIRED
+            )
+        )
+    } else {
+        uiState
+    }
     val requiresMarketReverification =
-        uiState.info.marketAccountState == "MARKET_ACTIVE" &&
+        !forceLockedForDebug &&
+            uiState.info.marketAccountState == "MARKET_ACTIVE" &&
             uiState.info.subscriptionStatus == com.example.domain.subscription.SubscriptionStatus.LOCKED
 
     SubscriptionLockedScreenContent(
-        uiState = uiState,
+        uiState = screenState,
         requiresMarketReverification = requiresMarketReverification,
         onPurchaseClick = {
             // Poolakey opens the official Cafe Bazaar purchase sheet. Entitlement is
