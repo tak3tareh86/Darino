@@ -2437,7 +2437,7 @@ class VehicleRepository {
                         title = "تمدید ${type.trim()} (${company.trim()})",
                         category = VehicleExpenseCategory.INSURANCE.name,
                         amount = amount,
-                        amountUnit = insuranceAmountUnit.name,
+                        amountUnit = AppCurrency.RIAL.name,
                         date = startDate.trim(),
                         description = "شماره بیمه‌نامه: ${policyNumber.trim()}",
                         receiptImageUri = existingExpense?.receiptImageUri
