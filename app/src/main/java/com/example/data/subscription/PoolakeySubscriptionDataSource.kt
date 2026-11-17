@@ -1,6 +1,9 @@
 package com.example.data.subscription
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import java.util.concurrent.atomic.AtomicBoolean
 import androidx.activity.result.ActivityResultRegistry
 import ir.cafebazaar.poolakey.Connection
 import ir.cafebazaar.poolakey.Payment
@@ -143,31 +146,65 @@ class PoolakeySubscriptionDataSource(private val context: Context) {
         onFailed: (String) -> Unit
     ) {
         val p = getOrCreatePayment()
+        val handler = Handler(Looper.getMainLooper())
+        val flowStarted = AtomicBoolean(false)
+        val finished = AtomicBoolean(false)
+        val connectionTimeout = Runnable {
+            if (!flowStarted.get() && finished.compareAndSet(false, true)) {
+                onFailedToBegin("اتصال به کافه‌بازار در زمان مقرر برقرار نشد. بازار را باز کنید و دوباره تلاش کنید.")
+            }
+        }
+        handler.postDelayed(connectionTimeout, 20_000L)
+        try {
         p.connect {
             connectionSucceed {
+                if (finished.get()) return@connectionSucceed
                 p.subscribeProduct(
                     registry = registry,
                     request = PurchaseRequest(productId = productId, payload = payload)
                 ) {
                     purchaseFlowBegan {
+                        flowStarted.set(true)
+                        handler.removeCallbacks(connectionTimeout)
                         onFlowBegan()
                     }
                     failedToBeginFlow { throwable ->
-                        onFailedToBegin(throwable.localizedMessage ?: "امکان شروع پرداخت در بازار وجود ندارد.")
+                        if (finished.compareAndSet(false, true)) {
+                            handler.removeCallbacks(connectionTimeout)
+                            onFailedToBegin(throwable.localizedMessage ?: "امکان شروع پرداخت در بازار وجود ندارد.")
+                        }
                     }
                     purchaseSucceed { purchaseInfo ->
-                        onSucceed(purchaseInfo)
+                        if (finished.compareAndSet(false, true)) {
+                            handler.removeCallbacks(connectionTimeout)
+                            onSucceed(purchaseInfo)
+                        }
                     }
                     purchaseCanceled {
-                        onCanceled()
+                        if (finished.compareAndSet(false, true)) {
+                            handler.removeCallbacks(connectionTimeout)
+                            onCanceled()
+                        }
                     }
                     purchaseFailed { throwable ->
-                        onFailed(throwable.localizedMessage ?: "پرداخت با خطا مواجه شد.")
+                        if (finished.compareAndSet(false, true)) {
+                            handler.removeCallbacks(connectionTimeout)
+                            onFailed(throwable.localizedMessage ?: "پرداخت با خطا مواجه شد.")
+                        }
                     }
                 }
             }
             connectionFailed { throwable ->
-                onFailedToBegin("امکان اتصال به اپلیکیشن بازار وجود ندارد.")
+                if (finished.compareAndSet(false, true)) {
+                    handler.removeCallbacks(connectionTimeout)
+                    onFailedToBegin(throwable.localizedMessage ?: "امکان اتصال به اپلیکیشن بازار وجود ندارد.")
+                }
+            }
+        }
+        } catch (error: Exception) {
+            if (finished.compareAndSet(false, true)) {
+                handler.removeCallbacks(connectionTimeout)
+                onFailedToBegin(error.localizedMessage ?: "شروع ارتباط با کافه‌بازار ناموفق بود.")
             }
         }
     }
