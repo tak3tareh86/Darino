@@ -581,10 +581,15 @@ class VehicleRepository {
         val manager = com.example.reminder.domain.ReminderManager(context)
         activeVehicleReminders.forEach { reminder ->
             val schedules = db.smartReminderDao().getSchedulesForReminderSync(userId, reminder.id)
-            if (schedules.isEmpty()) {
-                android.util.Log.w(
+            val hasFutureEnabledSchedule = schedules.any {
+                it.enabled && it.triggerDateTime > System.currentTimeMillis()
+            }
+            if (!hasFutureEnabledSchedule) {
+                // Do not mutate an expired or deliberately paused schedule during login.
+                // The persisted reminder state remains available for the user to review.
+                android.util.Log.i(
                     "VehicleRepository",
-                    "Active vehicle reminder ${reminder.id} has no persisted schedules; it was not recreated."
+                    "Vehicle reminder ${reminder.id} has no future enabled schedule; automatic re-arming was skipped."
                 )
                 return@forEach
             }
