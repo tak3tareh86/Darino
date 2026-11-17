@@ -62,4 +62,34 @@ class VehicleTimelineFilterTest {
             filterVehicleTimelineEvents(events, TimelineFilterMode.MONTH, 1405, 8).map { it.id }
         )
     }
+    @Test
+    fun timelineRowKeysRemainUniqueWhenDifferentTablesReuseTheSameId() {
+        val sameId = "shared-id"
+        val service = event(sameId, "1405/08/10")
+        val expense = VehicleTimelineEvent.ExpenseEvent(
+            id = sameId,
+            date = "1405/08/10",
+            title = "هزینه مستقل",
+            amount = 100L,
+            subtitle = "هزینه",
+            iconRes = R.drawable.img_3d_oil,
+            colorHex = 0xFF10B981,
+            category = com.example.vehicle.data.VehicleExpenseCategory.SERVICE
+        )
+        val insurance = VehicleTimelineEvent.InsuranceEvent(
+            id = sameId,
+            date = "1405/08/10",
+            title = "بیمه",
+            amount = 100L,
+            subtitle = "بیمه",
+            iconRes = R.drawable.img_3d_oil,
+            colorHex = 0xFF10B981,
+            company = "تست"
+        )
+
+        val keys = listOf(service, expense, insurance).map(::vehicleTimelineEventKey)
+
+        assertEquals(3, keys.toSet().size)
+    }
+
 }
