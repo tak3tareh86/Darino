@@ -82,6 +82,10 @@ class ReminderScheduler(private val context: Context) {
      * Throws an exception on failure so caller can detect failure and perform compensation if needed.
      */
     fun scheduleSingle(reminder: ReminderEntity, schedule: ReminderScheduleEntity) {
+        if (!reminder.status.equals("ACTIVE", ignoreCase = true)) {
+            Log.i("ReminderScheduler", "Not arming schedule ${schedule.id}: reminder is not ACTIVE.")
+            return
+        }
         if (!schedule.enabled) {
             Log.i("ReminderScheduler", "Not arming disabled schedule ${schedule.id}.")
             return
