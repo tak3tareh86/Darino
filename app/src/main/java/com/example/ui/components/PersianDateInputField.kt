@@ -165,7 +165,7 @@ fun PersianDateInputField(
                         modifier = Modifier
                             .align(Alignment.TopStart)
                             .offset(
-                                x = if (layoutDirection == LayoutDirection.Rtl) (-RadiusMD - 4.dp) else RadiusMD,
+                                x = if (layoutDirection == LayoutDirection.Rtl) -RadiusMD else RadiusMD,
                                 y = (-8).dp
                             )
                             .padding(horizontal = 4.dp)
