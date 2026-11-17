@@ -3,6 +3,7 @@ package com.example.ui.screens.subscription
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,6 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -101,7 +104,18 @@ fun SubscriptionLockedScreenContent(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Image(
+                painter = painterResource(id = com.example.R.drawable.img_darino_logo),
+                contentDescription = "لوگوی دارینو",
+                modifier = Modifier
+                    .width(150.dp)
+                    .height(76.dp),
+                contentScale = ContentScale.Fit
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Calendar and expired-time illustration.
             Box(
@@ -212,7 +226,7 @@ fun SubscriptionLockedScreenContent(
                 text = if (requiresMarketReverification) {
                     "برای تأیید دوباره اشتراک، لازم است به اینترنت متصل شوید و وضعیت خرید را از بازار بازیابی کنید."
                 } else {
-                    "مدت زمان استفاده رایگان شما از برنامه به پایان رسیده است."
+                    "مدت استفاده رایگان شما از برنامه به پایان رسیده است."
                 },
                 modifier = Modifier.fillMaxWidth(),
                 color = Color(0xFFE1E7F5),
@@ -228,7 +242,7 @@ fun SubscriptionLockedScreenContent(
                 text = if (requiresMarketReverification) {
                     "پس از اتصال به اینترنت، گزینه «بازیابی خرید قبلی» را بزنید. تا زمان تأیید مجدد بازار، دسترسی به برنامه محدود می‌ماند."
                 } else {
-                    "برای استفاده مجدد از امکانات برنامه و ادامه مدیریت امور مالی و زندگی روزمره خود، لطفاً اشتراک سالانه تهیه کنید."
+                    "برای استفاده مجدد از امکانات برنامه و ادامه مدیریت امور مالی و زندگی روزمره خود لطفاً اشتراک سالانه تهیه کنید."
                 },
                 modifier = Modifier.fillMaxWidth(),
                 color = Color(0xFFBAC6E0),
@@ -271,11 +285,33 @@ fun SubscriptionLockedScreenContent(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    if (uiState.isPriceLoading && uiState.priceDisplay == null) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(26.dp),
+                            color = ExpiredAccent,
+                            strokeWidth = 2.5.dp
+                        )
+                    } else {
+                        Text(
+                            text = uiState.priceDisplay
+                                ?: "قیمت اشتراک در حال حاضر از بازار دریافت نشد",
+                            color = ExpiredAccent,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Text(
-                        text = uiState.priceDisplay ?: "قیمت اشتراک از بازار دریافت می‌شود",
-                        color = ExpiredAccent,
-                        fontSize = 27.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        text = when {
+                            uiState.priceDisplay == null -> "برای دریافت قیمت، اتصال به بازار را بررسی کنید"
+                            uiState.isPriceCached -> "آخرین قیمت ذخیره‌شده از بازار"
+                            else -> "قیمت به‌روز دریافت‌شده از بازار"
+                        },
+                        color = Color(0xFFBAC6E0),
+                        fontSize = 12.sp,
                         textAlign = TextAlign.Center
                     )
                 }
