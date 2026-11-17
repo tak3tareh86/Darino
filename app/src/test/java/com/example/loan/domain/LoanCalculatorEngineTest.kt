@@ -36,11 +36,24 @@ class LoanCalculatorEngineTest {
     }
 
     @Test
-    fun invalidAndExtremeInputsAreRejected() {
+    fun invalidInputsAreRejectedButTermsAboveFiftyYearsAreAccepted() {
         assertTrue(engine.validateInputs(0L, 20.0, 12) is LoanCalculatorEngine.ValidationResult.Invalid)
         assertTrue(engine.validateInputs(1_000_000L, Double.NaN, 12) is LoanCalculatorEngine.ValidationResult.Invalid)
-        assertTrue(engine.validateInputs(1_000_000L, 20.0, 601) is LoanCalculatorEngine.ValidationResult.Invalid)
-        assertTrue(engine.validateInputs(1_000_000L, 100.0, 51, durationType = DurationType.YEARS) is LoanCalculatorEngine.ValidationResult.Invalid)
+        assertTrue(engine.validateInputs(1_000_000L, 20.0, 601) is LoanCalculatorEngine.ValidationResult.Valid)
+        assertTrue(engine.validateInputs(1_000_000L, 100.0, 51, durationType = DurationType.YEARS) is LoanCalculatorEngine.ValidationResult.Valid)
+    }
+
+    @Test
+    fun zeroInterestRoundingNeverMakesTotalRepaymentLessThanPrincipal() {
+        val result = engine.calculate(
+            amount = 1_000L,
+            interestRate = 0.0,
+            duration = 3,
+            method = CalculationMethod.ANNUITY
+        )
+        assertEquals(334L, result.monthlyPayment)
+        assertEquals(1_002L, result.totalPayment)
+        assertTrue(result.totalPayment >= result.principalAmount)
     }
 
     @Test
