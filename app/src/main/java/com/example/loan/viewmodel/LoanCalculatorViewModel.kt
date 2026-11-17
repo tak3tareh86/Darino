@@ -198,15 +198,29 @@ class LoanCalculatorViewModel(
                 }
             }
             is LoanCalculatorEngine.ValidationResult.Valid -> {
-                val res = engine.calculate(
-                    amount = current.amount,
-                    interestRate = current.interestRate,
-                    interestPeriod = interestPeriod,
-                    duration = current.duration,
-                    durationType = durationType,
-                    method = method,
-                    amountUnit = AppCurrency.RIAL
-                )
+                val res = runCatching {
+                    engine.calculate(
+                        amount = current.amount,
+                        interestRate = current.interestRate,
+                        interestPeriod = interestPeriod,
+                        duration = current.duration,
+                        durationType = durationType,
+                        method = method,
+                        amountUnit = AppCurrency.RIAL
+                    )
+                }.getOrElse {
+                    _state.update { state ->
+                        state.copy(
+                            errorMessage = "مقادیر واردشده از ظرفیت محاسبات عددی برنامه بیشتر است.",
+                            result = null,
+                            monthlyPayment = 0L,
+                            totalPayment = 0L,
+                            totalInterest = 0L,
+                            realCostPercentage = 0.0
+                        )
+                    }
+                    return
+                }
                 _state.update {
                     it.copy(
                         result = res,
