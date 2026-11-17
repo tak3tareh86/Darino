@@ -901,7 +901,7 @@ private fun FormDetailsStep(
                     OutlinedTextField(
                         value = title,
                         onValueChange = onTitleChange,
-                        label = { Text("عنوان وام/تعهد") },
+                        label = { Text("عنوان وام/تعهد *") },
                         singleLine = true,
                         modifier = Modifier
                             .weight(1f)
@@ -912,7 +912,7 @@ private fun FormDetailsStep(
                     OutlinedTextField(
                         value = provider,
                         onValueChange = onProviderChange,
-                        label = { Text("نام بانک/طرف حساب") },
+                        label = { Text("نام بانک/طرف حساب *") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                         trailingIcon = {
@@ -970,7 +970,7 @@ private fun FormDetailsStep(
                         onValueChange = onTotalAmountChange,
                         allowDecimalInput = true,
                         onRawDecimalAmountChange = { rawValue, _ -> onTotalAmountChange(rawValue) },
-                        label = "مبلغ کل وام / تعهد",
+                        label = "مبلغ کل وام / تعهد *",
                         useOuterHeader = false,
                         modifier = Modifier.testTag("installment_total_input")
                     )
@@ -1076,7 +1076,7 @@ private fun FormDetailsStep(
                                         )
                                     )
                                 },
-                                label = { Text("تعداد اقساط", maxLines = 1, softWrap = false) },
+                                label = { Text("تعداد اقساط *", maxLines = 1, softWrap = false) },
                                 trailingIcon = {
                                     IconButton(onClick = {}) {
                                         ExposedDropdownMenuDefaults.TrailingIcon(
@@ -1181,7 +1181,7 @@ private fun FormDetailsStep(
                         PersianDateInputField(
                             value = dueDate,
                             onValueChange = onDueDateChange,
-                            label = "تاریخ اولین قسط",
+                            label = "تاریخ اولین قسط *",
                             useOuterHeader = false,
                             showSubLabel = false,
                             fieldHeight = 56.dp,
