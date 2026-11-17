@@ -88,14 +88,14 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             SessionManager.init(context)
         }
         val userId = SessionManager.userId
+            ?: run {
+                Log.w(TAG, "Ignoring reminder trigger because no authenticated user is available.")
+                return
+            }
         val db = AppDatabase.getDatabase(context)
         val dao = db.smartReminderDao()
 
-        val reminder = if (userId != null) {
-            dao.getReminderById(userId, reminderId)
-        } else {
-            dao.getReminderByIdGlobal(reminderId)
-        } ?: run {
+        val reminder = dao.getReminderById(userId, reminderId) ?: run {
             Log.w(TAG, "Reminder $reminderId not found for current session or local database.")
             return
         }
@@ -104,11 +104,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             return
         }
 
-        val schedule = if (userId != null) {
-            dao.getScheduleById(userId, scheduleId)
-        } else {
-            dao.getScheduleByIdGlobal(scheduleId)
-        } ?: run {
+        val schedule = dao.getScheduleById(userId, scheduleId) ?: run {
             Log.w(TAG, "Schedule $scheduleId not found for current session or local database.")
             return
         }
@@ -266,46 +262,33 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         // BroadcastReceivers may run in a fresh process; restore the persisted session first.
         SessionManager.init(context.applicationContext)
         try {
-            val userId = SessionManager.userId
+            val userId = SessionManager.userId ?: run {
+                Log.w(TAG, "Ignoring completion action because no authenticated user is available.")
+                return
+            }
             val database = AppDatabase.getDatabase(context)
             if (reminderId.startsWith("calendar_")) {
                 val eventId = reminderId.removePrefix("calendar_")
-                if (userId != null) {
-                    database.financialEventDao().updateEventStatus(userId, eventId, "PAID")
-                    val linkedReminder = database.smartReminderDao().getReminderById(userId, reminderId)
-                    if (linkedReminder != null) {
-                        ReminderManager(context).completeReminder(reminderId)
-                    }
+                database.financialEventDao().updateEventStatus(userId, eventId, "PAID")
+                val linkedReminder = database.smartReminderDao().getReminderById(userId, reminderId)
+                if (linkedReminder != null) {
+                    ReminderManager(context).completeReminder(reminderId)
                 }
                 CalendarEventReminderScheduler(context).cancel(eventId)
                 return
             }
             val dao = database.smartReminderDao()
             val now = System.currentTimeMillis()
-            if (userId != null) {
-                dao.updateStatus(
-                    userId = userId,
-                    id = reminderId,
-                    status = "COMPLETED",
-                    updatedAt = now,
-                    completedAt = now,
-                    cancelledAt = null
-                )
-            } else {
-                dao.updateStatusGlobal(
-                    id = reminderId,
-                    status = "COMPLETED",
-                    updatedAt = now,
-                    completedAt = now,
-                    cancelledAt = null
-                )
-            }
+            dao.updateStatus(
+                userId = userId,
+                id = reminderId,
+                status = "COMPLETED",
+                updatedAt = now,
+                completedAt = now,
+                cancelledAt = null
+            )
             // A completed reminder must not leave its future AlarmManager entries armed.
-            val schedules = if (userId != null) {
-                dao.getSchedulesForReminderSync(userId, reminderId)
-            } else {
-                dao.getSchedulesForReminderGlobal(reminderId)
-            }
+            val schedules = dao.getSchedulesForReminderSync(userId, reminderId)
             ReminderScheduler(context).cancel(reminderId, schedules)
         } finally {
             val dispatcher = NotificationDispatcher(context)
@@ -324,6 +307,13 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         SessionManager.init(context.applicationContext)
         val userId = SessionManager.userId
         val db = AppDatabase.getDatabase(context)
+        if (userId == null) {
+            val dispatcher = NotificationDispatcher(context)
+            if (notificationId != -1) dispatcher.cancelNotification(notificationId)
+            if (secondaryNotificationId != -1) dispatcher.cancelNotification(secondaryNotificationId)
+            Log.w(TAG, "Ignoring snooze action because no authenticated user is available.")
+            return
+        }
         if (reminderId.startsWith("calendar_")) {
             val eventId = reminderId.removePrefix("calendar_")
             val event = if (userId != null) {
@@ -363,15 +353,18 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             return
         }
         val dao = db.smartReminderDao()
-        val reminder = if (userId != null) {
-            dao.getReminderById(userId, reminderId)
-        } else {
-            dao.getReminderByIdGlobal(reminderId)
-        } ?: run {
+        val reminder = dao.getReminderById(userId, reminderId) ?: run {
             Log.w(TAG, "Cannot snooze reminder $reminderId: reminder was not found after session initialization.")
             return
         }
-        if (!reminder.status.equals("ACTIVE", ignoreCase = true)) return
+        if (!reminder.status.equals("ACTIVE", ignoreCase = true) ||
+            !ReminderScheduler(context).hasConfiguredDelivery(reminder)
+        ) {
+            val dispatcher = NotificationDispatcher(context)
+            if (notificationId != -1) dispatcher.cancelNotification(notificationId)
+            if (secondaryNotificationId != -1) dispatcher.cancelNotification(secondaryNotificationId)
+            return
+        }
 
         val triggerTime = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
         val schedule = com.example.reminder.data.ReminderScheduleEntity(
