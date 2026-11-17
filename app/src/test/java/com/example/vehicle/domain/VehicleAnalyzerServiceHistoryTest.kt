@@ -73,7 +73,7 @@ class VehicleAnalyzerServiceHistoryTest {
     }
 
     @Test
-    fun healthAnalysisIncludesEveryAdditionalRecordedServiceType() {
+    fun healthAnalysisChecklistAlwaysContainsOnlyTheNineFixedItems() {
         val vehicle = com.example.vehicle.data.VehicleEntity(
             id = "vehicle-1",
             brand = "Test",
@@ -103,11 +103,10 @@ class VehicleAnalyzerServiceHistoryTest {
             inspections = emptyList()
         )
 
-        assertNotNull(report.checklist.firstOrNull { it.title == ServiceType.BATTERY.title })
-        assertNotNull(report.checklist.firstOrNull { it.title == ServiceType.BRAKE_PADS.title })
-        // Additional recorded service types are visible without changing the established
-        // nine-item health-score denominator.
-        assertEquals(11, report.checklist.size)
+        // Additional service records must never expand the fixed nine-item checklist.
+        assertEquals(9, report.checklist.size)
+        assertNull(report.checklist.firstOrNull { it.title == ServiceType.BATTERY.title })
+        assertNull(report.checklist.firstOrNull { it.title == ServiceType.BRAKE_PADS.title })
         assertEquals(0, report.healthScorePercent)
     }
 
