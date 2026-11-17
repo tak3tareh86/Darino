@@ -2836,7 +2836,9 @@ class VehicleRepository {
     private fun jsonToIntList(obj: JSONObject, key: String): List<Int> {
         val raw = obj.opt(key) ?: return emptyList()
         val values = when (raw) {
-            is JSONArray -> (0 until raw.length()).mapNotNull { raw.optInt(it).takeIf { number -> number >= 0 } }
+            is JSONArray -> (0 until raw.length()).mapNotNull { index ->
+                raw.optString(index).trim().toIntOrNull()?.takeIf { number -> number >= 0 }
+            }
             is String -> raw.split(",").mapNotNull { it.trim().toIntOrNull()?.takeIf { number -> number >= 0 } }
             is Number -> listOf(raw.toInt()).filter { it >= 0 }
             else -> emptyList()
@@ -2893,7 +2895,8 @@ class VehicleRepository {
                     nextReminderMileage = obj.optInt("nextReminderMileage", 0).let { if (it == 0) null else it },
                     isReminderEnabled = obj.optBoolean("isReminderEnabled", false),
                     costUnit = parseAppCurrency(obj.optString("costUnit", AppCurrency.TOMAN.name)),
-                    status = obj.optString("status", "PENDING").takeIf { it == "COMPLETED" } ?: "PENDING"
+                    status = obj.optString("status", "PENDING").trim().uppercase()
+                        .takeIf { it == "COMPLETED" } ?: "PENDING"
                 )
             )
         }
