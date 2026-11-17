@@ -66,6 +66,10 @@ fun AddReminderScreen(
     ) -> Unit,
     initialDate: String? = null,
     initialType: ReminderType = ReminderType.GENERAL,
+    editingReminder: ReminderEntity? = null,
+    initialOffsets: List<PredefinedOffset> = emptyList(),
+    initialRepeatType: RepeatType = RepeatType.NONE,
+    initialRepeatInterval: Int = 1,
     modifier: Modifier = Modifier
 ) {
     val currentPersianDate = remember {
@@ -81,28 +85,41 @@ fun AddReminderScreen(
     var isSaving by remember { mutableStateOf(false) }
     var validationMessage by remember { mutableStateOf<String?>(null) }
     var saveErrorMessage by remember { mutableStateOf<String?>(null) }
-    val reminderId = remember { UUID.randomUUID().toString() }
+    val reminderId = remember(editingReminder?.id) { editingReminder?.id ?: UUID.randomUUID().toString() }
     val defaultReminderTimeText = remember(defaultReminderMinute) {
         val hour = (defaultReminderMinute / 60).toString().padStart(2, '0')
         val minute = (defaultReminderMinute % 60).toString().padStart(2, '0')
         IranianPhoneUtils.convertDigitsToPersian("$hour:$minute")
     }
-    var selectedType by remember(initialType) { mutableStateOf(initialType) }
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var date by remember(initialDate, currentPersianDate) { mutableStateOf(initialDate ?: currentPersianDate) }
-    var time by remember(defaultReminderTimeText) { mutableStateOf(defaultReminderTimeText) }
-    var priority by remember { mutableStateOf(Priority.NORMAL) }
-    var repeatType by remember { mutableStateOf(RepeatType.NONE) }
-    var repeatInterval by remember { mutableStateOf("1") }
-    var amountText by remember { mutableStateOf("") }
+    var selectedType by remember(editingReminder?.id, initialType) {
+        mutableStateOf(editingReminder?.let { ReminderType.fromKey(it.type) } ?: initialType)
+    }
+    var title by remember(editingReminder?.id) { mutableStateOf(editingReminder?.title.orEmpty()) }
+    var description by remember(editingReminder?.id) { mutableStateOf(editingReminder?.description.orEmpty()) }
+    var date by remember(editingReminder?.id, initialDate, currentPersianDate) {
+        mutableStateOf(editingReminder?.date ?: initialDate ?: currentPersianDate)
+    }
+    var time by remember(editingReminder?.id, defaultReminderTimeText) {
+        mutableStateOf(editingReminder?.time ?: defaultReminderTimeText)
+    }
+    var priority by remember(editingReminder?.id) {
+        mutableStateOf(editingReminder?.let { Priority.fromKey(it.priority) } ?: Priority.NORMAL)
+    }
+    var repeatType by remember(editingReminder?.id, initialRepeatType) { mutableStateOf(initialRepeatType) }
+    var repeatInterval by remember(editingReminder?.id, initialRepeatInterval) { mutableStateOf(initialRepeatInterval.toString()) }
+    var amountText by remember(editingReminder?.id) {
+        mutableStateOf(editingReminder?.amount?.let { amount ->
+            val displayAmount = if (MoneyFormatter.activeCurrency == AppCurrency.TOMAN) amount / 10L else amount
+            displayAmount.toString()
+        }.orEmpty())
+    }
     var amountError by remember { mutableStateOf<String?>(null) }
-    var targetKmText by remember { mutableStateOf("") }
+    var targetKmText by remember(editingReminder?.id) { mutableStateOf(editingReminder?.targetKilometer?.toString().orEmpty()) }
 
-    // Multi-Offset selection
-    // No delivery channel or trigger time is selected by default. Saving a reminder
-    // without explicitly opting in must never create a system notification.
-    val selectedOffsets = remember { mutableStateListOf<PredefinedOffset>() }
+    // Preserve the user's existing offsets when editing; a new reminder starts with none.
+    val selectedOffsets = remember(editingReminder?.id) {
+        mutableStateListOf<PredefinedOffset>().apply { addAll(initialOffsets) }
+    }
 
     fun submitReminder(enableAlerts: Boolean) {
         if (isSaving || title.isBlank()) return
@@ -159,7 +176,7 @@ fun AddReminderScreen(
 
         val effectiveRepeatType = if (offsetsToSave.isEmpty()) RepeatType.NONE else repeatType
         val effectiveRepeatInterval = if (effectiveRepeatType == RepeatType.NONE) 1 else interval ?: 1
-        val reminder = ReminderEntity(
+        val reminder = (editingReminder ?: ReminderEntity(
             id = reminderId,
             title = title.trim(),
             description = description.trim(),
@@ -168,12 +185,19 @@ fun AddReminderScreen(
             priority = priority.name,
             status = "ACTIVE",
             date = date.trim(),
+            time = time.trim()
+        )).copy(
+            title = title.trim(),
+            description = description.trim(),
+            type = selectedType.key,
+            priority = priority.name,
+            date = date.trim(),
             time = time.trim(),
             amount = parsedReminderAmountRials,
             amountUnit = AppCurrency.RIAL.name,
             targetKilometer = targetKmText.toLongOrNull(),
             notificationEnabled = offsetsToSave.isNotEmpty(),
-            fullScreenAlarmEnabled = false
+            smsEnabled = false
         )
         isSaving = true
         val handleResult: (Result<Int>) -> Unit = { result ->
@@ -201,7 +225,7 @@ fun AddReminderScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "ثبت یادآوری و سررسید جدید",
+                        text = if (editingReminder == null) "ثبت یادآوری و سررسید جدید" else "ویرایش یادآور",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
@@ -233,10 +257,7 @@ fun AddReminderScreen(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
                     ReminderType.GENERAL,
                     ReminderType.PERSONAL,
@@ -247,40 +268,50 @@ fun AddReminderScreen(
                     ReminderType.INSURANCE,
                     ReminderType.FUEL,
                     ReminderType.CUSTOM
-                ).forEach { type ->
-                    val isSelected = selectedType == type
-                    Surface(
-                        shape = RoundedCornerShape(RadiusMD),
-                        color = if (isSelected) type.accentColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isSelected) type.accentColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                        ),
-                        modifier = Modifier
-                            .width(110.dp)
-                            .clickable { selectedType = type }
-                            .testTag("type_selector_${type.key}")
+                ).chunked(3).forEach { typeRow ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(vertical = 10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Soft3DIcon(
-                                imageRes = type.iconRes,
-                                contentDescription = type.title,
-                                size = 32.dp,
-                                accentColor = type.accentColor
-                            )
-                            Text(
-                                text = type.title,
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) type.accentColor else MaterialTheme.colorScheme.onSurface
-                                )
-                            )
+                        typeRow.forEach { type ->
+                            val isSelected = selectedType == type
+                            Surface(
+                                shape = RoundedCornerShape(RadiusMD),
+                                color = if (isSelected) type.accentColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isSelected) type.accentColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { selectedType = type }
+                                    .testTag("type_selector_${type.key}")
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Soft3DIcon(
+                                        imageRes = type.iconRes,
+                                        contentDescription = type.title,
+                                        size = 32.dp,
+                                        accentColor = type.accentColor
+                                    )
+                                    Text(
+                                        text = type.title,
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) type.accentColor else MaterialTheme.colorScheme.onSurface
+                                        ),
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
+                            }
                         }
+                        repeat(3 - typeRow.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
@@ -540,7 +571,7 @@ fun AddReminderScreen(
             ) {
                 Icon(Icons.Rounded.Check, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(if (isSaving) "در حال ثبت..." else "ثبت یادآور", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(if (isSaving) "در حال ذخیره..." else if (editingReminder == null) "ثبت یادآور" else "ذخیره تغییرات", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         }
     }
@@ -549,13 +580,13 @@ fun AddReminderScreen(
         val noOffsetsSelected = selectedOffsets.isEmpty()
         AlertDialog(
             onDismissRequest = { showNoAlertConfirmation = false },
-            title = { Text("ثبت یادآور بدون اعلان؟") },
+            title = { Text(if (editingReminder == null) "ثبت یادآور بدون اعلان؟" else "ذخیره بدون اعلان؟") },
             text = {
                 Text(
                     if (noOffsetsSelected) {
-                        "برای این یادآور هیچ زمان هشداری انتخاب نکرده‌اید. با تأیید، یادآور بدون اعلان ثبت می‌شود و تکرار هشدار نیز فعال نخواهد بود."
+                        "برای این یادآور هیچ زمان هشداری انتخاب نکرده‌اید. با تأیید، یادآور بدون اعلان ذخیره می‌شود و تکرار هشدار نیز فعال نخواهد بود."
                     } else {
-                        "زمان هشدار انتخاب شده، اما روش دریافت هشدار در تنظیمات عمومی فعال نیست. با تأیید، یادآور بدون اعلان ثبت می‌شود و تکرار هشدار اجرا نخواهد شد."
+                        "زمان هشدار انتخاب شده، اما روش دریافت هشدار در تنظیمات عمومی فعال نیست. با تأیید، یادآور بدون اعلان ذخیره می‌شود و تکرار هشدار اجرا نخواهد شد."
                     }
                 )
             },
