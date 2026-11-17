@@ -296,6 +296,7 @@ class VehicleRepository {
                             nextReminderDate = realNextReminderDate,
                             nextReminderMileage = s.dueMileage,
                             isReminderEnabled = s.reminderEnabled,
+                            status = s.status,
                             reminderAlarmFailed = alarmError != null,
                             reminderAlarmErrorMessage = alarmError
                         )
@@ -1400,7 +1401,8 @@ class VehicleRepository {
                 description = description.trim(),
                 nextReminderDate = nextReminderDate?.trim(),
                 nextReminderMileage = nextReminderMileage,
-                isReminderEnabled = isReminderEnabled
+                isReminderEnabled = isReminderEnabled,
+                status = existingSvc.status
             )
 
             // 1. Fetch any existing schedules to cancel before database modification
