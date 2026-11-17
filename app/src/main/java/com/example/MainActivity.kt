@@ -638,7 +638,6 @@ fun AppNavigationContainer(
                 }
             }
         }
-    }
             if (BuildConfig.DEBUG) {
                 if (showSubscriptionPreview) {
                     BackHandler(enabled = true) {
