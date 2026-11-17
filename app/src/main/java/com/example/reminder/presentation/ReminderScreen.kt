@@ -206,7 +206,7 @@ fun ReminderScreen(
                 var offsets by remember(rem.id) { mutableStateOf<List<PredefinedOffset>?>(null) }
                 var offsetsLoadError by remember(rem.id) { mutableStateOf<String?>(null) }
                 LaunchedEffect(rem.id) {
-                    runCatching { viewModel.getReminderOffsets(rem.id) }
+                    runCatching { viewModel.getReminderEditConfiguration(rem.id).offsets }
                         .onSuccess { offsets = it }
                         .onFailure { offsetsLoadError = it.localizedMessage ?: "خواندن تنظیمات فعلی یادآور ممکن نشد." }
                 }
