@@ -1636,6 +1636,39 @@ class VehicleRepository {
         val db = AppDatabase.getDatabase(context)
         val svc = db.vehicleDao().getServiceByServerId(userId, serviceId)
             ?: return@withContext Result.failure(NoSuchElementException("سرویس مورد نظر یافت نشد."))
+
+        // A completed service must never have its old reminder re-enabled by the retry action.
+        // Completion is independent from the reminder preference, so check lifecycle status first.
+        if (svc.status.equals("COMPLETED", ignoreCase = true)) {
+            val storedSchedules = db.smartReminderDao().getSchedulesForReminderSync(userId, serviceId)
+            val cleanupErrors = cancelServiceReminderEffects(context, serviceId, storedSchedules)
+            val parsed = parseServiceNotes(svc.notes)
+            if (cleanupErrors.isNotEmpty()) {
+                val cleanupMessage = cleanupErrors.joinToString("؛ ") {
+                    it.message ?: it.javaClass.simpleName
+                }
+                db.vehicleDao().updateServiceNotes(
+                    userId,
+                    serviceId,
+                    encodeServiceNotes(
+                        if (svc.cost > 0) svc.cost else parsed.cost,
+                        parsed.description,
+                        "سرویس تکمیل شده است؛ پاک‌سازی هشدارهای باقی‌مانده ناموفق بود: $cleanupMessage"
+                    )
+                )
+                return@withContext Result.failure(
+                    IllegalStateException("سرویس تکمیل شده است و یادآور آن فعال نشد؛ پاک‌سازی هشدارهای باقی‌مانده کامل نشد.")
+                )
+            }
+
+            db.vehicleDao().updateServiceNotes(
+                userId,
+                serviceId,
+                encodeServiceNotes(if (svc.cost > 0) svc.cost else parsed.cost, parsed.description, null)
+            )
+            return@withContext Result.success(Unit)
+        }
+
         if (!svc.reminderEnabled) {
             val storedSchedules = db.smartReminderDao().getSchedulesForReminderSync(userId, serviceId)
             val cleanupErrors = cancelServiceReminderEffects(context, serviceId, storedSchedules)
