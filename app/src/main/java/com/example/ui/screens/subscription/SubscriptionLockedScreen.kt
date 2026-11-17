@@ -333,7 +333,7 @@ fun SubscriptionLockedScreenContent(
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = Color(0xFFE1E7F5)
                 ),
-                enabled = !uiState.isLoading && !uiState.isSyncing
+                enabled = actionsEnabled
             ) {
                 if (uiState.isSyncing) {
                     CircularProgressIndicator(
