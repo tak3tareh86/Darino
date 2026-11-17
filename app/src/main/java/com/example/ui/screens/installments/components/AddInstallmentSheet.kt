@@ -41,6 +41,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.geometry.IntRect
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -50,6 +55,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.reminder.domain.PredefinedOffset
 import com.example.ui.components.PersianAmountInputField
@@ -999,12 +1007,13 @@ private fun FormDetailsStep(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         var paidInstallmentsDropdownExpanded by remember { mutableStateOf(false) }
+                        var paidDropdownWidthPx by remember { mutableIntStateOf(0) }
                         ExposedDropdownMenuBox(
                             expanded = paidInstallmentsDropdownExpanded,
                             onExpandedChange = {
                                 paidInstallmentsDropdownExpanded = !paidInstallmentsDropdownExpanded
                             },
-                            modifier = Modifier.weight(0.9f)
+                            modifier = Modifier.weight(0.9f).onGloballyPositioned { paidDropdownWidthPx = it.size.width }
                         ) {
                             OutlinedTextField(
                                 value = paidInstallmentsCount,
@@ -1039,10 +1048,10 @@ private fun FormDetailsStep(
                                     .testTag("installment_paid_count_input"),
                                 shape = RoundedCornerShape(10.dp)
                             )
-                            ExposedDropdownMenu(
+                            UpwardDropdownMenu(
                                 expanded = paidInstallmentsDropdownExpanded,
                                 onDismissRequest = { paidInstallmentsDropdownExpanded = false },
-                                modifier = Modifier.heightIn(max = 280.dp)
+                                widthPx = paidDropdownWidthPx
                             ) {
                                 Column(
                                     modifier = Modifier
@@ -1080,10 +1089,11 @@ private fun FormDetailsStep(
                         }
 
                         var installmentsDropdownExpanded by remember { mutableStateOf(false) }
+                        var installmentsDropdownWidthPx by remember { mutableIntStateOf(0) }
                         ExposedDropdownMenuBox(
                             expanded = installmentsDropdownExpanded,
                             onExpandedChange = { installmentsDropdownExpanded = !installmentsDropdownExpanded },
-                            modifier = Modifier.weight(1.1f)
+                            modifier = Modifier.weight(1.1f).onGloballyPositioned { installmentsDropdownWidthPx = it.size.width }
                         ) {
                             OutlinedTextField(
                                 value = installmentsCount,
@@ -1110,10 +1120,10 @@ private fun FormDetailsStep(
                                     .testTag("installment_count_input"),
                                 shape = RoundedCornerShape(10.dp)
                             )
-                            ExposedDropdownMenu(
+                            UpwardDropdownMenu(
                                 expanded = installmentsDropdownExpanded,
                                 onDismissRequest = { installmentsDropdownExpanded = false },
-                                modifier = Modifier.heightIn(max = 280.dp)
+                                widthPx = installmentsDropdownWidthPx
                             ) {
                                 Column(
                                     modifier = Modifier
@@ -1720,6 +1730,50 @@ private fun CustomInstallmentsDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+
+@Composable
+private fun UpwardDropdownMenu(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    widthPx: Int,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    if (!expanded || widthPx <= 0) return
+
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val menuWidth = with(density) { widthPx.toDp() }
+
+    Popup(
+        popupPositionProvider = object : PopupPositionProvider {
+            override fun calculatePosition(
+                anchorBounds: IntRect,
+                windowSize: IntSize,
+                layoutDirection: LayoutDirection,
+                popupContentSize: IntSize
+            ): IntOffset {
+                val x = when (layoutDirection) {
+                    LayoutDirection.Ltr -> anchorBounds.left
+                    LayoutDirection.Rtl -> anchorBounds.right - popupContentSize.width
+                }.coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+                val y = (anchorBounds.top - popupContentSize.height).coerceAtLeast(0)
+                return IntOffset(x, y)
+            }
+        },
+        onDismissRequest = onDismissRequest,
+        properties = PopupProperties(focusable = true)
+    ) {
+        Surface(
+            modifier = Modifier.width(menuWidth).heightIn(max = 280.dp),
+            shape = MaterialTheme.shapes.extraSmall,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 3.dp,
+            shadowElevation = 8.dp
+        ) {
+            Column(content = content)
         }
     }
 }
