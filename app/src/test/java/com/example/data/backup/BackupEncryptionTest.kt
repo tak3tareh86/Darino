@@ -18,6 +18,15 @@ class BackupEncryptionTest {
     }
 
     @Test
+    fun deviceBackupFormatIsRecognizedSeparatelyFromPortableBackups() {
+        val automaticPayload = ByteArray(1 + 12 + 16 + 1).also { it[0] = 12 }
+
+        assertTrue(DeviceBackupEncryption.isDeviceEncrypted(automaticPayload))
+        assertTrue(!BackupEncryption.isEncrypted(automaticPayload))
+        assertTrue(!DeviceBackupEncryption.isDeviceEncrypted("{\"metadata\":{}}".toByteArray()))
+    }
+
+    @Test
     fun encryptionRequiresExactlySixNumericDigits() {
         assertTrue(runCatching {
             BackupEncryption.encrypt("private".toByteArray(), "12345".toCharArray())
