@@ -103,10 +103,6 @@ fun SubscriptionLockedScreenContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceEvenly
         ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
             Spacer(Modifier.height(2.dp))
 
             ImageLogo()
@@ -155,7 +151,7 @@ fun SubscriptionLockedScreenContent(
                     .height(if (tiny) 105.dp else if (compact) 125.dp else 145.dp)
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(2.dp))
 
             Text(
                 text = if (requiresMarketReverification) {
@@ -369,7 +365,6 @@ fun SubscriptionLockedScreenContent(
             }
 
             Spacer(Modifier.height(1.dp))
-        }
         }
     }
 }
