@@ -20,9 +20,10 @@ class SubscriptionPreviewActivity : ComponentActivity() {
                 SubscriptionLockedScreenContent(
                     uiState = SubscriptionState(),
                     requiresMarketReverification = false,
+                    // Keep the real enabled-button appearance, but both callbacks are no-ops.
                     onPurchaseClick = {},
                     onRestoreClick = {},
-                    actionsEnabled = false
+                    actionsEnabled = true
                 )
             }
         }
