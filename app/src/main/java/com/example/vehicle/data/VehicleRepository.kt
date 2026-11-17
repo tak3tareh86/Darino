@@ -1576,12 +1576,8 @@ class VehicleRepository {
 
             // Distinguish cancellation failures from scheduling failures
             if (cancelFailed) {
-                val cancellationMessage = if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
-                    "لغو هشدارهای قبلی ناموفق بود ($cancelErrorMsg)."
-                } else {
-                    "لغو هشدارهای قبلی ناموفق بود ($cancelErrorMsg)."
-                }
                 alarmFailed = true
+                val cancellationMessage = "لغو هشدارهای قبلی ناموفق بود ($cancelErrorMsg)."
                 alarmErrorMsg = listOfNotNull(alarmErrorMsg, cancellationMessage).joinToString("؛ ")
             }
 
@@ -1641,7 +1637,30 @@ class VehicleRepository {
         val svc = db.vehicleDao().getServiceByServerId(userId, serviceId)
             ?: return@withContext Result.failure(NoSuchElementException("سرویس مورد نظر یافت نشد."))
         if (!svc.reminderEnabled) {
-            return@withContext Result.failure(IllegalStateException("یادآور این سرویس توسط کاربر غیرفعال شده است."))
+            val storedSchedules = db.smartReminderDao().getSchedulesForReminderSync(userId, serviceId)
+            val cleanupErrors = cancelServiceReminderEffects(context, serviceId, storedSchedules)
+            val parsed = parseServiceNotes(svc.notes)
+            if (cleanupErrors.isNotEmpty()) {
+                val cleanupMessage = cleanupErrors.joinToString("؛ ") { it.message ?: it.javaClass.simpleName }
+                db.vehicleDao().updateServiceNotes(
+                    userId,
+                    serviceId,
+                    encodeServiceNotes(
+                        if (svc.cost > 0) svc.cost else parsed.cost,
+                        parsed.description,
+                        "پاک‌سازی هشدارهای قبلی ناموفق بود: $cleanupMessage"
+                    )
+                )
+                return@withContext Result.failure(
+                    IllegalStateException("پاک‌سازی هشدارهای قبلی کامل نشد: $cleanupMessage")
+                )
+            }
+            db.vehicleDao().updateServiceNotes(
+                userId,
+                serviceId,
+                encodeServiceNotes(if (svc.cost > 0) svc.cost else parsed.cost, parsed.description, null)
+            )
+            return@withContext Result.success(Unit)
         }
 
         try {
