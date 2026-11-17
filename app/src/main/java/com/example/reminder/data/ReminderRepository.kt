@@ -118,6 +118,10 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
                 !legacy.enabled -> "DISABLED"
                 else -> "ACTIVE"
             }
+            val hasPersistedPendingDelivery = legacySchedules[legacy.id].orEmpty().any {
+                (it.status.equals("PENDING", true) || it.status.equals("SCHEDULED", true)) &&
+                    it.status != "CANCELLED"
+            }
             val reminder = ReminderEntity(
                 id = id,
                 userId = userId,
@@ -130,7 +134,7 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
                 date = PersianCalendarHelper.fromEpochMillis(legacy.scheduledDateTime).toFormattedDate(),
                 time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
                     .format(java.util.Date(legacy.scheduledDateTime)),
-                notificationEnabled = legacy.notificationEnabled,
+                notificationEnabled = legacy.notificationEnabled && hasPersistedPendingDelivery,
                 fullScreenAlarmEnabled = false,
                 smsEnabled = false,
                 phoneNumber = null,
@@ -162,21 +166,9 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
                         createdAt = legacy.createdAt
                     )
                 }
-            } else if (status == "ACTIVE" && legacy.notificationEnabled && legacy.scheduledDateTime > now) {
-                listOf(
-                    ReminderScheduleEntity(
-                        id = "legacy_schedule_reminder_${legacy.id}",
-                        reminderId = id,
-                        triggerType = "EXACT",
-                        offsetValue = 0,
-                        offsetUnit = "MINUTE",
-                        triggerDateTime = legacy.scheduledDateTime,
-                        repeatType = repeatType.name,
-                        enabled = true,
-                        createdAt = legacy.createdAt
-                    )
-                )
             } else {
+                // Never invent a delivery time from the old reminder row alone.
+                // Only persisted PENDING/SCHEDULED legacy triggers prove opt-in.
                 emptyList()
             }
             migratedSchedules += schedulesForReminder
