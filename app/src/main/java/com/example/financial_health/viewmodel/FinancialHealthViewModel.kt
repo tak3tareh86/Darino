@@ -171,8 +171,11 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
                 val start = dueMillis(item.startDate)
                 val end = dueMillis(item.endDate)
                 val overlapsMonth = start != null && end != null && start < range.end && end >= range.start
-                val contractRangeUnknown = item.remainingInstallments > 0 && (start == null || end == null)
-                item.remainingInstallments > 0 && (overlapsMonth || contractRangeUnknown) && !hasCompletePaymentHistory(item)
+                // Validate settled contracts too: their historical rows still contribute to
+                // monthly totals, so an incomplete/duplicated schedule must not look complete.
+                // If the contract range is unknown, the affected month cannot be identified safely.
+                val contractRangeUnknown = start == null || end == null
+                (overlapsMonth || contractRangeUnknown) && !hasCompletePaymentHistory(item)
             }
             if (hasIncompleteRelevantSchedule) {
                 result += MonthlyPressureData(range.label, 0f, 0L, 0L, hasData = false)
@@ -225,6 +228,7 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
         repository.profileFlow, repository.transactionsFlow, installmentSnapshotFlow,
         repository.vehicleServicesFlow, refreshedOperationError
     ) { profile, transactions, installmentSnapshot, vehicleServices, currentError ->
+        try {
         val allInstallments = installmentSnapshot.first
         val installmentDataAvailable = installmentSnapshot.second
         val currentMonth = monthRange(0)
@@ -325,6 +329,14 @@ class FinancialHealthViewModel(application: Application) : AndroidViewModel(appl
             nextMonthPrediction = nextMonth, previousMonthPressure = previousPressure ?: 0f,
             historicalPressureYear = currentMonth.year, historicalPressureList = history
         )
+        } catch (error: ArithmeticException) {
+            // Never expose a partial total or terminate the StateFlow on numeric overflow.
+            // The default state carries no calculated amounts; the message explains why.
+            FinancialHealthState(
+                isLoading = false,
+                errorMessage = "مقادیر مالی از محدوده قابل محاسبه خارج شده‌اند؛ اطلاعات را بازبینی کنید."
+            )
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FinancialHealthState())
 
     fun updateMonthlyIncome(newIncome: Long) {
