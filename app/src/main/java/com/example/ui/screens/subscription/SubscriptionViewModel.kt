@@ -54,16 +54,22 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
 
     private fun loadAnnualSubscriptionPrice() {
         viewModelScope.launch {
+            _uiState.update { it.copy(isPriceLoading = true) }
             manager.getAnnualSubscriptionPrice().onSuccess { price ->
                 _uiState.update {
                     it.copy(
                         priceDisplay = price.display,
-                        isPriceCached = price.isCached
+                        isPriceCached = price.isCached,
+                        isPriceLoading = false
                     )
                 }
             }.onFailure {
                 _uiState.update {
-                    it.copy(priceDisplay = null, isPriceCached = false)
+                    it.copy(
+                        priceDisplay = null,
+                        isPriceCached = false,
+                        isPriceLoading = false
+                    )
                 }
             }
         }
