@@ -52,4 +52,33 @@ class BackupEncryptionTest {
             BackupEncryption.decrypt(tampered, "654321".toCharArray())
         }.isFailure)
     }
+    @Test
+    fun automaticBackupDiscoveryAcceptsDailyAndWeeklyFilesAcrossProfileTags() {
+        assertTrue(
+            BackupFolderStorage.isAutomaticBackupFilename(
+                "daily_auto_backup_08c2e370473bad70b6fec359_latest.darino",
+                "daily"
+            )
+        )
+        assertTrue(
+            BackupFolderStorage.isAutomaticBackupFilename(
+                "weekly_auto_backup_0123456789abcdef01234567_latest.darino",
+                "weekly"
+            )
+        )
+    }
+
+    @Test
+    fun automaticBackupDiscoveryRejectsManualTemporaryAndMalformedFiles() {
+        assertTrue(!BackupFolderStorage.isAutomaticBackupFilename("manual_backup.darino"))
+        assertTrue(!BackupFolderStorage.isAutomaticBackupFilename(".daily_auto_backup_08c2e370473bad70b6fec359_latest.darino.tmp-1"))
+        assertTrue(!BackupFolderStorage.isAutomaticBackupFilename("daily_auto_backup_not-a-hash_latest.darino"))
+        assertTrue(
+            !BackupFolderStorage.isAutomaticBackupFilename(
+                "daily_auto_backup_08c2e370473bad70b6fec359_latest.darino",
+                "weekly"
+            )
+        )
+    }
+
 }
