@@ -343,7 +343,17 @@ object VehicleAnalyzer {
 
         val topCategory = categoryTotals.firstOrNull() ?: VehicleCostCategoryStat(VehicleExpenseCategory.SERVICE, 0L, 0)
 
-        val lastRepair = carExpenses.filter { it.category == VehicleExpenseCategory.REPAIRS }.firstOrNull()
+        // Expense flows are ordered by their stored date string, which is not a
+        // reliable chronological order when legacy rows use mixed date formats.
+        // Select the newest repair using a validated, normalized Jalali date instead.
+        val lastRepair = carExpenses
+            .asSequence()
+            .filter { it.category == VehicleExpenseCategory.REPAIRS }
+            .mapNotNull { expense ->
+                parseAndValidateJalaliDate(expense.date)?.let { normalizedDate -> normalizedDate to expense }
+            }
+            .maxByOrNull { it.first }
+            ?.second
         val lastRepairTitle = lastRepair?.title ?: "بدون تعمیرات سنگین"
         val lastRepairDate = lastRepair?.date ?: "—"
 
@@ -386,7 +396,7 @@ object VehicleAnalyzer {
         return VehicleStatistics(
             currentMonthCost = currentMonthCost,
             yearlyCost = yearlyCost,
-            totalServicesCount = carServices.size,
+            totalServicesCount = carServices.count { it.status.equals("COMPLETED", ignoreCase = true) },
             lastRepairTitle = lastRepairTitle,
             lastRepairDate = lastRepairDate,
             topCostCategoryTitle = topCategory.category.title,
