@@ -284,30 +284,36 @@ class ReminderManager(
             ?: throw NoSuchElementException("یادآور با شناسه $reminderId یافت نشد.")
         val storedSchedules = repository.getSchedulesSync(reminderId)
         if (storedSchedules.isEmpty()) {
-            if (reminder.sourceType.equals("CALENDAR", ignoreCase = true) &&
-                (reminder.notificationEnabled || reminder.fullScreenAlarmEnabled || reminder.smsEnabled)
-            ) {
+            val reminderHasExplicitDelivery = reminder.notificationEnabled || reminder.fullScreenAlarmEnabled
+            if (!reminderHasExplicitDelivery) {
+                // A reminder intentionally saved without alerts can still be reactivated
+                // as a visible list item; it must not acquire an implicit alarm.
+                repository.updateStatus(reminderId, "ACTIVE")
+                return@withContext
+            }
+            if (reminder.sourceType.equals("CALENDAR", ignoreCase = true)) {
                 repository.updateStatus(reminderId, "ACTIVE")
                 val eventId = reminder.sourceId
                 val userId = SessionManager.userId
                 if (eventId != null && userId != null) {
                     val event = AppDatabase.getDatabase(context).financialEventDao().getEventById(userId, eventId)
-                    if (event != null) {
+                    if (event != null && scheduler.hasConfiguredDelivery(reminder)) {
                         com.example.calendar.reminder.CalendarEventReminderScheduler(context).schedule(event.toDomain())
                     }
                 }
                 return@withContext
             }
             repository.updateStatus(reminderId, "DISABLED")
-            throw IllegalStateException("هیچ زمان‌بندی‌ای برای این یادآور ذخیره نشده است.")
+            throw IllegalStateException("زمان‌های هشدار این یادآور ذخیره نشده‌اند؛ برای جلوگیری از ساخت هشدار ناقص، ابتدا آن را ویرایش کنید.")
         }
 
         // Vehicle reminders use the app-wide delivery mode; other categories keep
         // their existing per-reminder delivery opt-in requirement.
         if (!reminder.sourceType.equals("VEHICLE", ignoreCase = true) &&
-            !reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled && !reminder.smsEnabled
+            !reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled
         ) {
-            throw IllegalStateException("برای فعال‌سازی یادآور، حداقل یکی از روش‌های اعلان، آلارم تمام‌صفحه یا پیامک باید فعال باشد.")
+            repository.updateStatus(reminderId, "ACTIVE")
+            return@withContext
         }
         val now = System.currentTimeMillis()
         val enabledReminder = reminder.copy(status = "ACTIVE", updatedAt = now)
@@ -366,7 +372,7 @@ class ReminderManager(
         if (baseSchedules.size != storedSchedules.size) {
             repository.updateReminderWithSchedules(reminder, baseSchedules)
         }
-        if ((reminder.notificationEnabled || reminder.fullScreenAlarmEnabled || reminder.smsEnabled) &&
+        if ((reminder.notificationEnabled || reminder.fullScreenAlarmEnabled) &&
             (baseSchedules.isNotEmpty() || reminder.sourceType.equals("CALENDAR", ignoreCase = true))
         ) {
             enableReminder(reminderId)
@@ -411,8 +417,11 @@ class ReminderManager(
         val reminder = repository.getReminderById(reminderId)
             ?: return@withContext Result.failure(IllegalStateException("یادآور با شناسه موردنظر یافت نشد."))
 
-        if (!reminder.notificationEnabled && !reminder.fullScreenAlarmEnabled && !reminder.smsEnabled) {
-            return@withContext Result.failure(IllegalStateException("برای این یادآور هیچ روش اعلانی فعال نشده است."))
+        if (!reminder.status.equals("ACTIVE", ignoreCase = true)) {
+            return@withContext Result.failure(IllegalStateException("فقط یادآور فعال قابل تعویق است."))
+        }
+        if (!scheduler.hasConfiguredDelivery(reminder)) {
+            return@withContext Result.failure(IllegalStateException("روش دریافت هشدار برای این یادآور فعال نیست."))
         }
 
         val now = System.currentTimeMillis()
