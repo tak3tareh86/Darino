@@ -60,6 +60,7 @@ private enum class ReminderSubScreen {
     ADD,
     DETAIL,
     EDIT_INSTALLMENT_REMINDER,
+    EDIT_REMINDER,
     NOTIFICATION_CENTER
 }
 
@@ -107,7 +108,7 @@ fun ReminderScreen(
     BackHandler(enabled = currentSubScreen != ReminderSubScreen.LIST) {
         when (currentSubScreen) {
             ReminderSubScreen.ADD, ReminderSubScreen.NOTIFICATION_CENTER -> currentSubScreen = ReminderSubScreen.LIST
-            ReminderSubScreen.EDIT_INSTALLMENT_REMINDER -> currentSubScreen = ReminderSubScreen.DETAIL
+            ReminderSubScreen.EDIT_INSTALLMENT_REMINDER, ReminderSubScreen.EDIT_REMINDER -> currentSubScreen = ReminderSubScreen.DETAIL
             ReminderSubScreen.DETAIL -> {
                 selectedReminderForDetail = null
                 currentSubScreen = ReminderSubScreen.LIST
@@ -142,8 +143,58 @@ fun ReminderScreen(
                     },
                     onEditInstallmentReminder = {
                         currentSubScreen = ReminderSubScreen.EDIT_INSTALLMENT_REMINDER
+                    },
+                    onEditManualReminder = {
+                        currentSubScreen = ReminderSubScreen.EDIT_REMINDER
                     }
                 )
+            } else {
+                currentSubScreen = ReminderSubScreen.LIST
+            }
+        }
+
+        ReminderSubScreen.EDIT_REMINDER -> {
+            val rem = selectedReminderForDetail
+            if (rem != null) {
+                var editConfig by remember(rem.id) { mutableStateOf<com.example.reminder.viewmodel.ReminderEditConfiguration?>(null) }
+                var editLoadError by remember(rem.id) { mutableStateOf<String?>(null) }
+                LaunchedEffect(rem.id) {
+                    runCatching { viewModel.getReminderEditConfiguration(rem.id) }
+                        .onSuccess { editConfig = it }
+                        .onFailure { editLoadError = it.localizedMessage ?: "خواندن تنظیمات یادآور ممکن نشد." }
+                }
+                when {
+                    editLoadError != null -> Column(
+                        modifier = Modifier.fillMaxSize().padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(editLoadError.orEmpty(), color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = { currentSubScreen = ReminderSubScreen.DETAIL }) { Text("بازگشت") }
+                    }
+                    editConfig == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                    else -> AddReminderScreen(
+                        onBackClick = { currentSubScreen = ReminderSubScreen.DETAIL },
+                        editingReminder = rem,
+                        initialOffsets = editConfig!!.offsets,
+                        initialRepeatType = editConfig!!.repeatType,
+                        initialRepeatInterval = editConfig!!.repeatInterval,
+                        onSaveReminderWithResult = { updated, offsets, repeatType, repeatInterval, onComplete ->
+                            viewModel.updateReminder(updated, offsets, repeatType, repeatInterval) { result ->
+                                result.fold(
+                                    onSuccess = { saved ->
+                                        selectedReminderForDetail = saved
+                                        currentSubScreen = ReminderSubScreen.DETAIL
+                                        onComplete(Result.success(offsets.size))
+                                    },
+                                    onFailure = { error -> onComplete(Result.failure(error)) }
+                                )
+                            }
+                        }
+                    )
+                }
             } else {
                 currentSubScreen = ReminderSubScreen.LIST
             }
