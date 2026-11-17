@@ -33,6 +33,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.R
 import com.example.reminder.data.ReminderEntity
 import com.example.vehicle.data.VehicleRepository
+import com.example.data.preferences.AppPreferencesRepository
+import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import androidx.compose.ui.platform.LocalContext
 import com.example.reminder.domain.ReminderType
 import com.example.reminder.domain.PredefinedOffset
@@ -70,6 +72,10 @@ fun ReminderScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val appContext = LocalContext.current
+    val preferences = remember { AppPreferencesRepository.getInstance(appContext) }
+    val globalNotificationsEnabled by preferences.notificationsEnabled.collectAsState()
+    val globalDeliveryMode by preferences.alertDelivery.collectAsState()
+    val globalDeliveryConfigured = globalNotificationsEnabled && globalDeliveryMode != AlertDeliveryPreference.NONE
     val vehicleRepository = remember { VehicleRepository.instance }
     val vehicles by vehicleRepository.vehicles.collectAsState()
     val vehicleServices by vehicleRepository.services.collectAsState()
@@ -536,10 +542,14 @@ fun ReminderScreen(
                                 ReminderCard(
                                     reminder = reminder,
                                     vehiclePlate = vehiclePlateForReminder(reminder),
-                                    onClick = {},
+                                    onClick = {
+                                        selectedReminderForDetail = reminder
+                                        currentSubScreen = ReminderSubScreen.DETAIL
+                                    },
                                     onToggleCompleted = {
                                         viewModel.completeReminder(reminder.id)
                                     },
+                                    showSnooze = globalDeliveryConfigured && (reminder.sourceType.equals("VEHICLE", true) || reminder.notificationEnabled || reminder.fullScreenAlarmEnabled),
                                     onSnoozeClick = {
                                         showSnoozeSheetForReminder = reminder
                                     },
@@ -602,10 +612,14 @@ fun ReminderScreen(
                                         ReminderCard(
                                             reminder = reminder,
                                             vehiclePlate = vehiclePlateForReminder(reminder),
-                                            onClick = {},
-                                            onToggleCompleted = {
-                                                viewModel.toggleReminderEnabled(reminder.id, true)
+                                            onClick = {
+                                                selectedReminderForDetail = reminder
+                                                currentSubScreen = ReminderSubScreen.DETAIL
                                             },
+                                            onToggleCompleted = {
+                                                viewModel.restoreReminder(reminder.id)
+                                            },
+                                            showSnooze = false,
                                             onSnoozeClick = {
                                                 showSnoozeSheetForReminder = reminder
                                             },
@@ -619,10 +633,14 @@ fun ReminderScreen(
                                     ReminderCard(
                                         reminder = reminder,
                                         vehiclePlate = vehiclePlateForReminder(reminder),
-                                        onClick = {},
-                                        onToggleCompleted = {
-                                            viewModel.toggleReminderEnabled(reminder.id, true)
+                                        onClick = {
+                                            selectedReminderForDetail = reminder
+                                            currentSubScreen = ReminderSubScreen.DETAIL
                                         },
+                                        onToggleCompleted = {
+                                            viewModel.restoreReminder(reminder.id)
+                                        },
+                                        showSnooze = false,
                                         onSnoozeClick = {
                                             showSnoozeSheetForReminder = reminder
                                         },
