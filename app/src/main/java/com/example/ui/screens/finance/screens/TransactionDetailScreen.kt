@@ -231,7 +231,11 @@ fun TransactionDetailScreen(
                             DetailRow(label = "دریافت‌کننده", value = recipient)
                         }
                     } else {
-                        DetailRow(label = "روش پرداخت / حساب", value = "${transaction.paymentMethod.iconEmoji} ${transaction.paymentMethod.title}")
+                        DetailRow(label = "حساب ثبت‌شده", value = transaction.accountName)
+                        DetailRow(
+                            label = "روش پرداخت",
+                            value = "${transaction.paymentMethod.iconEmoji} ${transaction.paymentMethod.title}"
+                        )
                     }
 
                     if (transaction.isRecurring) {
