@@ -225,12 +225,14 @@ class ReminderScheduler(private val context: Context) {
 
         // Remove stale PendingIntents first. This also makes switching to NONE or disabling
         // the global push channel actually stop previously armed Android alarms.
+        // Clear every persisted PendingIntent for this user first, including schedules
+        // belonging to disabled/completed reminders. Only active enabled future rows are re-armed.
+        db.smartReminderDao().getAllSchedulesList(userId).forEach { schedule ->
+            cancelSchedule(schedule.id)
+        }
         val reminderSchedules = activeReminders.map { reminder ->
             val schedules = db.smartReminderDao().getSchedulesForReminderSync(userId, reminder.id)
             reminder to schedules
-        }
-        reminderSchedules.flatMap { it.second }.forEach { schedule ->
-            cancelSchedule(schedule.id)
         }
 
         var scheduledCount = 0
