@@ -91,6 +91,53 @@ class TransactionMigrationTest {
         updated.close()
     }
 
+
+    @Test
+    fun `Migration 46 to 47 preserves transactions and initializes metadata defaults`() {
+        sqliteDb.execSQL("ALTER TABLE transactions DROP COLUMN categoryId")
+        sqliteDb.execSQL("ALTER TABLE transactions DROP COLUMN tagsJson")
+        sqliteDb.execSQL("ALTER TABLE transactions DROP COLUMN recurringFrequency")
+        sqliteDb.execSQL("""
+            INSERT INTO transactions (
+                userId, amount, type, category, accountName, description, timestamp,
+                timeFormatted, stringId, title, datePersian, paymentMethod, sourceType,
+                isRecurring, syncState, updatedAt
+            ) VALUES (
+                'metadata_user', 2500, 'EXPENSE', 'خوراک', 'کارت اصلی', '',
+                2000, '12:30', 'legacy_metadata', 'خرید', '1405/08/01',
+                'BANK_CARD', 'MANUAL', 0, 'SYNCED', 2000
+            )
+        """.trimIndent())
+
+        AppDatabase.MIGRATION_46_47.migrate(sqliteDb)
+
+        val defaults = sqliteDb.query(
+            "SELECT categoryId, tagsJson, recurringFrequency FROM transactions WHERE stringId = 'legacy_metadata'"
+        )
+        assertTrue(defaults.moveToFirst())
+        assertEquals("", defaults.getString(0))
+        assertEquals("[]", defaults.getString(1))
+        assertTrue(defaults.isNull(2))
+        defaults.close()
+
+        sqliteDb.execSQL("""
+            UPDATE transactions
+            SET categoryId = 'food',
+                tagsJson = '["ضروری","خانه"]',
+                recurringFrequency = 'MONTHLY'
+            WHERE stringId = 'legacy_metadata'
+        """.trimIndent())
+
+        val persisted = sqliteDb.query(
+            "SELECT categoryId, tagsJson, recurringFrequency FROM transactions WHERE stringId = 'legacy_metadata'"
+        )
+        assertTrue(persisted.moveToFirst())
+        assertEquals("food", persisted.getString(0))
+        assertEquals("[\"ضروری\",\"خانه\"]", persisted.getString(1))
+        assertEquals("MONTHLY", persisted.getString(2))
+        persisted.close()
+    }
+
     @Test
     fun `Migration 17 to 18 preserves legacy blank stringId records`() {
         // 1. Prepare: Drop the unique index to simulate v17 state where duplicates were possible
