@@ -333,8 +333,7 @@ class CalendarManager(private val context: Context) {
     }
 
     suspend fun toggleStatus(event: FinancialEvent) {
-        val database = AppDatabase.getDatabase(context)
-        val userId = SessionManager.userId ?: return
+        if (SessionManager.userId == null) return
 
         if (event.id.startsWith("auto_rem_")) {
             val reminderId = event.id.removePrefix("auto_rem_")
