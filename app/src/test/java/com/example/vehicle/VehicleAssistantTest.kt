@@ -1352,9 +1352,8 @@ class VehicleAssistantTest {
             currentMileage = 40000
         )
 
-        // Scenario A: The fixed checklist has three valid entries (third-party insurance,
-        // inspection and engine oil). The separately displayed brake entry does not alter
-        // the established nine-item score denominator.
+        // Scenario A: Only the nine fixed checklist entries are evaluated.
+        // The recorded brake service remains in service history and is not a checklist item.
         val perfectServices = listOf(
             VehicleServiceEntity(
                 id = "svc_oil",
@@ -1401,7 +1400,8 @@ class VehicleAssistantTest {
         val perfectHealth = VehicleAnalyzer.analyzeHealth(car, perfectServices, perfectInsurance, perfectInspection)
         assertEquals("Three valid fixed checklist entries out of nine must score 33", 33, perfectHealth.healthScorePercent)
         assertEquals(VehicleHealthLevel.WARNING, perfectHealth.level)
-        assertTrue(perfectHealth.checklist.any { it.title == ServiceType.BRAKE_PADS.title })
+        assertEquals(9, perfectHealth.checklist.size)
+        assertFalse(perfectHealth.checklist.any { it.title == ServiceType.BRAKE_PADS.title })
 
         // Scenario B: Overdue oil, expired third-party insurance and expired inspection.
         // The remaining fixed checklist entries are unrecorded, so none of the nine scores OK.
