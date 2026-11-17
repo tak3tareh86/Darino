@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +39,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
@@ -145,7 +150,7 @@ fun SubscriptionLockedScreenContent(
             ) {
                 Box(Modifier.weight(1f).height(2.dp).background(PremiumGold))
                 Text(
-                    text = "🤝",
+                    text = "♥",
                     fontSize = 48.sp,
                     lineHeight = 54.sp
                 )
@@ -217,8 +222,8 @@ fun SubscriptionLockedScreenContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "💎",
-                        fontSize = 54.sp,
+                        text = "◇",
+                        fontSize = 64.sp,
                         modifier = Modifier.width(82.dp),
                         textAlign = TextAlign.Center
                     )
@@ -419,126 +424,59 @@ private fun ImageLogo() {
     )
 }
 
-/** A layered Compose illustration echoing the calendar, clock and crown in the reference. */
+
 @Composable
 private fun ExpiredSubscriptionIllustration(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.74f)
-                .height(26.dp)
-                .align(Alignment.BottomCenter)
-                .clip(CircleShape)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(Color.Transparent, Color(0xFF27B9FF).copy(alpha = 0.75f), Color.Transparent)
-                    )
-                )
-        )
-
-        Surface(
-            modifier = Modifier
-                .width(236.dp)
-                .height(202.dp)
-                .align(Alignment.Center)
-                .padding(start = 20.dp, top = 5.dp)
-                .rotate(-5f),
-            shape = RoundedCornerShape(22.dp),
-            color = Color(0xFFE8EEFF),
-            shadowElevation = 14.dp
-        ) {
-            Column {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(49.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color(0xFF2679FF), Color(0xFF0750C9))
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("●   ●   ●   ●", color = Color(0xFFB9D8FF), fontSize = 21.sp)
-                }
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 13.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    repeat(3) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                            repeat(4) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(31.dp)
-                                        .clip(RoundedCornerShape(7.dp))
-                                        .background(Color(0xFFD2DCF4))
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+    Canvas(modifier) {
+        val s = minOf(size.width / 400f, size.height / 270f)
+        drawContext.transform.scale(s, s, pivot = Offset.Zero)
+        val gold = Color(0xFFFFC21C)
+        val blue = Color(0xFF1768E8)
+        drawOval(Brush.radialGradient(listOf(Color(0xFF20BFFF).copy(alpha = .7f), Color.Transparent)), Offset(40f, 220f), Size(320f, 38f))
+        val leaf = Path().apply { moveTo(70f, 210f); quadraticTo(5f, 135f, 36f, 88f); quadraticTo(93f, 94f, 111f, 177f); close() }
+        drawPath(leaf, Brush.linearGradient(listOf(Color(0xFF328DFF), Color(0xFF0647B8))))
+        val leaf2 = Path().apply { moveTo(320f, 211f); quadraticTo(345f, 137f, 391f, 153f); quadraticTo(391f, 207f, 337f, 231f); close() }
+        drawPath(leaf2, Brush.linearGradient(listOf(Color(0xFF328DFF), Color(0xFF0647B8))))
+        drawRoundRect(Color(0x66000A24), Offset(111f, 39f), Size(220f, 183f), androidx.compose.ui.geometry.CornerRadius(23f))
+        drawRoundRect(Brush.linearGradient(listOf(Color.White, Color(0xFFCAD7F4))), Offset(104f, 28f), Size(220f, 184f), androidx.compose.ui.geometry.CornerRadius(22f))
+        drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF398AFF), Color(0xFF064CC5))), Offset(104f, 28f), Size(220f, 65f), androidx.compose.ui.geometry.CornerRadius(22f))
+        drawRect(Color(0xFF175FD9), Offset(104f, 70f), Size(220f, 23f))
+        for (x in listOf(139f, 184f, 229f, 274f)) {
+            drawLine(Color(0xFF063C9E), Offset(x, 13f), Offset(x, 48f), 13f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(Color(0xFF83D5FF), Offset(x - 3f, 12f), Offset(x - 3f, 42f), 7f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
         }
-
-        Surface(
-            modifier = Modifier
-                .size(142.dp)
-                .align(Alignment.BottomStart)
-                .padding(start = 10.dp, bottom = 3.dp),
-            shape = CircleShape,
-            color = Color(0xFF1766E8),
-            border = BorderStroke(5.dp, Color(0xFF73C8FF)),
-            shadowElevation = 18.dp
-        ) {
-            Box(
-                modifier = Modifier
-                    .padding(8.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            listOf(Color.White, Color(0xFFDCE7FF), Color(0xFF9DBBFA))
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "◷",
-                    color = Color(0xFF123B88),
-                    fontSize = 91.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+        for (r in 0..2) for (col in 0..3) {
+            val x = 122f + col * 47f
+            val y = 104f + r * 34f
+            drawRoundRect(Brush.linearGradient(listOf(Color(0xFFE9EEFF), Color(0xFFB8C8EE))), Offset(x, y), Size(34f, 27f), androidx.compose.ui.geometry.CornerRadius(6f))
         }
-
-        Surface(
-            modifier = Modifier
-                .size(66.dp)
-                .align(Alignment.Center)
-                .padding(start = 98.dp, bottom = 45.dp),
-            shape = CircleShape,
-            color = Color(0xFFFFF2E9),
-            border = BorderStroke(4.dp, Color(0xFFFF5A45)),
-            shadowElevation = 8.dp
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text("×", color = Color(0xFFE83F32), fontSize = 54.sp, fontWeight = FontWeight.Bold)
-            }
+        drawCircle(Color(0xFF073A9C), 77f, Offset(91f, 202f))
+        drawCircle(Brush.linearGradient(listOf(Color(0xFF8ADFFF), blue)), 72f, Offset(88f, 196f))
+        drawCircle(Color(0xFF0C4FC5), 63f, Offset(88f, 196f))
+        drawCircle(Brush.radialGradient(listOf(Color.White, Color(0xFFE2E9FF), Color(0xFFB4C8F8))), 55f, Offset(88f, 196f))
+        for (a in 0 until 12) {
+            val rad = Math.toRadians(a * 30.0)
+            val p1 = Offset(88f + kotlin.math.sin(rad).toFloat() * 44f, 196f - kotlin.math.cos(rad).toFloat() * 44f)
+            val p2 = Offset(88f + kotlin.math.sin(rad).toFloat() * 49f, 196f - kotlin.math.cos(rad).toFloat() * 49f)
+            drawLine(Color(0xFF244C9B), p1, p2, if (a % 3 == 0) 4f else 2f)
         }
-
-        Text(
-            text = "👑",
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 6.dp, bottom = 8.dp)
-                .rotate(9f),
-            fontSize = 94.sp
-        )
+        drawLine(Color(0xFF103B8E), Offset(88f, 196f), Offset(88f, 159f), 5f)
+        drawLine(Color(0xFF103B8E), Offset(88f, 196f), Offset(124f, 196f), 5f)
+        drawCircle(Color(0xFF103B8E), 7f, Offset(88f, 196f))
+        drawCircle(Color(0xFFFFF7F3), 30f, Offset(253f, 130f))
+        drawCircle(Color(0xFFFF604D), 27f, Offset(253f, 130f), style = Stroke(5f))
+        drawLine(Color(0xFFE83E32), Offset(239f, 116f), Offset(267f, 144f), 7f)
+        drawLine(Color(0xFFE83E32), Offset(267f, 116f), Offset(239f, 144f), 7f)
+        val crown = Path().apply {
+            moveTo(292f, 181f); lineTo(277f, 132f); lineTo(310f, 158f); lineTo(329f, 111f)
+            lineTo(345f, 157f); lineTo(373f, 133f); lineTo(361f, 190f); quadraticTo(328f, 208f, 292f, 181f); close()
+        }
+        drawPath(crown, Brush.linearGradient(listOf(Color(0xFFFFE66A), Color(0xFFFFB000), Color(0xFFE98500))))
+        drawPath(crown, gold, style = Stroke(3f))
+        drawRoundRect(Brush.verticalGradient(listOf(Color(0xFFFFD34A), Color(0xFFE98900))), Offset(286f, 179f), Size(80f, 24f), androidx.compose.ui.geometry.CornerRadius(10f))
+        for (p in listOf(Offset(277f, 130f), Offset(329f, 108f), Offset(373f, 131f))) drawCircle(gold, 8f, p)
+        drawLine(gold, Offset(300f, 73f), Offset(305f, 49f), 5f)
+        drawLine(gold, Offset(328f, 88f), Offset(345f, 69f), 5f)
+        drawLine(gold, Offset(355f, 105f), Offset(376f, 99f), 5f)
     }
 }
