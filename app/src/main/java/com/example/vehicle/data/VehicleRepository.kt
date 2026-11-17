@@ -2400,7 +2400,7 @@ class VehicleRepository {
                         "بیمه‌نامه انتخاب‌شده متعلق به خودروی دیگری است؛ تغییری ذخیره نشد."
                     }
                     insuranceAmountUnit = runCatching { AppCurrency.valueOf(existingInsurance.amountUnit) }
-                        .getOrDefault(AppCurrency.RIAL)
+                        .getOrElse { throw IllegalStateException("واحد پول بیمه‌نامه نامعتبر است؛ برای جلوگیری از تغییر مبلغ، ویرایش انجام نشد.", it) }
                 }
 
                 val insuranceRow = VehicleInsuranceRoomEntity(
