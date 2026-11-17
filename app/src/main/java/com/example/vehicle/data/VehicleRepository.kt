@@ -578,13 +578,13 @@ class VehicleRepository {
             .filter(VehicleReminderMigrationPolicy::shouldRestore)
         if (activeVehicleReminders.isEmpty()) return
 
-        val manager = com.example.reminder.domain.ReminderManager(context)
+        val scheduler = com.example.reminder.domain.ReminderScheduler(context)
         activeVehicleReminders.forEach { reminder ->
             val schedules = db.smartReminderDao().getSchedulesForReminderSync(userId, reminder.id)
-            val hasFutureEnabledSchedule = schedules.any {
+            val futureEnabledSchedules = schedules.filter {
                 it.enabled && it.triggerDateTime > System.currentTimeMillis()
             }
-            if (!hasFutureEnabledSchedule) {
+            if (futureEnabledSchedules.isEmpty()) {
                 // Do not mutate an expired or deliberately paused schedule during login.
                 // The persisted reminder state remains available for the user to review.
                 android.util.Log.i(
@@ -593,7 +593,9 @@ class VehicleRepository {
                 )
                 return@forEach
             }
-            runCatching { manager.enableReminder(reminder.id) }
+            // Re-arm only persisted enabled schedules. Do not call enableReminder here:
+            // that API intentionally enables every future row, including individually paused ones.
+            runCatching { scheduler.schedule(reminder, futureEnabledSchedules) }
                 .onFailure {
                     android.util.Log.e(
                         "VehicleRepository",
