@@ -137,7 +137,10 @@ fun FinancialCalendarScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { showSearchBar = !showSearchBar },
+                        onClick = {
+                            if (showSearchBar) viewModel.setSearchQuery("")
+                            showSearchBar = !showSearchBar
+                        },
                         modifier = Modifier
                             .size(34.dp)
                             .testTag("calendar_search_toggle_button")
