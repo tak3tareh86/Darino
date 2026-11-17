@@ -7,6 +7,9 @@ import com.example.data.security.AuthSessionState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import com.example.data.database.AppDatabase
+import com.example.reminder.domain.ReminderScheduler
+import com.example.reminder.domain.NotificationDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,6 +50,9 @@ object SessionManager {
     private var localManager: AuthSessionManager? = null
 
     @Volatile
+    private var appContext: Context? = null
+
+    @Volatile
     private var observerStarted = false
 
     val currentUser: SessionUser?
@@ -66,6 +72,7 @@ object SessionManager {
         val manager = AuthSessionManager.getInstance(context.applicationContext)
         synchronized(this) {
             localManager = manager
+            appContext = context.applicationContext
             publish(manager.restoreSession())
             if (!observerStarted) {
                 observerStarted = true
@@ -85,6 +92,7 @@ object SessionManager {
     }
 
     private fun publish(state: AuthSessionState) {
+        val previousUserId = currentUser?.id
         _sessionState.value = when (state) {
             AuthSessionState.Loading -> SessionState.Authenticating
             AuthSessionState.Unauthenticated,
@@ -100,6 +108,32 @@ object SessionManager {
                 )
                 if (session.phoneVerified) SessionState.Authenticated(user)
                 else SessionState.PhoneVerificationRequired(user)
+            }
+        }
+        val nextUserId = currentUser?.id
+        if (previousUserId != nextUserId) {
+            val context = appContext
+            if (previousUserId != null && context != null) {
+                scope.launch(Dispatchers.IO) {
+                    runCatching {
+                        val schedules = AppDatabase.getDatabase(context)
+                            .smartReminderDao()
+                            .getAllSchedulesList(previousUserId)
+                        val scheduler = ReminderScheduler(context)
+                        schedules.forEach { scheduler.cancelSchedule(it.id) }
+                        NotificationDispatcher(context).cancelAllReminderNotifications()
+                    }.onFailure {
+                        android.util.Log.e("SessionManager", "Failed to cancel previous user's reminder alarms.", it)
+                    }
+                }
+            }
+            if (nextUserId != null && context != null) {
+                scope.launch(Dispatchers.IO) {
+                    runCatching { ReminderScheduler(context).rebuildAllSchedules() }
+                        .onFailure {
+                            android.util.Log.e("SessionManager", "Failed to restore reminder alarms for authenticated user.", it)
+                        }
+                }
             }
         }
     }
