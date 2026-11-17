@@ -469,9 +469,14 @@ fun InstallmentsScreen(
                         return@AddInstallmentSheet false
                     }
                 } else {
-                    if (customScheduleItems.isEmpty() || customScheduleItems.fold(0L) { total, item -> Math.addExact(total, item.amount) } <= 0L) {
+                    val customTotal = customScheduleItems.fold(java.math.BigInteger.ZERO) { total, item ->
+                        total.add(java.math.BigInteger.valueOf(item.amount))
+                    }
+                    if (customScheduleItems.isEmpty() || customTotal.signum() <= 0 ||
+                        customTotal > java.math.BigInteger.valueOf(Long.MAX_VALUE)
+                    ) {
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar("برنامه زمان‌بندی سفارشی وارد شده نامعتبر است.")
+                            snackbarHostState.showSnackbar("برنامه زمان‌بندی سفارشی نامعتبر است یا جمع مبالغ از محدوده قابل ذخیره‌سازی بیشتر است.")
                         }
                         return@AddInstallmentSheet false
                     }
@@ -488,15 +493,39 @@ fun InstallmentsScreen(
                 if (!customScheduleItems.isNullOrEmpty()) {
                     val sortedNumbers = customScheduleItems.map { it.installmentNumber }.sorted()
                     val expectedNumbers = if (parsedCount > 0) (1..parsedCount).toList() else emptyList()
-                    val customTotal = customScheduleItems.fold(0L) { total, item -> Math.addExact(total, item.amount) }
+                    val customTotal = customScheduleItems.fold(java.math.BigInteger.ZERO) { total, item ->
+                        total.add(java.math.BigInteger.valueOf(item.amount))
+                    }
+                    val chronologicalItems = customScheduleItems.sortedBy { it.installmentNumber }
+                    val hasOutOfOrderDates = chronologicalItems.zipWithNext().any { (first, second) ->
+                        val firstDate = com.example.calendar.domain.CalendarDateUtils.parseJalali(first.dueDate)
+                        val secondDate = com.example.calendar.domain.CalendarDateUtils.parseJalali(second.dueDate)
+                        if (firstDate == null || secondDate == null) {
+                            true
+                        } else {
+                            val firstMillis = PersianCalendarHelper.jalaliToEpochMillis(
+                                firstDate.first, firstDate.second, firstDate.third, 9, 0
+                            )
+                            val secondMillis = PersianCalendarHelper.jalaliToEpochMillis(
+                                secondDate.first, secondDate.second, secondDate.third, 9, 0
+                            )
+                            secondMillis < firstMillis
+                        }
+                    }
                     if (parsedTotal <= 0L || customScheduleItems.size != parsedCount ||
-                        sortedNumbers != expectedNumbers || customTotal < parsedTotal
+                        sortedNumbers != expectedNumbers || customTotal < java.math.BigInteger.valueOf(parsedTotal) ||
+                        customTotal > java.math.BigInteger.valueOf(Long.MAX_VALUE) || hasOutOfOrderDates
                     ) {
                         coroutineScope.launch {
-                            val difference = Math.subtractExact(parsedTotal, customTotal).let { if (it > 0L) it else 0L }
-                            snackbarHostState.showSnackbar(
-                                "برنامه اقساط قابل ثبت نیست. تعداد و شماره اقساط باید کامل و بدون تکرار باشند و جمع اقساط نباید کمتر از مبلغ وام باشد. کسری: ${MoneyFormatter.formatExact(MoneyAmount.of(difference, AppCurrency.RIAL))}"
-                            )
+                            val difference = java.math.BigInteger.valueOf(parsedTotal).subtract(customTotal).max(java.math.BigInteger.ZERO)
+                            val reason = when {
+                                hasOutOfOrderDates -> "تاریخ سررسیدها باید مطابق ترتیب شماره اقساط باشد."
+                                customTotal > java.math.BigInteger.valueOf(Long.MAX_VALUE) -> "جمع اقساط از محدوده قابل ذخیره‌سازی بیشتر است."
+                                customTotal < java.math.BigInteger.valueOf(parsedTotal) ->
+                                    "جمع اقساط نباید کمتر از مبلغ وام باشد. کسری: ${MoneyFormatter.formatExact(MoneyAmount.of(difference.longValueExact(), AppCurrency.RIAL))}"
+                                else -> "تعداد و شماره اقساط باید کامل و بدون تکرار باشند."
+                            }
+                            snackbarHostState.showSnackbar("برنامه اقساط قابل ثبت نیست. $reason")
                         }
                         return@AddInstallmentSheet false
                     }
