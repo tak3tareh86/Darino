@@ -46,7 +46,8 @@ fun ReminderDetailScreen(
     onBackClick: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
-    onEditInstallmentReminder: () -> Unit = {}
+    onEditInstallmentReminder: () -> Unit = {},
+    onEditManualReminder: () -> Unit = {}
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
@@ -94,13 +95,23 @@ fun ReminderDetailScreen(
                     }
                 },
                 actions = {
-                    if (reminder.sourceType.equals("INSTALLMENT", ignoreCase = true) &&
-                        reminder.status.equals("ACTIVE", ignoreCase = true)
+                    if (reminder.status.equals("ACTIVE", ignoreCase = true) &&
+                        reminder.sourceType.equals("INSTALLMENT", ignoreCase = true)
                     ) {
                         IconButton(onClick = onEditInstallmentReminder) {
                             Icon(
                                 imageVector = Icons.Rounded.Edit,
                                 contentDescription = "ویرایش یادآور وام",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    } else if (reminder.status.equals("ACTIVE", ignoreCase = true) &&
+                        reminder.sourceType.equals("MANUAL", ignoreCase = true)
+                    ) {
+                        IconButton(onClick = onEditManualReminder) {
+                            Icon(
+                                imageVector = Icons.Rounded.Edit,
+                                contentDescription = "ویرایش یادآور",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
