@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
 import java.util.UUID
 
 /**
@@ -74,6 +75,88 @@ class VehicleRepository {
     }
 
     /**
+     * Stores cancellation identifiers in the vehicle-owned durable queue before deleting
+     * reminder rows. The queue is committed in the same Room transaction as the deletion.
+     */
+    private suspend fun enqueueVehicleReminderCleanup(
+        db: AppDatabase,
+        userId: String,
+        reminderIds: List<String>,
+        schedules: List<com.example.reminder.data.ReminderScheduleEntity>
+    ) {
+        val dao = db.vehicleReminderCleanupQueueDao()
+        reminderIds.distinct().forEach { reminderId ->
+            val scheduleJson = JSONArray().apply {
+                schedules.filter { it.reminderId == reminderId }.forEach { schedule ->
+                    put(JSONObject().put("id", schedule.id).put("triggerDateTime", schedule.triggerDateTime))
+                }
+            }.toString()
+            dao.upsert(
+                com.example.data.database.VehicleReminderCleanupQueueEntity(
+                    userId = userId,
+                    reminderId = reminderId,
+                    schedulesJson = scheduleJson,
+                    createdAt = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    /**
+     * Retries durable vehicle-reminder cleanup using the existing cancellation APIs only.
+     * It never schedules, enables, edits, or otherwise changes reminders.
+     */
+    private suspend fun retryPendingVehicleReminderCleanup(context: Context, userId: String) {
+        val db = AppDatabase.getDatabase(context)
+        val dao = db.vehicleReminderCleanupQueueDao()
+        val scheduler = com.example.reminder.domain.ReminderScheduler(context)
+
+        dao.getPendingForUser(userId).forEach { pending ->
+            val schedules = try {
+                val json = JSONArray(pending.schedulesJson)
+                buildList {
+                    for (index in 0 until json.length()) {
+                        val item = json.getJSONObject(index)
+                        add(
+                            com.example.reminder.data.ReminderScheduleEntity(
+                                id = item.getString("id"),
+                                reminderId = pending.reminderId,
+                                triggerDateTime = item.getLong("triggerDateTime")
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e(
+                    "VehicleRepository",
+                    "Could not decode pending cleanup data for " + pending.reminderId + "; keeping it for recovery.",
+                    e
+                )
+                return@forEach
+            }
+
+            val errors = mutableListOf<Throwable>()
+            schedules.forEach { schedule ->
+                runCatching { scheduler.cancelSchedule(schedule.id) }
+                    .onFailure { errors.add(it) }
+            }
+            runCatching {
+                com.example.reminder.domain.NotificationDispatcher(context)
+                    .cancelReminderNotifications(pending.reminderId, schedules)
+            }.onFailure { errors.add(it) }
+
+            if (errors.isEmpty()) {
+                dao.delete(pending.userId, pending.reminderId)
+            } else {
+                android.util.Log.w(
+                    "VehicleRepository",
+                    "Pending vehicle reminder cleanup for " + pending.reminderId + " will be retried later.",
+                    errors.first()
+                )
+            }
+        }
+    }
+    /**
      * Initializes the Room SQLite database and loads user-specific vehicle records.
      */
     fun initDatabase(context: Context) {
@@ -103,6 +186,10 @@ class VehicleRepository {
     private suspend fun setupRoomCollectors(appCtx: Context, userId: String) {
         roomCollectorsJob?.cancel()
         val db = AppDatabase.getDatabase(appCtx)
+        runCatching { retryPendingVehicleReminderCleanup(appCtx, userId) }
+            .onFailure {
+                android.util.Log.e("VehicleRepository", "Failed to retry pending vehicle reminder cleanup at session start.", it)
+            }
         val vDao = db.vehicleDao()
 
         // 1. One-time legacy JSON migration if present
@@ -915,6 +1002,14 @@ class VehicleRepository {
                     }
                 }
                 val vehicleAffected = db.vehicleDao().deleteVehicleByServerId(userId, vehicleId)
+                if (vehicleAffected > 0) {
+                    enqueueVehicleReminderCleanup(
+                        db = db,
+                        userId = userId,
+                        reminderIds = serviceIds + insuranceIds + inspectionIds + listOf(vehicleId),
+                        schedules = allSchedulesToCancel
+                    )
+                }
                 db.vehicleDao().deleteServicesByVehicleId(userId, vehicleId)
                 db.vehicleDao().deleteExpensesByVehicleId(userId, vehicleId)
                 db.vehicleDao().deleteInsurancesByVehicleId(userId, vehicleId)
@@ -933,27 +1028,11 @@ class VehicleRepository {
                 return@withContext Result.failure(IllegalStateException("هیچ خودرویی برای حذف یافت نشد."))
             }
 
-            // Database deletion is authoritative. Attempt every external cleanup independently
-            // so one failed alarm cancellation cannot skip the remaining alarms or misreport deletion.
-            val cleanupErrors = mutableListOf<Throwable>()
-            val scheduler = com.example.reminder.domain.ReminderScheduler(context)
-            allSchedulesToCancel.forEach { schedule ->
-                runCatching { scheduler.cancelSchedule(schedule.id) }
-                    .onFailure { cleanupErrors.add(it) }
-            }
-            val notificationDispatcher = com.example.reminder.domain.NotificationDispatcher(context)
-            allSchedulesToCancel.groupBy { it.reminderId }.forEach { (reminderId, schedules) ->
-                runCatching {
-                    notificationDispatcher.cancelReminderNotifications(reminderId, schedules)
-                }.onFailure { cleanupErrors.add(it) }
-            }
-            if (cleanupErrors.isNotEmpty()) {
-                android.util.Log.w(
-                    "VehicleRepository",
-                    "Vehicle $vehicleId was deleted, but ${cleanupErrors.size} reminder cleanup operation(s) failed.",
-                    cleanupErrors.first()
-                )
-            }
+            // The durable queue survives this deletion even if Android cleanup fails.
+            runCatching { retryPendingVehicleReminderCleanup(context, userId) }
+                .onFailure {
+                    android.util.Log.e("VehicleRepository", "Vehicle deletion succeeded; reminder cleanup remains queued.", it)
+                }
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -1949,6 +2028,14 @@ class VehicleRepository {
 
             val affectedRows = db.withTransaction {
                 val serviceAffected = db.vehicleDao().deleteServiceByServerId(userId, serviceId)
+                if (serviceAffected > 0) {
+                    enqueueVehicleReminderCleanup(
+                        db = db,
+                        userId = userId,
+                        reminderIds = listOf(serviceId),
+                        schedules = schedulesToCancel
+                    )
+                }
                 db.vehicleDao().deleteExpenseById(userId, "exp_svc_$serviceId")
                 
                 db.smartReminderDao().deleteReminderById(userId, serviceId)
@@ -1961,15 +2048,11 @@ class VehicleRepository {
                 return@withContext Result.failure(IllegalStateException("هیچ سرویسی برای حذف یافت نشد."))
             }
 
-            // Database deletion is authoritative; independently attempt all external cleanup.
-            val cancellationErrors = cancelServiceReminderEffects(context, serviceId, schedulesToCancel)
-            if (cancellationErrors.isNotEmpty()) {
-                android.util.Log.w(
-                    "VehicleRepository",
-                    "Service $serviceId was deleted, but reminder cleanup was incomplete.",
-                    cancellationErrors.first()
-                )
-            }
+            // The durable queue survives this deletion even if Android cleanup fails.
+            runCatching { retryPendingVehicleReminderCleanup(context, userId) }
+                .onFailure {
+                    android.util.Log.e("VehicleRepository", "Service deletion succeeded; reminder cleanup remains queued.", it)
+                }
 
             Result.success(Unit)
         } catch (e: Exception) {
