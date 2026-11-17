@@ -87,9 +87,20 @@ class VehicleTimelineFilterTest {
             company = "تست"
         )
 
-        val keys = listOf(service, expense, insurance).map(::vehicleTimelineEventKey)
+        val inspection = VehicleTimelineEvent.InspectionEvent(
+            id = sameId,
+            date = "1405/08/10",
+            title = "معاینه فنی",
+            amount = 100L,
+            subtitle = "معاینه",
+            iconRes = R.drawable.img_3d_oil,
+            colorHex = 0xFF10B981,
+            expiryDate = "1406/08/10"
+        )
 
-        assertEquals(3, keys.toSet().size)
+        val keys = listOf(service, expense, insurance, inspection).map(::vehicleTimelineEventKey)
+
+        assertEquals(4, keys.toSet().size)
     }
 
 }
