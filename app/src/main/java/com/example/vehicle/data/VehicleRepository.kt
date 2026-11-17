@@ -64,12 +64,12 @@ class VehicleRepository {
         val scheduler = com.example.reminder.domain.ReminderScheduler(context)
         schedules.forEach { schedule ->
             runCatching { scheduler.cancel(serviceId, listOf(schedule)) }
-                .onFailure(errors::add)
+                .onFailure { errors.add(it) }
         }
         runCatching {
             com.example.reminder.domain.NotificationDispatcher(context)
                 .cancelReminderNotifications(serviceId, schedules)
-        }.onFailure(errors::add)
+        }.onFailure { errors.add(it) }
         return errors
     }
 
