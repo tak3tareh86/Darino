@@ -1834,7 +1834,7 @@ class VehicleRepository {
             if (cancellationErrors.isNotEmpty()) {
                 android.util.Log.w(
                     "VehicleRepository",
-                    "Service $serviceId was completed or deleted, but reminder cleanup was incomplete.",
+                    "Service $serviceId was completed, but reminder cleanup was incomplete.",
                     cancellationErrors.first()
                 )
             }
