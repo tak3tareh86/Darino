@@ -81,14 +81,11 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
 
         // Compare complete Jalali date-time values, not date strings. This excludes
         // reminders whose time today has already passed and safely ignores malformed dates.
-        val futureActiveReminders = activeList.mapNotNull { reminder ->
-            runCatching {
-                reminder to ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
-            }.getOrNull()?.takeIf { it.second >= now }
+        val upcomingReminders = ReminderPolicyEngine.upcomingByDateTime(activeList, now) { date, time ->
+            ReminderManager.parsePersianDateTimeToMillis(date, time)
         }
         val todayReminders = activeList.filter { it.date == todayPersian }
         val tomorrowReminders = activeList.filter { it.date == tomorrowPersian }
-        val upcomingReminders = futureActiveReminders.sortedBy { it.second }.map { it.first }
 
         // Filter by Tab
         val tabFiltered = when (filters.tab) {
@@ -126,7 +123,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             chipFiltered
         }
 
-        val nearest = futureActiveReminders.minByOrNull { it.second }?.first
+        val nearest = upcomingReminders.firstOrNull()
 
         ReminderState(
             reminders = finalFiltered,
