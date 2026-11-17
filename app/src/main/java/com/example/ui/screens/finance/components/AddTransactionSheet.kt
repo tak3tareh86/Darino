@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -138,6 +141,7 @@ fun AddTransactionSheet(
     }
 
     var selectedSubCategory by remember { mutableStateOf(initialTransaction?.subCategory) }
+    var showCategoryPicker by remember { mutableStateOf(false) }
     var paymentMethod by remember { mutableStateOf(initialTransaction?.paymentMethod ?: PaymentMethod.BANK_CARD) }
     var datePersian by remember { mutableStateOf(initialTransaction?.datePersian ?: todayPersian) }
     var timePersian by remember {
@@ -395,7 +399,7 @@ fun AddTransactionSheet(
                 testTag = "tx_amount_input"
             )
 
-            // 3. Category Selection (Horizontal Chips)
+            // 3. Category Selection (Three-column dropdown)
             if (selectedType != TransactionType.TRANSFER) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
@@ -404,41 +408,123 @@ fun AddTransactionSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(RadiusMD))
+                            .clickable { showCategoryPicker = true },
+                        shape = RoundedCornerShape(RadiusMD),
+                        color = if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        availableCategories.forEach { category ->
-                            val isSelected = selectedCategory.id == category.id
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) category.accentColor.copy(alpha = 0.18f) else if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isSelected) category.accentColor else if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
-                                ),
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .clickable {
-                                        selectedCategory = category
-                                        selectedSubCategory = null
-                                    }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(text = selectedCategory.iconEmoji, fontSize = 18.sp)
+                            Text(
+                                text = selectedCategory.title,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                imageVector = Icons.Rounded.ExpandMore,
+                                contentDescription = "نمایش دسته‌بندی‌ها",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                if (showCategoryPicker) {
+                    Dialog(
+                        onDismissRequest = { showCategoryPicker = false },
+                        properties = DialogProperties(usePlatformDefaultWidth = false)
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .widthIn(max = 400.dp)
+                                .padding(horizontal = 20.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 6.dp
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text(text = category.iconEmoji, fontSize = 14.sp)
+                                Text(
+                                    text = "انتخاب دسته‌بندی",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+
+                                if (availableCategories.isEmpty()) {
                                     Text(
-                                        text = category.title,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            fontSize = 11.sp
-                                        ),
-                                        color = if (isSelected) category.accentColor else MaterialTheme.colorScheme.onSurface
+                                        text = "دسته‌بندی فعالی برای این نوع تراکنش وجود ندارد.",
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
                                     )
+                                } else {
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Fixed(3),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(max = 360.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        items(availableCategories) { category ->
+                                            val isSelected = selectedCategory.id == category.id
+                                            Surface(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .heightIn(min = 82.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .clickable {
+                                                        selectedCategory = category
+                                                        selectedSubCategory = null
+                                                        showCategoryPicker = false
+                                                    },
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = if (isSelected) category.accentColor.copy(alpha = 0.18f)
+                                                else if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
+                                                border = BorderStroke(
+                                                    1.dp,
+                                                    if (isSelected) category.accentColor
+                                                    else MaterialTheme.colorScheme.outlineVariant
+                                                )
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 4.dp, vertical = 10.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Text(text = category.iconEmoji, fontSize = 20.sp)
+                                                    Text(
+                                                        text = category.title,
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                            fontSize = 10.sp
+                                                        ),
+                                                        color = if (isSelected) category.accentColor
+                                                        else MaterialTheme.colorScheme.onSurface,
+                                                        textAlign = TextAlign.Center,
+                                                        maxLines = 2
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
