@@ -461,9 +461,9 @@ fun InstallmentsScreen(
                 val parsedCount = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(countStr).filter { it.isDigit() }.toIntOrNull() ?: 0
                 val requestedPaidCount = com.example.util.IranianPhoneUtils.convertDigitsToEnglish(paidCountStr).filter { it.isDigit() }.toIntOrNull() ?: 0
 
-                if (parsedCount !in 1..60) {
+                if (parsedCount <= 0) {
                     coroutineScope.launch {
-                        snackbarHostState.showSnackbar("تعداد اقساط باید بین ۱ تا ۶۰ باشد.")
+                        snackbarHostState.showSnackbar("تعداد اقساط باید بیشتر از صفر باشد.")
                     }
                     return@AddInstallmentSheet false
                 }
