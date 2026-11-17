@@ -10,8 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -80,12 +78,10 @@ import com.example.loan.domain.CalculationResult
 import com.example.loan.domain.DurationType
 import com.example.loan.domain.InterestPeriod
 import com.example.loan.domain.LoanCalculation
-import com.example.loan.domain.LoanType
 import com.example.loan.viewmodel.LoanCalculatorState
 import com.example.loan.viewmodel.LoanCalculatorViewModel
 import com.example.loan.viewmodel.LoanScreenTab
 import com.example.ui.components.PersianAmountInputField
-import com.example.ui.components.Soft3DIcon
 import com.example.ui.screens.installments.model.InstallmentCategory
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.ExpenseRoseLight
@@ -98,7 +94,7 @@ import com.example.util.MoneyAmount
 import com.example.util.MoneyFormatter
 import com.example.ui.screens.settings.model.AppCurrency
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoanCalculatorScreen(
     onBackClick: () -> Unit,
@@ -231,17 +227,12 @@ fun LoanCalculatorScreen(
                         state = state,
                         activeViewModel = activeViewModel,
                         onOpenSaveDialog = {
-                            saveTitleInput = "${state.loanType?.title ?: "محاسبه وام"} (${CalculationResult.formatMoney(state.amount, AppCurrency.RIAL)})"
+                            saveTitleInput = "محاسبه وام (${CalculationResult.formatMoney(state.amount, AppCurrency.RIAL)})"
                             showSaveDialog = true
                         },
                         onCreateInstallmentClick = {
                             val res = state.result
-                            val cat = when (state.loanType) {
-                                LoanType.BANK_LOAN -> InstallmentCategory.BANK_LOANS
-                                LoanType.CAR_LOAN -> InstallmentCategory.CAR_INSURANCE
-                                LoanType.PERSONAL_LOAN -> InstallmentCategory.HOME_LOANS
-                                else -> InstallmentCategory.MISC
-                            }
+                            val cat = InstallmentCategory.MISC
                             val durationMonths = when (state.durationType) {
                                 DurationType.MONTHS -> state.duration
                                 DurationType.YEARS -> state.duration * 12
@@ -250,7 +241,7 @@ fun LoanCalculatorScreen(
                             val totalFormatted = res?.let { MoneyFormatter.formatExact(MoneyAmount.of(it.totalPayment, AppCurrency.RIAL), includeUnit = false) }
                                 ?: MoneyFormatter.formatExact(MoneyAmount.of(state.amount, AppCurrency.RIAL), includeUnit = false)
                             val monthlyFormatted = res?.let { MoneyFormatter.formatExact(MoneyAmount.of(it.monthlyPayment, AppCurrency.RIAL), includeUnit = false) }.orEmpty()
-                            val title = "${state.loanType?.title ?: "وام"} (${CalculationResult.formatMoney(state.amount, AppCurrency.RIAL)})"
+                            val title = "وام (${CalculationResult.formatMoney(state.amount, AppCurrency.RIAL)})"
 
                             onCreateInstallment(cat, title, totalFormatted, monthlyFormatted, durationMonths)
                         }
@@ -338,7 +329,6 @@ fun LoanCalculatorScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CalculatorMainTab(
     state: LoanCalculatorState,
@@ -355,63 +345,6 @@ private fun CalculatorMainTab(
         contentPadding = PaddingValues(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. Loan Type Selection Chips (Horizontally scrollable)
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "نوع وام یا تسهیلات",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.5.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    LoanType.entries.forEach { type ->
-                        val isSelected = state.loanType == type
-                        Surface(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .clickable { activeViewModel.onLoanTypeChanged(type) }
-                                .testTag("select_loantype_${type.id}"),
-                            shape = RoundedCornerShape(16.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(
-                                1.dp,
-                                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Soft3DIcon(
-                                    imageRes = type.iconRes,
-                                    contentDescription = type.title,
-                                    size = 22.dp,
-                                    containerShape = RoundedCornerShape(6.dp)
-                                )
-                                Text(
-                                    text = type.title,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        fontSize = 11.5.sp
-                                    ),
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         // 2. Loan Amount Field
         item {
             Surface(
