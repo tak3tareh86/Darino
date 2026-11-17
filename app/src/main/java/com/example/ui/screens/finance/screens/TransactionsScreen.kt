@@ -974,7 +974,7 @@ fun TransactionCard(
                     }
 
                     Text(
-                        text = transaction.category.title,
+                        text = if (transaction.type == TransactionType.TRANSFER) "انتقال وجه" else transaction.category.title,
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
