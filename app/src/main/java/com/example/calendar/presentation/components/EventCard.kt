@@ -54,6 +54,12 @@ fun EventCard(
     val isPaid = event.status == FinancialEventStatus.PAID
     val isOverdue = event.status == FinancialEventStatus.OVERDUE || event.isOverdue
     val isDueSoon = event.isDueSoon && !isPaid && !isOverdue
+    val canToggleStatus = when {
+        event.id.startsWith("auto_rem_") -> true
+        event.id.startsWith("auto_veh_svc_") -> !isPaid
+        event.id.startsWith("auto_") -> false
+        else -> true
+    }
 
     val cardBg = when {
         isPaid -> if (isDark) Color(0xFF0F241C) else Color(0xFFF0FDF4)
@@ -247,7 +253,9 @@ fun EventCard(
                     ) {
                         // Interactive Status Chip
                     Surface(
-                        onClick = onToggleStatus,
+                        modifier = Modifier
+                            .testTag("status_chip_" + event.id)
+                            .then(if (canToggleStatus) Modifier.clickable(onClick = onToggleStatus) else Modifier),
                         shape = RoundedCornerShape(20.dp),
                         color = when (event.status) {
                             FinancialEventStatus.PAID -> EmeraldPrimaryLight.copy(alpha = if (isDark) 0.25f else 0.15f)
@@ -262,7 +270,6 @@ fun EventCard(
                                 FinancialEventStatus.PENDING -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                             }
                         ),
-                        modifier = Modifier.testTag("status_chip_${event.id}")
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
