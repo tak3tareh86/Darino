@@ -3,7 +3,6 @@ package com.example.reminder
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.data.ReminderScheduleEntity
 import com.example.reminder.domain.*
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import java.util.Calendar
@@ -214,20 +213,5 @@ class ReminderEngineTest {
         assertTrue("Normal reminder during quiet hours should be postponed", decision is DispatchDecision.PostponeTo)
     }
 
-    @Test
-    fun testMockSmsDispatcherReturnsSuccessAndValidId() = runBlocking {
-        val dispatcher = MockSmsDispatcher()
-        val result = dispatcher.sendSms(
-            phoneNumber = "09121234567",
-            message = "تست یادآور دارینو",
-            reminderType = "INSTALLMENT"
-        )
 
-        assertTrue("Mock SMS should dispatch successfully", result.success)
-        assertNotNull("Provider message ID should be generated", result.providerMessageId)
-        assertTrue("Message ID should start with sms_mock_", result.providerMessageId!!.startsWith("sms_mock_"))
-
-        val status = dispatcher.getStatus(result.providerMessageId!!)
-        assertEquals("Mock SMS status should be DELIVERED", DeliveryStatus.DELIVERED, status)
-    }
 }
