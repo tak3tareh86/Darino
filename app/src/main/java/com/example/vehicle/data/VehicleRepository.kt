@@ -2764,21 +2764,23 @@ class VehicleRepository {
                 ?: return@withContext Result.failure(NoSuchElementException("خودرو یافت نشد."))
 
             val inspectionId = recordId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
-            val newInspection = VehicleInspectionEntity(
-                id = inspectionId,
-                vehicleId = vehicleId,
-                lastInspectionDate = lastInspectionDate.trim(),
-                expiryDate = expiryDate.trim(),
-                cost = cost,
-                costUnit = AppCurrency.RIAL,
-                status = status.trim(),
-                centerName = centerName.trim(),
-                reminderEnabled = reminderEnabled,
-                reminderTime = effectiveReminderTime,
-                reminderDays = reminderDays.distinct()
-            )
+            var inspectionCostUnit = AppCurrency.RIAL
 
             db.withTransaction {
+                val existingInspection = if (recordId.isNullOrBlank()) {
+                    null
+                } else {
+                    db.vehicleDao().getInspectionById(userId, inspectionId)
+                        ?: throw NoSuchElementException("معاینه فنی موردنظر برای ویرایش پیدا نشد؛ برای جلوگیری از ثبت تکراری، تغییری ذخیره نشد.")
+                }
+                if (existingInspection != null) {
+                    check(existingInspection.vehicleId == vehicleId) {
+                        "معاینه فنی انتخاب‌شده متعلق به خودروی دیگری است؛ تغییری ذخیره نشد."
+                    }
+                    inspectionCostUnit = runCatching { AppCurrency.valueOf(existingInspection.costUnit) }
+                        .getOrElse { throw IllegalStateException("واحد پول معاینه فنی نامعتبر است؛ برای جلوگیری از تغییر مبلغ، ویرایش انجام نشد.", it) }
+                }
+
                 val inspectionRow = VehicleInspectionRoomEntity(
                     id = inspectionId,
                     userId = userId,
@@ -2786,36 +2788,50 @@ class VehicleRepository {
                     lastInspectionDate = lastInspectionDate.trim(),
                     expiryDate = expiryDate.trim(),
                     cost = cost,
-                    costUnit = AppCurrency.RIAL.name,
+                    costUnit = inspectionCostUnit.name,
                     status = status.trim(),
                     centerName = centerName.trim(),
-                    reminderEnabled = newInspection.reminderEnabled,
-                    reminderTime = newInspection.reminderTime,
-                    reminderDays = newInspection.reminderDays.joinToString(",")
+                    reminderEnabled = reminderEnabled,
+                    reminderTime = effectiveReminderTime,
+                    reminderDays = reminderDays.distinct().joinToString(",")
                 )
-                if (recordId.isNullOrBlank()) {
+                if (existingInspection == null) {
                     db.vehicleDao().insertInspection(inspectionRow)
                 } else {
-                    val updatedRows = db.vehicleDao().updateInspection(inspectionRow)
-                    check(updatedRows > 0) { "معاینه فنی موردنظر برای ویرایش پیدا نشد؛ برای جلوگیری از ثبت تکراری، تغییری ذخیره نشد." }
+                    check(db.vehicleDao().updateInspection(inspectionRow) > 0) {
+                        "بروزرسانی معاینه فنی شکست خورد؛ تغییری ذخیره نشد."
+                    }
                 }
 
+                val expenseId = "exp_insp_$inspectionId"
+                val existingExpense = db.vehicleDao().getExpenseById(userId, expenseId)
+                if (existingExpense != null) {
+                    check(existingExpense.vehicleId == vehicleId) {
+                        "هزینه مرتبط با این معاینه فنی متعلق به خودروی دیگری است؛ تغییری ذخیره نشد."
+                    }
+                }
                 if (cost > 0L) {
-                    db.vehicleDao().insertExpense(
-                        VehicleExpenseRoomEntity(
-                            id = "exp_insp_$inspectionId",
-                            userId = userId,
-                            vehicleId = vehicleId,
-                            title = "معاینه فنی خودرو ($centerName)",
-                            category = VehicleExpenseCategory.INSPECTION.name,
-                            amount = cost,
-                            amountUnit = AppCurrency.RIAL.name,
-                            date = lastInspectionDate.trim(),
-                            description = "مرکز معاینه فنی: $centerName"
-                        )
+                    val updatedExpense = VehicleExpenseRoomEntity(
+                        id = expenseId,
+                        userId = userId,
+                        vehicleId = vehicleId,
+                        title = "معاینه فنی خودرو ($centerName)",
+                        category = VehicleExpenseCategory.INSPECTION.name,
+                        amount = cost,
+                        amountUnit = inspectionCostUnit.name,
+                        date = lastInspectionDate.trim(),
+                        description = "مرکز معاینه فنی: $centerName",
+                        receiptImageUri = existingExpense?.receiptImageUri
                     )
-                } else {
-                    db.vehicleDao().deleteExpenseById(userId, "exp_insp_$inspectionId")
+                    if (existingExpense == null) {
+                        db.vehicleDao().insertExpense(updatedExpense)
+                    } else {
+                        check(db.vehicleDao().updateExpense(updatedExpense) > 0) {
+                            "بروزرسانی هزینه معاینه فنی شکست خورد؛ تغییری ذخیره نشد."
+                        }
+                    }
+                } else if (existingExpense != null) {
+                    db.vehicleDao().deleteExpenseById(userId, expenseId)
                 }
 
                 // Sync Reminder for Inspection in the same database transaction
@@ -2832,6 +2848,20 @@ class VehicleRepository {
                     offsets = reminderDays.distinct().mapNotNull { day -> predefinedOffsetForDays(day) }
                 )
             }
+
+            val newInspection = VehicleInspectionEntity(
+                id = inspectionId,
+                vehicleId = vehicleId,
+                lastInspectionDate = lastInspectionDate.trim(),
+                expiryDate = expiryDate.trim(),
+                cost = cost,
+                costUnit = inspectionCostUnit,
+                status = status.trim(),
+                centerName = centerName.trim(),
+                reminderEnabled = reminderEnabled,
+                reminderTime = effectiveReminderTime,
+                reminderDays = reminderDays.distinct()
+            )
 
             // Register system alarms AFTER successful database transaction commit
             val reminderManager = com.example.reminder.domain.ReminderManager(context)
