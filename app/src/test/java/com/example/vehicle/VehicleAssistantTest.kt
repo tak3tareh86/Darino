@@ -130,6 +130,79 @@ class VehicleAssistantTest {
     }
 
     @Test
+    fun inspectionEditRejectsMissingOrForeignVehicleIdsAndUpdatesExistingRecord() = kotlinx.coroutines.runBlocking {
+        val db = com.example.data.database.AppDatabase.getDatabase(context)
+        val userId = SessionManager.userId!!
+
+        val firstVehicle = repository.addVehicle(
+            brand = "پژو", model = "206", year = "1402", color = "سفید",
+            plate = "۱۲ الف ۳۴۵ ایران ۶۸", currentMileage = 30000
+        ).getOrThrow()
+        val secondVehicle = repository.addVehicle(
+            brand = "سمند", model = "LX", year = "1401", color = "نقره‌ای",
+            plate = "۲۲ ب ۴۵۶ ایران ۷۷", currentMileage = 50000
+        ).getOrThrow()
+
+        val original = repository.saveInspection(
+            vehicleId = firstVehicle.id,
+            lastInspectionDate = "1405/01/01",
+            expiryDate = "1405/11/29",
+            cost = 250_000L,
+            status = "معتبر",
+            centerName = "مرکز اول"
+        ).getOrThrow()
+
+        val updated = repository.saveInspection(
+            vehicleId = firstVehicle.id,
+            lastInspectionDate = "1405/02/01",
+            expiryDate = "1406/01/29",
+            cost = 350_000L,
+            status = "معتبر",
+            centerName = "مرکز دوم",
+            recordId = original.id
+        ).getOrThrow()
+
+        assertEquals(original.id, updated.id)
+        val savedRows = db.vehicleDao().getAllInspectionsList(userId).filter { it.id == original.id }
+        assertEquals("Editing must update exactly one inspection row", 1, savedRows.size)
+        assertEquals(firstVehicle.id, savedRows.single().vehicleId)
+        assertEquals("مرکز دوم", savedRows.single().centerName)
+        assertEquals(350_000L, savedRows.single().cost)
+
+        val linkedExpense = db.vehicleDao().getExpenseById(userId, "exp_insp_${original.id}")
+        assertNotNull(linkedExpense)
+        assertEquals(firstVehicle.id, linkedExpense!!.vehicleId)
+        assertEquals(350_000L, linkedExpense.amount)
+
+        val missingIdResult = repository.saveInspection(
+            vehicleId = firstVehicle.id,
+            lastInspectionDate = "1405/01/01",
+            expiryDate = "1405/11/29",
+            cost = 100_000L,
+            status = "معتبر",
+            centerName = "مرکز تست",
+            recordId = "missing-inspection-id"
+        )
+        assertTrue("A missing edit ID must fail instead of inserting a new record", missingIdResult.isFailure)
+        assertEquals(0, db.vehicleDao().getAllInspectionsList(userId).count { it.id == "missing-inspection-id" })
+
+        val foreignVehicleResult = repository.saveInspection(
+            vehicleId = secondVehicle.id,
+            lastInspectionDate = "1405/01/01",
+            expiryDate = "1405/11/29",
+            cost = 900_000L,
+            status = "معتبر",
+            centerName = "مرکز منتقل‌شده",
+            recordId = original.id
+        )
+        assertTrue("An inspection record must not be reassigned to another vehicle", foreignVehicleResult.isFailure)
+        val unchanged = db.vehicleDao().getInspectionById(userId, original.id)
+        assertNotNull(unchanged)
+        assertEquals(firstVehicle.id, unchanged!!.vehicleId)
+        assertEquals("مرکز دوم", unchanged.centerName)
+    }
+
+    @Test
     fun testAddVehicleAndServiceWorkflow() = kotlinx.coroutines.runBlocking {
         // 1. Add Peugeot 207 (1402, 45,000 km)
         val carResult = repository.addVehicle(
