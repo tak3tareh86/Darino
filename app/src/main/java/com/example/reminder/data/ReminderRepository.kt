@@ -103,7 +103,7 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
         val migratedSchedules = mutableListOf<ReminderScheduleEntity>()
 
         legacyList.forEach { legacy ->
-            val id = "legacy_reminder_${legacy.serverId?.takeIf { it.isNotBlank() } ?: legacy.id}"
+            val id = "legacy_reminder_${userId}_${legacy.serverId?.takeIf { it.isNotBlank() } ?: legacy.id}"
             val sourceType = when (legacy.sourceType?.uppercase()) {
                 "VEHICLE_SERVICE" -> "VEHICLE"
                 null, "" -> "MANUAL"
