@@ -459,7 +459,7 @@ fun TransactionsScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "خالص عملکرد (مانده):",
+                                        text = "خالص درآمد و هزینه:",
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             fontWeight = FontWeight.Medium,
                                             fontSize = 11.5.sp
