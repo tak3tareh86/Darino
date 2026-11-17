@@ -7,6 +7,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -92,6 +93,8 @@ fun PersianDateInputField(
 
         if (fixedLabel) {
             var labelWidthPx by remember(label) { mutableStateOf(0f) }
+            var isFocused by remember { mutableStateOf(false) }
+            val isLabelFloating = isFocused || formattedDisplay.isNotEmpty()
             val layoutDirection = LocalLayoutDirection.current
             val borderColor = if (isError) {
                 MaterialTheme.colorScheme.error
@@ -116,7 +119,7 @@ fun PersianDateInputField(
                         val right = size.width - inset
                         val top = inset
                         val bottom = size.height - inset
-                        val labelGap = if (label.isNullOrBlank()) 0f else labelWidthPx + 8.dp.toPx()
+                        val labelGap = if (label.isNullOrBlank() || !isLabelFloating) 0f else labelWidthPx + 8.dp.toPx()
                         val gapStart: Float
                         val gapEnd: Float
 
@@ -162,13 +165,19 @@ fun PersianDateInputField(
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                         color = labelColor,
                         onTextLayout = { labelWidthPx = it.size.width.toFloat() },
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .offset(
-                                x = if (layoutDirection == LayoutDirection.Rtl) -RadiusMD else RadiusMD,
-                                y = (-8).dp
-                            )
-                            .padding(horizontal = 4.dp)
+                        modifier = if (isLabelFloating) {
+                            Modifier
+                                .align(Alignment.TopStart)
+                                .offset(
+                                    x = if (layoutDirection == LayoutDirection.Rtl) -RadiusMD else RadiusMD,
+                                    y = (-8).dp
+                                )
+                                .padding(horizontal = 4.dp)
+                        } else {
+                            Modifier
+                                .align(Alignment.CenterStart)
+                                .padding(start = contentStartPadding)
+                        }
                     )
                 }
                 Row(
@@ -183,7 +192,9 @@ fun PersianDateInputField(
                             val formatted = IranianDateUtils.formatWithSlashes(input, inPersian = true)
                             onValueChange(formatted)
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .onFocusChanged { isFocused = it.isFocused },
                         singleLine = true,
                         enabled = enabled,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -192,7 +203,7 @@ fun PersianDateInputField(
                         ),
                         decorationBox = { innerTextField ->
                             Box(contentAlignment = Alignment.CenterStart) {
-                                if (formattedDisplay.isEmpty()) {
+                                if (formattedDisplay.isEmpty() && isLabelFloating) {
                                     Text(
                                         text = placeholder,
                                         style = MaterialTheme.typography.bodyMedium,
