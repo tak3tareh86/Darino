@@ -56,6 +56,21 @@ class ReminderEngineTest {
     }
 
     @Test
+    fun upcomingRemindersCompareFullJalaliDateAndTimeAndSortChronologically() {
+        val now = com.example.util.PersianCalendarHelper.jalaliToEpochMillis(1405, 8, 20, 12, 0)
+        val pastToday = ReminderEntity(title = "گذشته امروز", date = "۱۴۰۵/۰۸/۲۰", time = "۱۱:۵۹")
+        val laterToday = ReminderEntity(title = "امروز", date = "۱۴۰۵/۰۸/۲۰", time = "۱۲:۰۱")
+        val tomorrow = ReminderEntity(title = "فردا", date = "۱۴۰۵/۰۸/۲۱", time = "۰۸:۰۰")
+        val malformed = ReminderEntity(title = "تاریخ نامعتبر", date = "نامعتبر", time = "۰۹:۰۰")
+
+        val upcoming = ReminderPolicyEngine.upcomingByDateTime(listOf(tomorrow, pastToday, malformed, laterToday), now) { date, time ->
+            ReminderManager.parsePersianDateTimeToMillis(date, time)
+        }
+
+        assertEquals(listOf(laterToday, tomorrow), upcoming)
+    }
+
+    @Test
     fun snoozeRequiresActiveReminderAndExplicitAndroidDelivery() {
         val activeOptedIn = ReminderEntity(
             title = "یادآور فعال",
