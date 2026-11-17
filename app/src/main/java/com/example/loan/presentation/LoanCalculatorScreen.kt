@@ -338,6 +338,7 @@ fun LoanCalculatorScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CalculatorMainTab(
     state: LoanCalculatorState,
