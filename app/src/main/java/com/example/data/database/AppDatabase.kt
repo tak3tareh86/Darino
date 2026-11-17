@@ -805,7 +805,7 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        private val MIGRATION_46_47 = object : androidx.room.migration.Migration(46, 47) {
+        internal val MIGRATION_46_47 = object : androidx.room.migration.Migration(46, 47) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // Persist transaction category identity and optional metadata without
                 // rewriting or dropping any existing transaction rows.
