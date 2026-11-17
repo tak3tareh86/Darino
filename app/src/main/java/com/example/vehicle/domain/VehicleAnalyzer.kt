@@ -291,7 +291,7 @@ object VehicleAnalyzer {
                         "مردود", "رد شده", "ردشده", "نامعتبر", "غیرمعتبر",
                         "غیر قابل قبول", "غیرقابل قبول", "عدم تایید", "عدم تأیید",
                         "تایید نشده", "تأیید نشده", "نقص", "نیاز به تعمیر"
-                    ).any(normalizedStatus::contains)
+                    ).any { normalizedStatus.contains(it) }
                     val statusApproved = !statusRejected && (
                         statusText.isBlank() ||
                             normalizedStatus.contains("معتبر") ||
