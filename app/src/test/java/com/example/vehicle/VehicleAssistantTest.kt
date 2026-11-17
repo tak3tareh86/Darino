@@ -1352,7 +1352,9 @@ class VehicleAssistantTest {
             currentMileage = 40000
         )
 
-        // Scenario A: Perfect Health Score = 100
+        // Scenario A: The fixed checklist has three valid entries (third-party insurance,
+        // inspection and engine oil). The separately displayed brake entry does not alter
+        // the established nine-item score denominator.
         val perfectServices = listOf(
             VehicleServiceEntity(
                 id = "svc_oil",
@@ -1397,12 +1399,12 @@ class VehicleAssistantTest {
         )
 
         val perfectHealth = VehicleAnalyzer.analyzeHealth(car, perfectServices, perfectInsurance, perfectInspection)
-        assertEquals("Perfect vehicle health score must be exactly 100", 100, perfectHealth.healthScorePercent)
-        assertEquals(VehicleHealthLevel.GOOD, perfectHealth.level)
+        assertEquals("Three valid fixed checklist entries out of nine must score 33", 33, perfectHealth.healthScorePercent)
+        assertEquals(VehicleHealthLevel.WARNING, perfectHealth.level)
+        assertTrue(perfectHealth.checklist.any { it.title == ServiceType.BRAKE_PADS.title })
 
-        // Scenario B: Deductions Scenario
-        // Overdue oil (-30), Expired insurance (-35), No brake service (-10), Expired inspection (-20)
-        // Calculated = 100 - 30 - 35 - 10 - 20 = 5, clamped to minimum 10
+        // Scenario B: Overdue oil, expired third-party insurance and expired inspection.
+        // The remaining fixed checklist entries are unrecorded, so none of the nine scores OK.
         val overdueOilService = listOf(
             VehicleServiceEntity(
                 id = "svc_oil_overdue",
@@ -1438,8 +1440,7 @@ class VehicleAssistantTest {
         )
 
         val warningHealth = VehicleAnalyzer.analyzeHealth(car, overdueOilService, expiredInsurance, expiredInspection)
-        // Expected score: 100 - 30 (oil overdue) - 35 (insurance expired) - 10 (no brake service) - 20 (inspection expired) = 5 -> clamped to 10
-        assertEquals("Warning vehicle health score with all deductions must be clamped to minimum 10", 10, warningHealth.healthScorePercent)
+        assertEquals("No valid fixed checklist entries must produce a zero score", 0, warningHealth.healthScorePercent)
         assertEquals(VehicleHealthLevel.WARNING, warningHealth.level)
     }
 }
