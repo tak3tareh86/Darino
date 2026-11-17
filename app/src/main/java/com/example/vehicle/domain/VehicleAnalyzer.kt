@@ -274,28 +274,11 @@ object VehicleAnalyzer {
             serviceStatus("تسمه تایم", listOf(ServiceType.TIMING_BELT_CHANGE), R.drawable.time)
         )
 
-        // Keep the established nine-item score stable, while also showing every additional
-        // service type that has an actual record for this vehicle in the detailed checklist.
-        val scoredServiceTypes = setOf(
-            ServiceType.OIL_CHANGE,
-            ServiceType.OIL_FILTER_CHANGE,
-            ServiceType.AIR_FILTER_CHANGE,
-            ServiceType.TRANSMISSION_OIL_CHANGE,
-            ServiceType.ALTERNATOR_BELT_CHANGE,
-            ServiceType.TIMING_BELT_CHANGE
-        )
-        val additionalServiceChecklist = carServices
-            .asSequence()
-            .map { it.serviceType }
-            .distinct()
-            .filterNot { it in scoredServiceTypes }
-            .map { type -> serviceStatus(type.title, listOf(type), type.iconRes) }
-            .toList()
-        val checklist = fixedChecklist + additionalServiceChecklist
+        // The vehicle health checklist is intentionally limited to these nine fixed items.
+        // Other recorded service types remain available in service history, not in this checklist.
+        val checklist = fixedChecklist
 
-        // Each of the nine fixed checklist items contributes equally to the score.
-        // Additional recorded service types are displayed but do not silently change
-        // the established score denominator or the vehicle-health thresholds.
+        // Each of the nine checklist items contributes equally to the score.
         // A completed service with no configured next reminder remains completed until
         // an explicit due date or mileage indicates that attention is needed.
         val score = if (fixedChecklist.isEmpty()) {
