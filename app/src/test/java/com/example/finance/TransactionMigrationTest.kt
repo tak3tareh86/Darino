@@ -28,7 +28,7 @@ class TransactionMigrationTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        // We build a fresh in-memory database. Room will create the v18 schema.
+        // Build a fresh in-memory database with the current v47 schema.
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
         sqliteDb = db.openHelper.writableDatabase
     }
