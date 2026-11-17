@@ -68,11 +68,11 @@ data class VehicleServiceEntity(
     val nextReminderDate: String? = null, // e.g. "1405/12/10"
     val nextReminderMileage: Int? = null, // e.g. 50000
     val isReminderEnabled: Boolean = false,
-    // Service lifecycle is independent from reminder enablement.
-    val status: String = "PENDING",
     val reminderAlarmFailed: Boolean = false,
     val reminderAlarmErrorMessage: String? = null,
-    val costUnit: AppCurrency = AppCurrency.TOMAN
+    val costUnit: AppCurrency = AppCurrency.TOMAN,
+    // Service lifecycle is independent from reminder enablement.
+    val status: String = "PENDING"
 )
 
 /**
