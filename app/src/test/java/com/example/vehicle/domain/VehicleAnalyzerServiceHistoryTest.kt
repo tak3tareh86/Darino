@@ -105,6 +105,10 @@ class VehicleAnalyzerServiceHistoryTest {
 
         assertNotNull(report.checklist.firstOrNull { it.title == ServiceType.BATTERY.title })
         assertNotNull(report.checklist.firstOrNull { it.title == ServiceType.BRAKE_PADS.title })
+        // Additional recorded service types are visible without changing the established
+        // nine-item health-score denominator.
+        assertEquals(11, report.checklist.size)
+        assertEquals(0, report.healthScorePercent)
     }
 
     @Test
