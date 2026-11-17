@@ -13,6 +13,8 @@ import com.example.reminder.data.ReminderEntity
 import com.example.reminder.data.ReminderScheduleEntity
 import com.example.reminder.receiver.ReminderBroadcastReceiver
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class ReminderScheduler(private val context: Context) {
 
