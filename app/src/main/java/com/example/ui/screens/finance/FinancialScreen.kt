@@ -282,8 +282,8 @@ fun FinancialScreen(
                         selectedTransactionDetail = tx
                         navigateToSubScreen(FinanceSubScreen.TRANSACTION_DETAIL)
                     },
-                    onAddNewTransaction = {
-                        addTxInitialType = TransactionType.EXPENSE
+                    onAddNewTransaction = { type ->
+                        addTxInitialType = type
                         editingTransaction = null
                         showAddTxSheet = true
                     },
