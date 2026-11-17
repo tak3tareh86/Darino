@@ -1244,7 +1244,8 @@ private fun VehicleInsuranceDocumentsTabContent(
                         val invalidExpiry = normalizedLastInspection == null || normalizedExpiry == null ||
                             (normalizedLastInspection != null && normalizedExpiry != null && normalizedExpiry < normalizedLastInspection)
                         val expired = !invalidExpiry && normalizedExpiry!! < today
-                        val inspectionStatusText = insp.status.trim().ifBlank { "دارای اعتبار" }
+                        val rawInspectionStatus = insp.status.trim()
+                        val inspectionStatusText = rawInspectionStatus.ifBlank { "دارای اعتبار" }
                         val normalizedInspectionStatus = inspectionStatusText.lowercase()
                         val inspectionStatusRejected = listOf(
                             "مردود", "رد شده", "ردشده", "نامعتبر", "غیرمعتبر",
@@ -1252,7 +1253,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                             "تایید نشده", "تأیید نشده", "نقص", "نیاز به تعمیر"
                         ).any { normalizedInspectionStatus.contains(it) }
                         val inspectionStatusApproved = !inspectionStatusRejected && (
-                            inspectionStatusText.isBlank() ||
+                            rawInspectionStatus.isBlank() ||
                                 normalizedInspectionStatus.contains("معتبر") ||
                                 normalizedInspectionStatus.contains("قبول") ||
                                 normalizedInspectionStatus.contains("تایید") ||
