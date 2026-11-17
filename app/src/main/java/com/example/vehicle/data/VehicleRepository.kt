@@ -711,13 +711,18 @@ class VehicleRepository {
         existing: com.example.data.database.VehicleInsuranceRoomEntity,
         newEndDateTrimmed: String
     ) {
-        val offsets = listOf(
-            com.example.reminder.domain.PredefinedOffset.BEFORE_30_DAYS,
-            com.example.reminder.domain.PredefinedOffset.BEFORE_14_DAYS,
-            com.example.reminder.domain.PredefinedOffset.BEFORE_7_DAYS,
-            com.example.reminder.domain.PredefinedOffset.BEFORE_1_DAY,
-            com.example.reminder.domain.PredefinedOffset.AT_TIME
-        )
+        // Renewal must preserve the user's existing reminder choice instead of silently
+        // enabling a disabled reminder or replacing custom offsets with hard-coded values.
+        val previousReminder = db.smartReminderDao().getReminderById(userId, existing.id)
+        val reminderEnabled = previousReminder?.status == "ACTIVE" &&
+            previousReminder.notificationEnabled
+        val reminderTime = previousReminder?.time?.takeIf { it.isNotBlank() } ?: defaultReminderTime()
+        val offsets = existing.reminderDays
+            .split(",")
+            .mapNotNull { it.trim().toIntOrNull() }
+            .distinct()
+            .mapNotNull(::predefinedOffsetForDays)
+
         syncReminderPersistenceInternal(
             db = db,
             userId = userId,
@@ -725,15 +730,20 @@ class VehicleRepository {
             title = "تمدید بیمه ${existing.type} خودرو",
             description = "سررسید انقضای بیمه‌نامه برای خودرو ${vehicle.brand} ${vehicle.model}. شماره بیمه‌نامه: ${existing.policyNumber}",
             date = newEndDateTrimmed,
+            time = reminderTime,
             type = "INSURANCE",
-            offsets = offsets
+            offsets = offsets,
+            reminderEnabled = reminderEnabled
         )
         val confirmedRem = db.smartReminderDao().getReminderById(userId, existing.id)
-        if (confirmedRem == null || confirmedRem.status != "ACTIVE") {
-            throw IllegalStateException("تأیید یادآور انقضای بیمه‌نامه برای تاریخ جدید با شکست مواجه شد.")
+        val expectedStatus = if (reminderEnabled) "ACTIVE" else "DISABLED"
+        if (confirmedRem == null || confirmedRem.status != expectedStatus) {
+            throw IllegalStateException("تأیید وضعیت یادآور انقضای بیمه‌نامه برای تاریخ جدید با شکست مواجه شد.")
         }
         val confirmedSchedules = db.smartReminderDao().getSchedulesForReminderSync(userId, existing.id)
-        if (confirmedSchedules.size != offsets.size) {
+        if (confirmedSchedules.size != offsets.size ||
+            confirmedSchedules.any { it.enabled != reminderEnabled }
+        ) {
             throw IllegalStateException("تأیید زمان‌بندی‌های یادآور انقضای بیمه‌نامه با شکست مواجه شد.")
         }
     }
@@ -1555,6 +1565,14 @@ class VehicleRepository {
             val schedulesToCancel = db.smartReminderDao().getSchedulesForReminderSync(userId, serviceId)
 
             db.withTransaction {
+                // Persist old OS alarm identifiers before reminder rows are replaced or deleted.
+                enqueueVehicleReminderCleanup(
+                    db = db,
+                    userId = userId,
+                    reminderIds = listOf(serviceId),
+                    schedules = schedulesToCancel
+                )
+
                 // Update Service Record
                 val affectedRows = db.vehicleDao().updateService(
                     com.example.data.database.VehicleServiceEntity(
@@ -1634,6 +1652,11 @@ class VehicleRepository {
             }
 
             val cancellationErrors = cancelServiceReminderEffects(context, serviceId, schedulesToCancel)
+            // Remove the durable entry only after all cancellation effects have succeeded.
+            runCatching { retryPendingVehicleReminderCleanup(context, userId) }
+                .onFailure {
+                    android.util.Log.e("VehicleRepository", "Failed to retry cleanup after service update; identifiers remain queued.", it)
+                }
             val cancelFailed = cancellationErrors.isNotEmpty()
             val cancelErrorMsg = cancellationErrors
                 .joinToString("؛ ") { it.message ?: it.javaClass.simpleName }
@@ -1885,6 +1908,13 @@ class VehicleRepository {
                         }
                     }
 
+                    // Keep old OS alarm identifiers durable before completed-state sync removes schedules.
+                    enqueueVehicleReminderCleanup(
+                        db = db,
+                        userId = userId,
+                        reminderIds = listOf(serviceId),
+                        schedules = schedulesToCancel
+                    )
                     // Confirm or recover completed reminder
                     updateOrRecoverCompletedServiceReminder(db, userId, existing, completedDate)
                 }
@@ -1970,12 +2000,23 @@ class VehicleRepository {
                     }
                 }
 
+                // Keep old OS alarm identifiers durable before completed-state sync removes schedules.
+                enqueueVehicleReminderCleanup(
+                    db = db,
+                    userId = userId,
+                    reminderIds = listOf(serviceId),
+                    schedules = schedulesToCancel
+                )
                 // Update or recover completed reminder inside transaction
                 updateOrRecoverCompletedServiceReminder(db, userId, existing, completedDate)
             }
 
             // Cancel alarm in system AlarmManager after successful database commit
             val cancellationErrors = cancelServiceReminderEffects(context, serviceId, schedulesToCancel)
+            runCatching { retryPendingVehicleReminderCleanup(context, userId) }
+                .onFailure {
+                    android.util.Log.e("VehicleRepository", "Failed to retry cleanup after service completion; identifiers remain queued.", it)
+                }
             if (cancellationErrors.isNotEmpty()) {
                 val cleanupMessage = cancellationErrors.joinToString("؛ ") {
                     it.message ?: it.javaClass.simpleName
@@ -2551,6 +2592,9 @@ class VehicleRepository {
             ?: return@withContext Result.failure(IllegalArgumentException("تاریخ آخرین معاینه فنی نامعتبر است."))
         val expMs = parseJalaliToTimestamp(expiryDate)
             ?: return@withContext Result.failure(IllegalArgumentException("تاریخ انقضای معاینه فنی نامعتبر است."))
+        if (expMs < lastMs) {
+            return@withContext Result.failure(IllegalArgumentException("تاریخ انقضای معاینه فنی نمی‌تواند قبل از تاریخ آخرین معاینه باشد."))
+        }
 
         try {
             val db = AppDatabase.getDatabase(context)
