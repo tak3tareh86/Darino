@@ -323,7 +323,10 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         }
         val dao = db.smartReminderDao()
         val reminder = dao.getReminderById(userId, reminderId) ?: run {
-            Log.w(TAG, "Cannot snooze reminder $reminderId: reminder was not found after session initialization.")
+            val dispatcher = NotificationDispatcher(context)
+            if (notificationId != -1) dispatcher.cancelNotification(notificationId)
+            if (secondaryNotificationId != -1) dispatcher.cancelNotification(secondaryNotificationId)
+            Log.w(TAG, "Cannot snooze reminder $reminderId: reminder was not found for the current user.")
             return
         }
         if (!reminder.status.equals("ACTIVE", ignoreCase = true) ||
@@ -347,18 +350,18 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             enabled = true,
             createdAt = System.currentTimeMillis()
         )
-        // 1. Insert into database FIRST so it is guaranteed available when alarm triggers
-        dao.insertSchedule(schedule)
-        // 2. Schedule alarm SECOND; rollback if alarm registration fails
+        // Persist first so the receiver can always resolve the trigger when it fires.
+        // Roll back the row and dismiss the stale notification if either step fails.
         try {
+            dao.insertSchedule(schedule)
             ReminderScheduler(context).scheduleSingle(reminder, schedule)
         } catch (e: Exception) {
-            Log.e("ReminderBroadcastReceiver", "Failed to schedule alarm for snooze in receiver. Performing rollback.", e)
-            try {
-                dao.deleteSchedule(schedule)
-            } catch (delEx: Exception) {
-                Log.e("ReminderBroadcastReceiver", "Failed to rollback schedule in receiver", delEx)
-            }
+            Log.e("ReminderBroadcastReceiver", "Failed to persist or schedule reminder snooze. Performing rollback.", e)
+            runCatching { dao.deleteSchedule(schedule) }
+                .onFailure { Log.e("ReminderBroadcastReceiver", "Failed to rollback snooze schedule row.", it) }
+            val dispatcher = NotificationDispatcher(context)
+            if (notificationId != -1) dispatcher.cancelNotification(notificationId)
+            if (secondaryNotificationId != -1) dispatcher.cancelNotification(secondaryNotificationId)
             return
         }
         val dispatcher = NotificationDispatcher(context)
