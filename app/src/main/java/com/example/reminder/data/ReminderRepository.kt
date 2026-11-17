@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import com.example.reminder.domain.ReminderScheduler
+import com.example.reminder.domain.ReminderManager
 import com.example.reminder.domain.RepeatType
 
 interface ReminderRepository {
@@ -210,10 +211,15 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
         return getActiveReminders().map { list -> list.filter { it.date == todayPersian } }
     }
 
-    override fun getUpcomingReminders(): Flow<List<ReminderEntity>> {
-        val todayPersian = PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
-        return getActiveReminders().map { list -> list.filter { it.date >= todayPersian } }
-    }
+    override fun getUpcomingReminders(): Flow<List<ReminderEntity>> =
+        getActiveReminders().map { list ->
+            val now = System.currentTimeMillis()
+            list.mapNotNull { reminder ->
+                runCatching {
+                    reminder to ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
+                }.getOrNull()?.takeIf { it.second >= now }
+            }.sortedBy { it.second }.map { it.first }
+        }
 
     override fun getCompletedReminders(): Flow<List<ReminderEntity>> =
         SessionManager.sessionState.flatMapLatest { state -> state.userIdOrNull()?.let { dao.getCompletedReminders(it) } ?: flowOf(emptyList()) }
