@@ -61,6 +61,30 @@ fun SubscriptionLockedScreen(
     val uiState by viewModel.uiState.collectAsState()
     val requiresMarketReverification = uiState.info.marketAccountState == "MARKET_ACTIVE"
 
+    SubscriptionLockedScreenContent(
+        uiState = uiState,
+        requiresMarketReverification = requiresMarketReverification,
+        onPurchaseClick = {
+            val activity = context as? androidx.activity.ComponentActivity
+            if (activity != null) {
+                viewModel.startPurchaseFlow(activity.activityResultRegistry) {
+                    Toast.makeText(context, "اشتراک با موفقیت فعال شد.", Toast.LENGTH_LONG).show()
+                }
+            }
+        },
+        onRestoreClick = { viewModel.manualRestorePurchase() },
+        actionsEnabled = !uiState.isLoading && !uiState.isSyncing
+    )
+}
+
+@Composable
+fun SubscriptionLockedScreenContent(
+    uiState: SubscriptionState,
+    requiresMarketReverification: Boolean,
+    onPurchaseClick: () -> Unit,
+    onRestoreClick: () -> Unit,
+    actionsEnabled: Boolean
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -260,14 +284,7 @@ fun SubscriptionLockedScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             Button(
-                onClick = {
-                    val activity = context as? androidx.activity.ComponentActivity
-                    if (activity != null) {
-                        viewModel.startPurchaseFlow(activity.activityResultRegistry) {
-                            Toast.makeText(context, "اشتراک با موفقیت فعال شد.", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                },
+                onClick = onPurchaseClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(64.dp),
@@ -276,7 +293,7 @@ fun SubscriptionLockedScreen(
                     containerColor = ExpiredAccent,
                     contentColor = Color.White
                 ),
-                enabled = !uiState.isLoading && !uiState.isSyncing
+                enabled = actionsEnabled
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(
@@ -307,7 +324,7 @@ fun SubscriptionLockedScreen(
             Spacer(modifier = Modifier.height(18.dp))
 
             OutlinedButton(
-                onClick = { viewModel.manualRestorePurchase() },
+                onClick = onRestoreClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(62.dp),
