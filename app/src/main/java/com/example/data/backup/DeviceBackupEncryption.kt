@@ -29,6 +29,10 @@ object DeviceBackupEncryption {
             .array()
     }
 
+    /** Identifies the nonce-prefixed AES-GCM format used by automatic device backups. */
+    fun isDeviceEncrypted(payload: ByteArray): Boolean =
+        payload.size > 1 + 12 + TAG_BITS / 8 && (payload[0].toInt() and 0xff) == 12
+
     @Synchronized
     fun decrypt(payload: ByteArray): ByteArray {
         require(payload.size > 1 + 12 + TAG_BITS / 8) { "Automatic backup file is incomplete" }
