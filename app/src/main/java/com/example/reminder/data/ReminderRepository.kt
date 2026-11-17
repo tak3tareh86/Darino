@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import com.example.reminder.domain.ReminderScheduler
 import com.example.reminder.domain.ReminderManager
+import com.example.reminder.domain.ReminderPolicyEngine
 import com.example.reminder.domain.RepeatType
 
 interface ReminderRepository {
@@ -213,12 +214,9 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
 
     override fun getUpcomingReminders(): Flow<List<ReminderEntity>> =
         getActiveReminders().map { list ->
-            val now = System.currentTimeMillis()
-            list.mapNotNull { reminder ->
-                runCatching {
-                    reminder to ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
-                }.getOrNull()?.takeIf { it.second >= now }
-            }.sortedBy { it.second }.map { it.first }
+            ReminderPolicyEngine.upcomingByDateTime(list, System.currentTimeMillis()) { date, time ->
+                ReminderManager.parsePersianDateTimeToMillis(date, time)
+            }
         }
 
     override fun getCompletedReminders(): Flow<List<ReminderEntity>> =
