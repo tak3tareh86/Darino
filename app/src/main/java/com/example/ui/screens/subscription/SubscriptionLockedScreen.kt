@@ -1,9 +1,9 @@
 package com.example.ui.screens.subscription
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,23 +14,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,8 +36,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
@@ -51,10 +52,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-private val ExpiredBackgroundTop = Color(0xFF111A30)
-private val ExpiredBackgroundBottom = Color(0xFF080F20)
-private val ExpiredAccent = Color(0xFF18C99A)
-private val ExpiredPurple = Color(0xFF5147B8)
+private val PremiumNavy = Color(0xFF031638)
+private val PremiumDeepNavy = Color(0xFF00102B)
+private val PremiumGold = Color(0xFFFFC21C)
+private val PremiumBlue = Color(0xFF398BFF)
+private val PremiumText = Color(0xFFF6F7FF)
 
 @Composable
 fun SubscriptionLockedScreen(
@@ -70,6 +72,8 @@ fun SubscriptionLockedScreen(
         uiState = uiState,
         requiresMarketReverification = requiresMarketReverification,
         onPurchaseClick = {
+            // Poolakey opens the official Cafe Bazaar purchase sheet. Entitlement is
+            // granted only after Poolakey returns a verified PURCHASED result.
             val activity = context as? androidx.activity.ComponentActivity
             if (activity != null) {
                 viewModel.startPurchaseFlow(activity.activityResultRegistry) {
@@ -77,6 +81,7 @@ fun SubscriptionLockedScreen(
                 }
             }
         },
+        // Restore only queries the current Cafe Bazaar account; it never launches payment.
         onRestoreClick = { viewModel.manualRestorePurchase() },
         actionsEnabled = !uiState.isLoading && !uiState.isSyncing
     )
@@ -95,347 +100,410 @@ fun SubscriptionLockedScreenContent(
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(ExpiredBackgroundTop, ExpiredBackgroundBottom)
+                    colorStops = arrayOf(
+                        0f to Color(0xFF061B43),
+                        0.48f to PremiumNavy,
+                        1f to PremiumDeepNavy
+                    )
                 )
             )
-            .padding(horizontal = 24.dp, vertical = 14.dp)
     ) {
+        // Soft blue corner lighting, matching the supplied premium-screen reference.
+        Box(
+            modifier = Modifier
+                .size(280.dp)
+                .align(Alignment.TopStart)
+                .background(
+                    Brush.radialGradient(
+                        listOf(Color(0xFF1769D5).copy(alpha = 0.34f), Color.Transparent)
+                    )
+                )
+        )
+        Box(
+            modifier = Modifier
+                .size(320.dp)
+                .align(Alignment.BottomEnd)
+                .background(
+                    Brush.radialGradient(
+                        listOf(Color(0xFF0876C9).copy(alpha = 0.24f), Color.Transparent)
+                    )
+                )
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
 
-            Image(
-                painter = painterResource(id = com.example.R.drawable.img_darino_logo),
-                contentDescription = "لوگوی دارینو",
-                modifier = Modifier
-                    .width(150.dp)
-                    .height(76.dp),
-                contentScale = ContentScale.Fit
-            )
+            ImageLogo()
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(Modifier.height(18.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(Modifier.weight(1f).height(2.dp).background(PremiumGold))
+                HandshakeMark(Modifier.size(width = 58.dp, height = 54.dp))
+                Text(
+                    text = "دوست خوبم",
+                    color = PremiumGold,
+                    fontSize = 35.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+                Box(Modifier.weight(1f).height(2.dp).background(PremiumGold))
+            }
+
+            Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "دوست خوبم 🌟",
+                text = if (requiresMarketReverification) {
+                    "برای تأیید دوباره اشتراک، لازم است وضعیت خرید شما از کافه‌بازار بازیابی شود."
+                } else {
+                    "مدت استفاده رایگان ۷ روزه شما از برنامه به پایان رسیده است."
+                },
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
-                fontSize = 29.sp,
-                fontWeight = FontWeight.ExtraBold,
+                color = PremiumText,
+                fontSize = 23.sp,
+                lineHeight = 36.sp,
+                fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(22.dp))
+            Spacer(Modifier.height(12.dp))
 
-            Text(
-                text = if (requiresMarketReverification) {
-                    "برای تأیید دوباره اشتراک، لازم است به اینترنت متصل شوید و وضعیت خرید را از بازار بازیابی کنید."
-                } else {
-                    "مدت استفاده رایگان شما از برنامه به پایان رسیده است."
-                },
-                modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFFE1E7F5),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 29.sp,
-                textAlign = TextAlign.Justify
-            )
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            Text(
-                text = if (requiresMarketReverification) {
-                    "پس از اتصال به اینترنت، گزینه «بازیابی خرید قبلی» را بزنید. تا زمان تأیید مجدد بازار، دسترسی به برنامه محدود می‌ماند."
-                } else {
-                    "برای استفاده مجدد از امکانات برنامه و ادامه مدیریت امور مالی و زندگی روزمره خود لطفاً اشتراک سالانه تهیه کنید."
-                },
-                modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFFBAC6E0),
-                fontSize = 16.sp,
-                lineHeight = 29.sp,
-                textAlign = TextAlign.Justify
-            )
-
-            Spacer(modifier = Modifier.height(22.dp))
-
-            // Calendar and expired-time illustration.
-            Box(
+            ExpiredSubscriptionIllustration(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(230.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(220.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(Color(0xFF263D78).copy(alpha = 0.72f), Color.Transparent)
-                            )
-                        )
-                )
+                    .height(286.dp)
+            )
 
-                Surface(
-                    modifier = Modifier
-                        .size(width = 152.dp, height = 142.dp)
-                        .align(Alignment.Center)
-                        .padding(end = 16.dp, top = 6.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    color = Color(0xFF8DB5FF)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(Color(0xFF6EA7F5), Color(0xFFDCE8FF))
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DateRange,
-                            contentDescription = null,
-                            tint = Color(0xFF315DAA),
-                            modifier = Modifier.size(88.dp)
-                        )
-                    }
-                }
+            Spacer(Modifier.height(12.dp))
 
-                Surface(
-                    modifier = Modifier
-                        .size(112.dp)
-                        .align(Alignment.Center)
-                        .padding(start = 94.dp, top = 66.dp),
-                    shape = CircleShape,
-                    color = ExpiredPurple,
-                    border = androidx.compose.foundation.BorderStroke(5.dp, Color(0xFF8277E8))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.radialGradient(
-                                    listOf(Color(0xFF27345E), Color(0xFF111A35))
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AccessTime,
-                            contentDescription = null,
-                            tint = Color(0xFFDCE5FF),
-                            modifier = Modifier.size(62.dp)
-                        )
-                    }
-                }
+            Text(
+                text = if (requiresMarketReverification) {
+                    "اگر قبلاً اشتراک تهیه کرده‌اید، گزینه بازیابی خرید قبلی را بزنید."
+                } else {
+                    "برای استفاده مجدد از امکانات برنامه و ادامه مدیریت امور مالی و زندگی روزمره خود، لطفاً اشتراک سالانه تهیه کنید."
+                },
+                modifier = Modifier.fillMaxWidth(),
+                color = PremiumText,
+                fontSize = 20.sp,
+                lineHeight = 34.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center
+            )
 
-                Surface(
-                    modifier = Modifier
-                        .size(58.dp)
-                        .align(Alignment.Center)
-                        .padding(end = 142.dp, top = 18.dp),
-                    shape = CircleShape,
-                    color = Color(0xFFEC4E88)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(34.dp)
-                        )
-                    }
-                }
-            }
+            Spacer(Modifier.height(20.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Spacer(modifier = Modifier.height(22.dp))
-
-            Spacer(modifier = Modifier.height(30.dp))
-
-            // Annual subscription price.
+            // The displayed amount is always the Bazaar SKU display price from Poolakey.
+            // No price is hard-coded in the UI.
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                color = Color(0xFF192443).copy(alpha = 0.92f),
-                border = androidx.compose.foundation.BorderStroke(1.5.dp, ExpiredPurple.copy(alpha = 0.8f))
+                shape = RoundedCornerShape(34.dp),
+                color = Color(0xFF061A3A).copy(alpha = 0.82f),
+                border = BorderStroke(2.dp, PremiumGold)
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 22.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp, vertical = 17.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                    DiamondMark(Modifier.width(82.dp).height(68.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(2.dp)
+                            .height(76.dp)
+                            .background(PremiumGold)
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            tint = Color(0xFFFFC94A),
-                            modifier = Modifier.size(30.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = "اشتراک سالانه",
-                            color = Color.White,
-                            fontSize = 21.sp,
+                            color = PremiumText,
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
+                        Spacer(Modifier.height(4.dp))
+                        when {
+                            uiState.isPriceLoading && uiState.priceDisplay == null -> {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(25.dp),
+                                    color = PremiumGold,
+                                    strokeWidth = 2.5.dp
+                                )
+                            }
+                            uiState.priceDisplay != null -> {
+                                Text(
+                                    text = uiState.priceDisplay,
+                                    color = PremiumGold,
+                                    fontSize = 27.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                            else -> {
+                                Text(
+                                    text = "قیمت از بازار دریافت نشد",
+                                    color = Color(0xFFFFD98A),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                        if (uiState.priceDisplay != null) {
+                            Text(
+                                text = if (uiState.isPriceCached) {
+                                    "آخرین قیمت ذخیره‌شده کافه‌بازار"
+                                } else {
+                                    "قیمت به‌روز کافه‌بازار"
+                                },
+                                color = Color(0xFFB8C8E8),
+                                fontSize = 11.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    if (uiState.isPriceLoading && uiState.priceDisplay == null) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(26.dp),
-                            color = ExpiredAccent,
-                            strokeWidth = 2.5.dp
-                        )
-                    } else {
-                        Text(
-                            text = uiState.priceDisplay
-                                ?: "قیمت اشتراک در حال حاضر از بازار دریافت نشد",
-                            color = ExpiredAccent,
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = when {
-                            uiState.priceDisplay == null -> "برای دریافت قیمت، اتصال به بازار را بررسی کنید"
-                            uiState.isPriceCached -> "آخرین قیمت ذخیره‌شده از بازار"
-                            else -> "قیمت به‌روز دریافت‌شده از بازار"
-                        },
-                        color = Color(0xFFBAC6E0),
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
-                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(Modifier.height(22.dp))
 
             Button(
                 onClick = onPurchaseClick,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp),
+                    .height(76.dp),
                 shape = RoundedCornerShape(50),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = ExpiredAccent,
-                    contentColor = Color.White
+                    containerColor = PremiumGold,
+                    contentColor = Color(0xFF07152E),
+                    disabledContainerColor = PremiumGold.copy(alpha = 0.55f),
+                    disabledContentColor = Color(0xFF07152E)
                 ),
+                border = BorderStroke(2.dp, Color(0xFFFFE47A)),
                 enabled = actionsEnabled
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(22.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
+                        modifier = Modifier.size(25.dp),
+                        color = Color(0xFF07152E),
+                        strokeWidth = 2.5.dp
                     )
                 } else {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
+                        Text(
+                            text = "خرید اشتراک سالانه",
+                            fontSize = 23.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Spacer(Modifier.width(14.dp))
                         Icon(
                             imageVector = Icons.Default.ShoppingCart,
                             contentDescription = null,
-                            modifier = Modifier.size(25.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "خرید اشتراک سالانه",
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Bold
+                            modifier = Modifier.size(31.dp)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(Modifier.height(18.dp))
 
             OutlinedButton(
                 onClick = onRestoreClick,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(62.dp),
+                    .height(70.dp),
                 shape = RoundedCornerShape(50),
-                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF64739C)),
+                border = BorderStroke(2.dp, PremiumBlue),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFFE1E7F5)
+                    contentColor = PremiumText,
+                    disabledContentColor = PremiumText.copy(alpha = 0.55f)
                 ),
                 enabled = actionsEnabled
             ) {
                 if (uiState.isSyncing) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(21.dp),
-                        color = Color(0xFFE1E7F5),
-                        strokeWidth = 2.dp
+                        modifier = Modifier.size(23.dp),
+                        color = PremiumText,
+                        strokeWidth = 2.2.dp
                     )
                 } else {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
+                        Text(
+                            text = "بازیابی خرید قبلی",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.width(16.dp))
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = null,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "بازیابی خرید قبلی",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium
+                            modifier = Modifier.size(29.dp)
                         )
                     }
                 }
             }
 
             if (!uiState.userMessage.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(Modifier.height(13.dp))
                 Text(
                     text = uiState.userMessage.orEmpty(),
                     modifier = Modifier.fillMaxWidth(),
-                    color = if (uiState.isError) Color(0xFFFF9AAE) else Color(0xFF9BE8CE),
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Spacer(modifier = Modifier.height(30.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Security,
-                    contentDescription = null,
-                    tint = Color(0xFF8290B3),
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "اطلاعات شما محفوظ است",
-                    color = Color(0xFF8290B3),
+                    color = if (uiState.isError) Color(0xFFFFA5A5) else Color(0xFF9BE8B1),
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center
                 )
             }
 
-            Spacer(modifier = Modifier.height(22.dp))
+            Spacer(Modifier.height(26.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(Modifier.weight(1f).height(1.dp).background(Color(0xFF62799E)))
+                Icon(
+                    imageVector = Icons.Default.Security,
+                    contentDescription = null,
+                    tint = Color(0xFF5BD36A),
+                    modifier = Modifier.size(30.dp)
+                )
+                Text(
+                    text = "اطلاعات شما محفوظ است",
+                    color = Color(0xFFC5D0E4),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Box(Modifier.weight(1f).height(1.dp).background(Color(0xFF62799E)))
+            }
+
+            Spacer(Modifier.height(18.dp))
         }
+    }
+}
+
+@Composable
+private fun ImageLogo() {
+    androidx.compose.foundation.Image(
+        painter = painterResource(id = com.example.R.drawable.img_darino_logo),
+        contentDescription = "لوگوی دارینو",
+        modifier = Modifier
+            .width(190.dp)
+            .height(88.dp),
+        contentScale = ContentScale.Fit
+    )
+}
+
+
+
+@Composable
+private fun HandshakeMark(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        drawContext.transform.scale(size.width / 100f, size.height / 100f, pivot = Offset.Zero)
+        val gold = Color(0xFFFFBE16)
+        val ink = Color(0xFF09234D)
+        val hand = Path().apply {
+            moveTo(7f, 35f); lineTo(25f, 17f); lineTo(39f, 21f); lineTo(50f, 32f)
+            lineTo(62f, 19f); lineTo(76f, 23f); lineTo(94f, 41f); lineTo(77f, 59f)
+            lineTo(54f, 83f); lineTo(43f, 73f); lineTo(21f, 53f); close()
+        }
+        drawPath(hand, gold)
+        drawLine(ink, Offset(38f, 29f), Offset(27f, 40f), 8f)
+        drawLine(ink, Offset(27f, 40f), Offset(39f, 51f), 8f)
+        drawLine(ink, Offset(50f, 34f), Offset(68f, 51f), 8f)
+        drawLine(ink, Offset(41f, 49f), Offset(56f, 64f), 7f)
+        drawLine(ink, Offset(33f, 58f), Offset(47f, 72f), 7f)
+        drawLine(ink, Offset(26f, 66f), Offset(38f, 77f), 7f)
+    }
+}
+
+@Composable
+private fun DiamondMark(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        drawContext.transform.scale(size.width / 100f, size.height / 80f, pivot = Offset.Zero)
+        val gem = Path().apply {
+            moveTo(20f, 8f); lineTo(80f, 8f); lineTo(98f, 29f); lineTo(50f, 76f); lineTo(2f, 29f); close()
+        }
+        drawPath(gem, Brush.verticalGradient(listOf(Color(0xFFFFE34F), Color(0xFFFFA900)), startY = 0f, endY = 80f))
+        drawLine(Color(0xFF9B6900), Offset(20f, 8f), Offset(50f, 76f), 2f)
+        drawLine(Color(0xFF9B6900), Offset(80f, 8f), Offset(50f, 76f), 2f)
+        drawLine(Color(0xFF9B6900), Offset(2f, 29f), Offset(98f, 29f), 2f)
+    }
+}
+
+@Composable
+private fun ExpiredSubscriptionIllustration(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val s = minOf(size.width / 400f, size.height / 270f)
+        drawContext.transform.scale(s, s, pivot = Offset.Zero)
+        val gold = Color(0xFFFFC21C)
+        val blue = Color(0xFF1768E8)
+        drawOval(Brush.radialGradient(listOf(Color(0xFF20BFFF).copy(alpha = .7f), Color.Transparent)), Offset(40f, 220f), Size(320f, 38f))
+        val leaf = Path().apply { moveTo(70f, 210f); quadraticTo(5f, 135f, 36f, 88f); quadraticTo(93f, 94f, 111f, 177f); close() }
+        drawPath(leaf, Brush.linearGradient(listOf(Color(0xFF328DFF), Color(0xFF0647B8))))
+        val leaf2 = Path().apply { moveTo(320f, 211f); quadraticTo(345f, 137f, 391f, 153f); quadraticTo(391f, 207f, 337f, 231f); close() }
+        drawPath(leaf2, Brush.linearGradient(listOf(Color(0xFF328DFF), Color(0xFF0647B8))))
+        drawRoundRect(Color(0x66000A24), Offset(111f, 39f), Size(220f, 183f), androidx.compose.ui.geometry.CornerRadius(23f))
+        drawRoundRect(Brush.linearGradient(listOf(Color.White, Color(0xFFCAD7F4))), Offset(104f, 28f), Size(220f, 184f), androidx.compose.ui.geometry.CornerRadius(22f))
+        drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF398AFF), Color(0xFF064CC5))), Offset(104f, 28f), Size(220f, 65f), androidx.compose.ui.geometry.CornerRadius(22f))
+        drawRect(Color(0xFF175FD9), Offset(104f, 70f), Size(220f, 23f))
+        for (x in listOf(139f, 184f, 229f, 274f)) {
+            drawLine(Color(0xFF063C9E), Offset(x, 13f), Offset(x, 48f), 13f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(Color(0xFF83D5FF), Offset(x - 3f, 12f), Offset(x - 3f, 42f), 7f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        }
+        for (r in 0..2) for (col in 0..3) {
+            val x = 122f + col * 47f
+            val y = 104f + r * 34f
+            drawRoundRect(Brush.linearGradient(listOf(Color(0xFFE9EEFF), Color(0xFFB8C8EE))), Offset(x, y), Size(34f, 27f), androidx.compose.ui.geometry.CornerRadius(6f))
+        }
+        drawCircle(Color(0xFF073A9C), 77f, Offset(91f, 202f))
+        drawCircle(Brush.linearGradient(listOf(Color(0xFF8ADFFF), blue)), 72f, Offset(88f, 196f))
+        drawCircle(Color(0xFF0C4FC5), 63f, Offset(88f, 196f))
+        drawCircle(Brush.radialGradient(listOf(Color.White, Color(0xFFE2E9FF), Color(0xFFB4C8F8))), 55f, Offset(88f, 196f))
+        for (a in 0 until 12) {
+            val rad = Math.toRadians(a * 30.0)
+            val p1 = Offset(88f + kotlin.math.sin(rad).toFloat() * 44f, 196f - kotlin.math.cos(rad).toFloat() * 44f)
+            val p2 = Offset(88f + kotlin.math.sin(rad).toFloat() * 49f, 196f - kotlin.math.cos(rad).toFloat() * 49f)
+            drawLine(Color(0xFF244C9B), p1, p2, if (a % 3 == 0) 4f else 2f)
+        }
+        drawLine(Color(0xFF103B8E), Offset(88f, 196f), Offset(88f, 159f), 5f)
+        drawLine(Color(0xFF103B8E), Offset(88f, 196f), Offset(124f, 196f), 5f)
+        drawCircle(Color(0xFF103B8E), 7f, Offset(88f, 196f))
+        drawCircle(Color(0xFFFFF7F3), 30f, Offset(253f, 130f))
+        drawCircle(Color(0xFFFF604D), 27f, Offset(253f, 130f), style = Stroke(5f))
+        drawLine(Color(0xFFE83E32), Offset(239f, 116f), Offset(267f, 144f), 7f)
+        drawLine(Color(0xFFE83E32), Offset(267f, 116f), Offset(239f, 144f), 7f)
+        val crown = Path().apply {
+            moveTo(292f, 181f); lineTo(277f, 132f); lineTo(310f, 158f); lineTo(329f, 111f)
+            lineTo(345f, 157f); lineTo(373f, 133f); lineTo(361f, 190f); quadraticTo(328f, 208f, 292f, 181f); close()
+        }
+        drawPath(crown, Brush.linearGradient(listOf(Color(0xFFFFE66A), Color(0xFFFFB000), Color(0xFFE98500))))
+        drawPath(crown, gold, style = Stroke(3f))
+        drawRoundRect(Brush.verticalGradient(listOf(Color(0xFFFFD34A), Color(0xFFE98900))), Offset(286f, 179f), Size(80f, 24f), androidx.compose.ui.geometry.CornerRadius(10f))
+        for (p in listOf(Offset(277f, 130f), Offset(329f, 108f), Offset(373f, 131f))) drawCircle(gold, 8f, p)
+        drawLine(gold, Offset(300f, 73f), Offset(305f, 49f), 5f)
+        drawLine(gold, Offset(328f, 88f), Offset(345f, 69f), 5f)
+        drawLine(gold, Offset(355f, 105f), Offset(376f, 99f), 5f)
     }
 }
