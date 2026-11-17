@@ -275,9 +275,12 @@ object BackupFolderStorage {
     }
 
     /**
-     * Returns the newest document for each requested automatic-backup prefix.
-     * Keeping one candidate per frequency lets the repository compare the backup's
-     * embedded createdAt value, so fixed filenames never make "weekly" win by spelling.
+     * Lists every recognized daily/weekly automatic backup in the selected folder.
+     *
+     * The hash in the filename is a local-profile scope hint, not an identity boundary:
+     * this app has device-local profiles and recreating one can change its UUID. The
+     * encrypted payload is still authenticated by the device Keystore key and decoded
+     * through BackupFileCodec before it can be restored.
      */
     fun latestBackups(
         context: Context,
@@ -288,22 +291,25 @@ object BackupFolderStorage {
             it.uri == treeUri && it.isReadPermission
         }
         if (!hasReadGrant) throw IOException("دسترسی خواندن پوشه پشتیبان لغو شده است؛ پوشه را دوباره انتخاب کنید.")
-        val documents = listDocuments(context, treeUri)
-            .filter { document ->
-                document.name.endsWith(".darino", ignoreCase = true) &&
-                    namePrefixes.any(document.name::startsWith)
+
+        val requestedFrequencies = namePrefixes.mapNotNull { prefix ->
+            prefix.substringBefore("_auto_backup_", missingDelimiterValue = "")
+                .takeIf { it == "daily" || it == "weekly"" }
+        }.toSet()
+        if (requestedFrequencies.isEmpty()) return emptyList()
+
+        return listDocuments(context, treeUri).filter { document ->
+            requestedFrequencies.any { frequency ->
+                isAutomaticBackupFilename(document.name, frequency)
             }
-        return namePrefixes.mapNotNull { prefix ->
-            documents.asSequence()
-                .filter { it.name.startsWith(prefix) }
-                .maxWithOrNull { first, second ->
-                    if (first.lastModified > 0L && second.lastModified > 0L) {
-                        first.lastModified.compareTo(second.lastModified)
-                    } else {
-                        first.name.compareTo(second.name)
-                    }
-                }
         }
+    }
+
+    /** Strictly excludes manual exports, temporary files, rollback files and unrelated files. */
+    internal fun isAutomaticBackupFilename(name: String, frequency: String? = null): Boolean {
+        val pattern = Regex("^(daily|weekly)_auto_backup_[0-9a-fA-F]{24}_[A-Za-z0-9-]+\\.darino$")
+        val match = pattern.matchEntire(name) ?: return false
+        return frequency == null || match.groupValues[1] == frequency
     }
 
     private fun pruneBackups(
