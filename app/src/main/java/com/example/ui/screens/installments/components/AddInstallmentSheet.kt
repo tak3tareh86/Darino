@@ -338,11 +338,11 @@ fun AddInstallmentSheet(
                             submitValidationError = "ابتدا تاریخ واقعی اولین قسط را وارد یا از تقویم انتخاب کنید."
                             return@FormDetailsStep
                         }
-                        if (enteredCountValue <= 0 || totalCountValue <= 0 ||
+                        if (enteredCountValue !in 1..60 || totalCountValue <= 0 ||
                             (!currentCustomScheduleItems.isNullOrEmpty() && enteredCountValue != totalCountValue) ||
                             parsedTotalForValidation <= 0L
                         ) {
-                            submitValidationError = "مبلغ کل و تعداد اقساط باید معتبر و بیشتر از صفر باشند؛ تعداد برنامه سفارشی نیز باید با تعداد اقساط یکسان باشد."
+                            submitValidationError = "مبلغ کل باید بیشتر از صفر و تعداد اقساط باید بین ۱ تا ۶۰ باشد؛ تعداد برنامه سفارشی نیز باید با تعداد اقساط یکسان باشد."
                             return@FormDetailsStep
                         }
                         if (paidCountValue !in 0..totalCountValue) {
