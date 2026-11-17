@@ -176,8 +176,7 @@ object VehicleAnalyzer {
         fun serviceStatus(
             title: String,
             types: List<ServiceType>,
-            iconRes: Int,
-            defaultIntervalKm: Int = 0
+            iconRes: Int
         ): VehicleHealthCheckItem {
             val records = types.mapNotNull { type -> latestService(type)?.let { type to it } }
             if (records.size < types.size) {
@@ -191,12 +190,23 @@ object VehicleAnalyzer {
             }
 
             var dueSoon = false
+            var hasUnconfiguredPendingDue = false
+            var hasActiveService = false
             for ((type, record) in records) {
+                // A completed service is historical. Its old due fields must not continue
+                // to mark the vehicle overdue; a new pending record represents the next cycle.
+                if (record.status.equals("COMPLETED", ignoreCase = true)) continue
+                hasActiveService = true
+
                 // Reminder values on legacy combined/generic rows belong to their primary
                 // service only; do not incorrectly apply them to every service named in title.
                 val hasTypeSpecificRecord = record.serviceType == type
-                val nextKm = (if (hasTypeSpecificRecord) record.nextReminderMileage else null)
-                    ?: if (type == ServiceType.OIL_CHANGE && defaultIntervalKm > 0) record.mileage + defaultIntervalKm else null
+                val nextKm = if (hasTypeSpecificRecord) record.nextReminderMileage else null
+                val nextDate = if (hasTypeSpecificRecord) record.nextReminderDate else null
+                if (nextKm == null && nextDate.isNullOrBlank()) {
+                    hasUnconfiguredPendingDue = true
+                }
+
                 if (nextKm != null) {
                     val remaining = nextKm - vehicle.currentMileage
                     if (remaining < 0) {
@@ -205,7 +215,6 @@ object VehicleAnalyzer {
                     if (remaining <= 500) dueSoon = true
                 }
 
-                val nextDate = if (hasTypeSpecificRecord) record.nextReminderDate else null
                 if (!nextDate.isNullOrBlank()) {
                     val cleanDueDate = parseAndValidateJalaliDate(nextDate)
                     if (cleanDueDate == null) {
@@ -218,10 +227,11 @@ object VehicleAnalyzer {
                 }
             }
 
-            return if (dueSoon) {
-                VehicleHealthCheckItem(title, "نیاز به بررسی موعد", false, true, iconRes)
-            } else {
-                VehicleHealthCheckItem(title, "در موعد سرویس", true, false, iconRes)
+            return when {
+                dueSoon -> VehicleHealthCheckItem(title, "نیاز به بررسی موعد", false, true, iconRes)
+                hasUnconfiguredPendingDue -> VehicleHealthCheckItem(title, "موعد بعدی مشخص نشده", false, true, iconRes)
+                !hasActiveService -> VehicleHealthCheckItem(title, "سرویس انجام شده", true, false, iconRes)
+                else -> VehicleHealthCheckItem(title, "در موعد سرویس", true, false, iconRes)
             }
         }
 
@@ -254,7 +264,7 @@ object VehicleAnalyzer {
                     }
                 }
             },
-            serviceStatus("روغن موتور", listOf(ServiceType.OIL_CHANGE), R.drawable.motor, defaultIntervalKm = 5000),
+            serviceStatus("روغن موتور", listOf(ServiceType.OIL_CHANGE), R.drawable.motor),
             serviceStatus("فیلتر روغن", listOf(ServiceType.OIL_FILTER_CHANGE), R.drawable.filter),
             serviceStatus("فیلتر هوا", listOf(ServiceType.AIR_FILTER_CHANGE), R.drawable.filter),
             serviceStatus("روغن گیربکس", listOf(ServiceType.TRANSMISSION_OIL_CHANGE), R.drawable.girbox),
