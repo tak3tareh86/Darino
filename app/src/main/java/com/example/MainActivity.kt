@@ -674,11 +674,10 @@ fun AppNavigationContainer(
                         onClick = { showSubscriptionPreview = true },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(16.dp),
-                        text = {
-                            androidx.compose.material3.Text("پیش‌نمایش پایان آزمایشی")
-                        }
-                    )
+                            .padding(16.dp)
+                    ) {
+                        androidx.compose.material3.Text("پیش‌نمایش پایان آزمایشی")
+                    }
                 }
             }
         }
