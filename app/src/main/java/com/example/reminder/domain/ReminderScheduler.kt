@@ -264,6 +264,6 @@ class ReminderScheduler(private val context: Context) {
                 "$scheduledCount هشدار ثبت شد و ${failures.size} هشدار به دلیل خطای سیستم ثبت نشد: ${failures.take(3).joinToString("؛ ")}"
             )
         }
-        return scheduledCount
+        scheduledCount
     }
 }
