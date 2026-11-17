@@ -797,12 +797,21 @@ class LocalBackupRepository(
 
                 val restoredServiceIds = mutableMapOf<String, String>()
                 backup.vehicleServices.forEach { service ->
-                    val newId = db.vehicleDao().insertService(
+                    val newRoomId = db.vehicleDao().insertService(
                         service.copy(id = 0, userId = userId, vehicleId = remapVehicleId(service.vehicleId))
-                    ).toString()
-                    restoredServiceIds[service.id.toString()] = newId
-                    service.serverId?.takeIf { it.isNotBlank() }?.let { restoredServiceIds[it] = newId }
+                    ).toInt()
+                    // VehicleRepository uses serverId as the public service ID when present.
+                    // Reminder IDs and source IDs must use that same stable identifier.
+                    val restoredPublicServiceId = service.serverId
+                        ?.takeIf { it.isNotBlank() }
+                        ?: newRoomId.toString()
+                    restoredServiceIds[service.id.toString()] = restoredPublicServiceId
+                    service.serverId?.takeIf { it.isNotBlank() }?.let {
+                        restoredServiceIds[it] = restoredPublicServiceId
+                    }
                 }
+                val restoredInsuranceIds = backup.vehicleInsurances.associate { it.id to it.id }
+                val restoredInspectionIds = backup.vehicleInspections.associate { it.id to it.id }
 
                 if (backup.vehicleExpenses.isNotEmpty()) {
                     db.vehicleDao().insertExpensesForBackup(
@@ -837,19 +846,33 @@ class LocalBackupRepository(
                 // restored on the same device, another account, or repeatedly without collisions.
                 val restoredSmartReminderIds = mutableMapOf<String, String>()
                 backup.reminders.forEach { reminder ->
-                    val newReminderId = java.util.UUID.randomUUID().toString()
-                    restoredSmartReminderIds[reminder.id] = newReminderId
-                    val remappedSourceId = when (reminder.sourceType?.uppercase()) {
+                    val sourceType = reminder.sourceType?.uppercase()
+                    val remappedSourceId = when (sourceType) {
                         "INSTALLMENT" -> reminder.sourceId
                             ?.let { restoredInstallmentReferenceIds[it] ?: it }
                         "CHECK" -> reminder.sourceId?.toIntOrNull()
                             ?.let { restoredCheckIds[it]?.toString() } ?: reminder.sourceId
-                        "VEHICLE" -> reminder.sourceId?.let { restoredServiceIds[it] ?: restoredVehicleIds[it] ?: it }
+                        "VEHICLE" -> reminder.sourceId?.let {
+                            restoredServiceIds[it]
+                                ?: restoredInsuranceIds[it]
+                                ?: restoredInspectionIds[it]
+                                ?: restoredVehicleIds[it]
+                                ?: it
+                        }
                         "VEHICLE_SERVICE" -> reminder.sourceId?.let { restoredServiceIds[it] ?: it }
                         else -> reminder.sourceId
                     }
+                    // VehicleRepository looks up these reminders by the owning record ID.
+                    // REPLACE clears the old reminder table first, so retaining the mapped
+                    // public vehicle-record ID here is collision-safe and keeps edit/delete
+                    // operations attached to their restored record.
+                    val restoredReminderId = if (
+                        (sourceType == "VEHICLE" || sourceType == "VEHICLE_SERVICE") &&
+                        !remappedSourceId.isNullOrBlank()
+                    ) remappedSourceId else java.util.UUID.randomUUID().toString()
+                    restoredSmartReminderIds[reminder.id] = restoredReminderId
                     db.smartReminderDao().insertReminderForBackup(
-                        reminder.copy(id = newReminderId, userId = userId, sourceId = remappedSourceId)
+                        reminder.copy(id = restoredReminderId, userId = userId, sourceId = remappedSourceId)
                     )
                 }
 
