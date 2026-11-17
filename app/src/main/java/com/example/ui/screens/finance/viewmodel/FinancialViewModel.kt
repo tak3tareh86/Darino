@@ -7,7 +7,6 @@ import com.example.ui.screens.finance.data.LocalFinanceRepository
 import com.example.ui.screens.finance.data.TransactionOperationResult
 import com.example.ui.screens.finance.domain.BudgetEngine
 import com.example.ui.screens.finance.domain.FinanceEngine
-import com.example.ui.screens.finance.model.TransactionType
 import com.example.ui.screens.finance.model.Budget
 import com.example.ui.screens.finance.model.FinanceFilterPeriod
 import com.example.ui.screens.finance.model.FinancialState
