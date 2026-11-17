@@ -197,6 +197,7 @@ fun AddReminderScreen(
             amountUnit = AppCurrency.RIAL.name,
             targetKilometer = targetKmText.toLongOrNull(),
             notificationEnabled = offsetsToSave.isNotEmpty(),
+            fullScreenAlarmEnabled = false,
             smsEnabled = false
         )
         isSaving = true
