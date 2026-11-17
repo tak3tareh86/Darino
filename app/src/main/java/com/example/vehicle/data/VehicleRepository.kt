@@ -1201,7 +1201,8 @@ class VehicleRepository {
                         type = "VEHICLE",
                         targetKilometer = nextReminderMileage,
                         currentKilometer = mileage,
-                        offsets = effectiveOffsets
+                        offsets = effectiveOffsets,
+                        reminderEnabled = true
                     )
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
@@ -1510,7 +1511,8 @@ class VehicleRepository {
                         type = "VEHICLE",
                         targetKilometer = nextReminderMileage,
                         currentKilometer = mileage,
-                        offsets = effectiveOffsets
+                        offsets = effectiveOffsets,
+                        reminderEnabled = true
                     )
                 } else {
                     db.smartReminderDao().deleteReminderById(userId, serviceId)
