@@ -59,22 +59,6 @@ class LoanCalculatorViewModel(
         _state.update { it.copy(currentTab = tab, errorMessage = null) }
     }
 
-    fun onLoanTypeChanged(type: LoanType) {
-        _state.update {
-            it.copy(
-                loanType = type,
-                interestRateInput = "",
-                interestRate = 0.0,
-                durationInput = "",
-                duration = 0,
-                durationType = null,
-                calculationType = null,
-                errorMessage = null
-            )
-        }
-        _state.update { it.copy(result = null, monthlyPayment = 0L, totalPayment = 0L, totalInterest = 0L, realCostPercentage = 0.0) }
-    }
-
     fun onAmountInputChanged(raw: String) {
         val clean = IranianPhoneUtils.convertDigitsToEnglish(raw).trim()
         val parsed = IranianAmountUtils.parseAmountToBigDecimal(clean)?.let { runCatching { MoneyAmount(it, MoneyFormatter.activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
@@ -246,13 +230,13 @@ class LoanCalculatorViewModel(
             customTitle
         } else {
             val amountFormatted = CalculationResult.formatMoney(current.amount, AppCurrency.RIAL)
-            "${current.loanType?.title ?: "وام"} ($amountFormatted)"
+            "وام ($amountFormatted)"
         }
 
         val calculation = LoanCalculation(
             id = "calc_${UUID.randomUUID()}",
             title = title,
-            loanType = current.loanType ?: LoanType.CUSTOM,
+            loanType = LoanType.CUSTOM,
             amount = current.amount,
             interestRate = current.interestRate,
             duration = current.duration,
