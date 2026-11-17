@@ -1520,6 +1520,70 @@ class VehicleAssistantTest {
     }
 
     @Test
+    fun healthChecklistDoesNotTreatFutureInsuranceAsActiveOrRejectedInspectionAsValid() {
+        val current = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
+        val today = "%04d/%02d/%02d".format(current.year, current.month, current.day)
+        val past = "%04d/%02d/%02d".format(current.year - 1, current.month, current.day)
+        val futureStart = "%04d/%02d/%02d".format(current.year + 1, current.month, current.day)
+        val futureExpiry = "%04d/%02d/%02d".format(current.year + 2, current.month, current.day)
+        val car = com.example.vehicle.data.VehicleEntity(
+            id = "car_document_status_test",
+            brand = "پژو",
+            model = "206",
+            year = "1402",
+            color = "سفید",
+            plate = "۱۲ الف ۳۴۵ ایران ۶۸",
+            currentMileage = 30000
+        )
+
+        val activePolicy = VehicleInsuranceEntity(
+            id = "active_policy",
+            vehicleId = car.id,
+            company = "بیمه اول",
+            type = "شخص ثالث",
+            startDate = past,
+            endDate = futureExpiry,
+            amount = 1_000_000L
+        )
+        val futurePolicy = VehicleInsuranceEntity(
+            id = "future_policy",
+            vehicleId = car.id,
+            company = "بیمه دوم",
+            type = "شخص ثالث",
+            startDate = futureStart,
+            endDate = futureExpiry,
+            amount = 1_000_000L
+        )
+        val withActiveAndFuturePolicies = VehicleAnalyzer.analyzeHealth(
+            car, emptyList(), listOf(activePolicy, futurePolicy), emptyList()
+        )
+        val thirdPartyCheck = withActiveAndFuturePolicies.checklist.first { it.title == "بیمه‌نامه شخص ثالث" }
+        assertTrue("An active policy must remain effective when a future renewal is also registered", thirdPartyCheck.isOk)
+
+        val onlyFuturePolicy = VehicleAnalyzer.analyzeHealth(
+            car, emptyList(), listOf(futurePolicy), emptyList()
+        )
+        val futurePolicyCheck = onlyFuturePolicy.checklist.first { it.title == "بیمه‌نامه شخص ثالث" }
+        assertFalse(futurePolicyCheck.isOk)
+        assertEquals("هنوز شروع نشده", futurePolicyCheck.statusText)
+
+        val rejectedInspection = VehicleInspectionEntity(
+            id = "rejected_inspection",
+            vehicleId = car.id,
+            lastInspectionDate = past,
+            expiryDate = futureExpiry,
+            cost = 100_000L,
+            status = "مردود"
+        )
+        val rejectedInspectionReport = VehicleAnalyzer.analyzeHealth(
+            car, emptyList(), emptyList(), listOf(rejectedInspection)
+        )
+        val inspectionCheck = rejectedInspectionReport.checklist.first { it.title == "معاینه فنی" }
+        assertFalse("A rejected inspection certificate must not be scored as valid", inspectionCheck.isOk)
+        assertEquals("مردود", inspectionCheck.statusText)
+    }
+
+    @Test
     fun testDirectVehicleHealthScoreCalculation() {
         val currentPdt = com.example.util.PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis())
         val pastEnglish = "%04d/%02d/%02d".format(currentPdt.year - 1, currentPdt.month, currentPdt.day)
