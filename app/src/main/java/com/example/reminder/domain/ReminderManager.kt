@@ -373,10 +373,14 @@ class ReminderManager(
         if (baseSchedules.size != storedSchedules.size) {
             repository.updateReminderWithSchedules(reminder, baseSchedules)
         }
-        if ((reminder.notificationEnabled || reminder.fullScreenAlarmEnabled ||
-                reminder.sourceType.equals("VEHICLE", ignoreCase = true)) &&
-            (baseSchedules.isNotEmpty() || reminder.sourceType.equals("CALENDAR", ignoreCase = true))
-        ) {
+        val reminderRequiresDelivery = reminder.notificationEnabled ||
+            reminder.fullScreenAlarmEnabled ||
+            reminder.sourceType.equals("VEHICLE", ignoreCase = true)
+        if (reminderRequiresDelivery) {
+            if (baseSchedules.isEmpty() && !reminder.sourceType.equals("CALENDAR", ignoreCase = true)) {
+                repository.updateStatus(reminderId, "DISABLED")
+                throw IllegalStateException("زمان‌بندی اصلی این یادآور پیدا نشد؛ برای جلوگیری از فعال‌سازی بدون هشدار، ابتدا آن را اصلاح کنید.")
+            }
             enableReminder(reminderId)
         } else {
             repository.updateStatus(reminderId, "ACTIVE")
