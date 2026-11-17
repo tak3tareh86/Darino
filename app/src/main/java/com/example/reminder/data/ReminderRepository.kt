@@ -259,14 +259,18 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
     override suspend fun updateReminder(reminder: ReminderEntity) {
         val userId = requireUserId()
         if (reminder.userId != userId) throw SecurityException("Reminder does not belong to current user")
-        dao.updateReminder(reminder)
+        if (dao.updateReminder(reminder) != 1) {
+            throw NoSuchElementException("یادآور موردنظر برای ویرایش پیدا نشد.")
+        }
     }
 
     override suspend fun updateReminderWithSchedules(reminder: ReminderEntity, schedules: List<ReminderScheduleEntity>) {
         val userId = requireUserId()
         if (reminder.userId != userId) throw SecurityException("Reminder does not belong to current user")
         db.withTransaction {
-            dao.updateReminder(reminder)
+            if (dao.updateReminder(reminder) != 1) {
+                throw NoSuchElementException("یادآور موردنظر برای به‌روزرسانی پیدا نشد.")
+            }
             dao.deleteSchedulesByReminderId(userId, reminder.id)
             dao.insertSchedules(schedules.map { it.copy(reminderId = reminder.id) })
         }
