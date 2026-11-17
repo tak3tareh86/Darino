@@ -1576,12 +1576,13 @@ class VehicleRepository {
 
             // Distinguish cancellation failures from scheduling failures
             if (cancelFailed) {
-                alarmFailed = true
-                alarmErrorMsg = if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
-                    "هشدار جدید ثبت شد، اما لغو هشدارهای قبلی ناموفق بود ($cancelErrorMsg)."
+                val cancellationMessage = if (isReminderEnabled && !nextReminderDate.isNullOrBlank() && effectiveOffsets.isNotEmpty()) {
+                    "لغو هشدارهای قبلی ناموفق بود ($cancelErrorMsg)."
                 } else {
                     "لغو هشدارهای قبلی ناموفق بود ($cancelErrorMsg)."
                 }
+                alarmFailed = true
+                alarmErrorMsg = listOfNotNull(alarmErrorMsg, cancellationMessage).joinToString("؛ ")
             }
 
             try {
@@ -1750,7 +1751,7 @@ class VehicleRepository {
                 if (cancellationErrors.isNotEmpty()) {
                     android.util.Log.w(
                         "VehicleRepository",
-                        "Service $serviceId was completed or deleted, but reminder cleanup was incomplete.",
+                        "Service $serviceId was completed, but reminder cleanup was incomplete.",
                         cancellationErrors.first()
                     )
                 }
@@ -1854,11 +1855,15 @@ class VehicleRepository {
                 return@withContext Result.failure(IllegalStateException("هیچ سرویسی برای حذف یافت نشد."))
             }
 
-            // 2. Adjust system alarms outside of transaction after successful commit
-            val scheduler = com.example.reminder.domain.ReminderScheduler(context)
-            scheduler.cancel(serviceId, schedulesToCancel)
-                    com.example.reminder.domain.NotificationDispatcher(context)
-                        .cancelReminderNotifications(serviceId, schedulesToCancel)
+            // Database deletion is authoritative; independently attempt all external cleanup.
+            val cancellationErrors = cancelServiceReminderEffects(context, serviceId, schedulesToCancel)
+            if (cancellationErrors.isNotEmpty()) {
+                android.util.Log.w(
+                    "VehicleRepository",
+                    "Service $serviceId was deleted, but reminder cleanup was incomplete.",
+                    cancellationErrors.first()
+                )
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
