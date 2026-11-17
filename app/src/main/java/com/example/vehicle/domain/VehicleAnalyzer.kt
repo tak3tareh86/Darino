@@ -192,6 +192,7 @@ object VehicleAnalyzer {
             var dueSoon = false
             var hasUnconfiguredPendingDue = false
             var hasPendingService = false
+            var hasConfiguredDue = false
             for ((type, record) in records) {
                 val isCompleted = record.status.equals("COMPLETED", ignoreCase = true)
                 if (!isCompleted) hasPendingService = true
@@ -203,6 +204,7 @@ object VehicleAnalyzer {
                 val hasTypeSpecificRecord = record.serviceType == type
                 val nextKm = if (hasTypeSpecificRecord) record.nextReminderMileage else null
                 val nextDate = if (hasTypeSpecificRecord) record.nextReminderDate else null
+                if (nextKm != null || !nextDate.isNullOrBlank()) hasConfiguredDue = true
                 if (nextKm == null && nextDate.isNullOrBlank() && !isCompleted) {
                     hasUnconfiguredPendingDue = true
                 }
@@ -230,7 +232,7 @@ object VehicleAnalyzer {
             return when {
                 dueSoon -> VehicleHealthCheckItem(title, "نیاز به بررسی موعد", false, true, iconRes)
                 hasUnconfiguredPendingDue -> VehicleHealthCheckItem(title, "موعد بعدی مشخص نشده", false, true, iconRes)
-                !hasPendingService -> VehicleHealthCheckItem(title, "سرویس انجام شده", true, false, iconRes)
+                !hasPendingService && !hasConfiguredDue -> VehicleHealthCheckItem(title, "سرویس انجام شده", true, false, iconRes)
                 else -> VehicleHealthCheckItem(title, "در موعد سرویس", true, false, iconRes)
             }
         }
