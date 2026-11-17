@@ -209,11 +209,8 @@ fun DarinoVehicleMainDashboard(
         VehicleProfileScreen(
             vehicle = state.selectedVehicle!!,
             onBack = { viewModel.closeProfile() },
-            onSaveSpecs = { b, m, y, c, p, v, e ->
-                viewModel.updateVehicleSpecs(b, m, y, c, p, v, e)
-            },
-            onUpdateMileage = { km ->
-                viewModel.updateCurrentMileage(km)
+            onSaveSpecs = { b, m, y, c, p, v, e, km ->
+                viewModel.updateVehicleSpecs(b, m, y, c, p, v, e, km)
             }
         )
         return
