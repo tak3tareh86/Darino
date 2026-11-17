@@ -309,11 +309,16 @@ private fun LoanComparisonCard(
         ) else "")
     }
     var editInterest by remember(interestRate) { mutableStateOf(if (interestRate > 0.0) interestRate.toString() else "") }
+    val parsedAmount = IranianAmountUtils.parseAmountToBigDecimal(editAmount)
+        ?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() }
+        ?.takeIf { it > 0L }
     val parsedInterestRate = IranianPhoneUtils.convertDigitsToEnglish(editInterest)
         .replace(',', '.')
         .toDoubleOrNull()
         ?.takeIf { it.isFinite() && it >= 0.0 && it <= 1000.0 }
     var editDuration by remember(durationMonths) { mutableStateOf(if (durationMonths > 0) durationMonths.toString() else "") }
+    val parsedDuration = IranianPhoneUtils.convertDigitsToEnglish(editDuration).toLongOrNull()
+        ?.takeIf { it in 1..Int.MAX_VALUE.toLong() }
 
     Surface(
         modifier = modifier.shadow(2.dp, RoundedCornerShape(RadiusLG)),
@@ -384,19 +389,18 @@ private fun LoanComparisonCard(
                     )
                     Button(
                         onClick = {
-                            val parsedAmount = IranianAmountUtils.parseAmountToBigDecimal(editAmount)
-                                ?.let { runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull() } ?: 0L
+                            val amountValue = parsedAmount ?: return@Button
                             val rate = parsedInterestRate ?: return@Button
-                            val duration = IranianPhoneUtils.convertDigitsToEnglish(editDuration).filter { it.isDigit() }.toIntOrNull() ?: durationMonths
+                            val duration = parsedDuration?.toInt() ?: return@Button
                             onSaveEdit(
                                 title,
-                                if (parsedAmount > 0L) parsedAmount else MoneyAmount.of(amount, amountUnit).asRialsLongExact(),
+                                amountValue,
                                 AppCurrency.RIAL,
                                 rate,
                                 duration
                             )
                         },
-                        enabled = parsedInterestRate != null,
+                        enabled = parsedAmount != null && parsedInterestRate != null && parsedDuration != null,
                         modifier = Modifier.fillMaxWidth().height(40.dp),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         shape = RoundedCornerShape(RadiusMD)
