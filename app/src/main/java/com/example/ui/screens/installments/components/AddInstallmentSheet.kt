@@ -198,6 +198,7 @@ fun AddInstallmentSheet(
                 )
             } catch (e: Exception) {
                 android.util.Log.e("AddInstallmentSheet", "Installment submission failed.", e)
+                submitValidationError = "ثبت قسط انجام نشد: ${e.localizedMessage ?: "خطای محاسباتی یا ذخیره‌سازی"}"
                 false
             }
             isSubmitting = false
@@ -308,11 +309,12 @@ fun AddInstallmentSheet(
                         val currentCustomScheduleItems = customScheduleItems
                         val paidCountValue = IranianPhoneUtils.convertDigitsToEnglish(paidInstallmentsCount)
                             .filter { it.isDigit() }.toIntOrNull() ?: 0
+                        val enteredCountValue = IranianPhoneUtils.convertDigitsToEnglish(installmentsCount)
+                            .filter { it.isDigit() }.toIntOrNull() ?: 0
                         val totalCountValue = if (!currentCustomScheduleItems.isNullOrEmpty()) {
                             currentCustomScheduleItems.size
                         } else {
-                            IranianPhoneUtils.convertDigitsToEnglish(installmentsCount)
-                                .filter { it.isDigit() }.toIntOrNull() ?: 0
+                            enteredCountValue
                         }
                         val parsedTotalForValidation = IranianAmountUtils.parseAmountToBigDecimal(totalAmount)?.let {
                             runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
@@ -332,8 +334,11 @@ fun AddInstallmentSheet(
                             submitValidationError = "ابتدا تاریخ واقعی اولین قسط را وارد یا از تقویم انتخاب کنید."
                             return@FormDetailsStep
                         }
-                        if (totalCountValue <= 0 || parsedTotalForValidation <= 0L) {
-                            submitValidationError = "مبلغ کل و تعداد اقساط باید معتبر و بیشتر از صفر باشند."
+                        if (enteredCountValue <= 0 || totalCountValue <= 0 ||
+                            (!currentCustomScheduleItems.isNullOrEmpty() && enteredCountValue != totalCountValue) ||
+                            parsedTotalForValidation <= 0L
+                        ) {
+                            submitValidationError = "مبلغ کل و تعداد اقساط باید معتبر و بیشتر از صفر باشند؛ تعداد برنامه سفارشی نیز باید با تعداد اقساط یکسان باشد."
                             return@FormDetailsStep
                         }
                         if (paidCountValue !in 0..totalCountValue) {
