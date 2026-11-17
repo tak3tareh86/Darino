@@ -2494,11 +2494,19 @@ class VehicleRepository {
 
             val affectedRows = db.withTransaction {
                 val insAffected = db.vehicleDao().deleteInsuranceById(userId, insuranceId)
+                if (insAffected > 0) {
+                    enqueueVehicleReminderCleanup(
+                        db = db,
+                        userId = userId,
+                        reminderIds = listOf(insuranceId),
+                        schedules = schedulesToCancel
+                    )
+                }
                 db.vehicleDao().deleteExpenseById(userId, "exp_ins_$insuranceId")
-                
+
                 db.smartReminderDao().deleteReminderById(userId, insuranceId)
                 db.smartReminderDao().deleteSchedulesByReminderId(userId, insuranceId)
-                
+
                 insAffected
             }
 
@@ -2506,11 +2514,11 @@ class VehicleRepository {
                 return@withContext Result.failure(IllegalStateException("هیچ بیمه‌نامه‌ای برای حذف یافت نشد."))
             }
 
-            // 2. Adjust system alarms outside of transaction after successful commit
-            val scheduler = com.example.reminder.domain.ReminderScheduler(context)
-            scheduler.cancel(insuranceId, schedulesToCancel)
-                    com.example.reminder.domain.NotificationDispatcher(context)
-                        .cancelReminderNotifications(insuranceId, schedulesToCancel)
+            // Retry cancellation using the durable queue; reminder scheduling logic is untouched.
+            runCatching { retryPendingVehicleReminderCleanup(context, userId) }
+                .onFailure {
+                    android.util.Log.e("VehicleRepository", "Insurance deletion succeeded; reminder cleanup remains queued.", it)
+                }
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -2644,11 +2652,19 @@ class VehicleRepository {
 
             val affectedRows = db.withTransaction {
                 val inspAffected = db.vehicleDao().deleteInspectionById(userId, inspectionId)
+                if (inspAffected > 0) {
+                    enqueueVehicleReminderCleanup(
+                        db = db,
+                        userId = userId,
+                        reminderIds = listOf(inspectionId),
+                        schedules = schedulesToCancel
+                    )
+                }
                 db.vehicleDao().deleteExpenseById(userId, "exp_insp_$inspectionId")
-                
+
                 db.smartReminderDao().deleteReminderById(userId, inspectionId)
                 db.smartReminderDao().deleteSchedulesByReminderId(userId, inspectionId)
-                
+
                 inspAffected
             }
 
@@ -2656,11 +2672,11 @@ class VehicleRepository {
                 return@withContext Result.failure(IllegalStateException("هیچ معاینه فنی برای حذف یافت نشد."))
             }
 
-            // 2. Adjust system alarms outside of transaction after successful commit
-            val scheduler = com.example.reminder.domain.ReminderScheduler(context)
-            scheduler.cancel(inspectionId, schedulesToCancel)
-            com.example.reminder.domain.NotificationDispatcher(context)
-                .cancelReminderNotifications(inspectionId, schedulesToCancel)
+            // Retry cancellation using the durable queue; reminder scheduling logic is untouched.
+            runCatching { retryPendingVehicleReminderCleanup(context, userId) }
+                .onFailure {
+                    android.util.Log.e("VehicleRepository", "Inspection deletion succeeded; reminder cleanup remains queued.", it)
+                }
 
             Result.success(Unit)
         } catch (e: Exception) {
