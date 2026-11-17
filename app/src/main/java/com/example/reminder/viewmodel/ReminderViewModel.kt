@@ -24,6 +24,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 
+data class ReminderEditConfiguration(
+    val offsets: List<PredefinedOffset>,
+    val repeatType: RepeatType,
+    val repeatInterval: Int
+)
+
 private data class FilterParams(
     val tab: ReminderTab,
     val filterChip: ReminderFilterChip,
@@ -186,29 +192,37 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         reminder: ReminderEntity,
         offsets: List<PredefinedOffset> = emptyList(),
         repeatType: RepeatType = RepeatType.NONE,
-        repeatInterval: Int = 1
+        repeatInterval: Int = 1,
+        onComplete: ((Result<ReminderEntity>) -> Unit)? = null
     ) {
         viewModelScope.launch {
             try {
                 manager.updateReminder(reminder, offsets, repeatType, repeatInterval)
+                val updated = repository.getReminderById(reminder.id)
+                    ?: throw IllegalStateException("یادآور ویرایش شد اما بازیابی اطلاعات آن ممکن نشد.")
+                _userMessage.value = "یادآور با موفقیت ویرایش شد."
+                onComplete?.invoke(Result.success(updated))
             } catch (e: Exception) {
-                _errorMessage.value = "خطا در ویرایش یادآور: ${e.localizedMessage}"
+                val error = e.localizedMessage ?: "خطای نامشخص"
+                _errorMessage.value = "خطا در ویرایش یادآور: $error"
+                onComplete?.invoke(Result.failure(e))
             }
         }
     }
 
-    suspend fun getReminderOffsets(reminderId: String): List<PredefinedOffset> {
-        return repository.getSchedulesSync(reminderId)
-            .asSequence()
-            .filterNot { it.id.startsWith("snooze_") }
-            .mapNotNull { stored ->
-                PredefinedOffset.entries.find {
-                    it.value == stored.offsetValue &&
-                        it.unit.name.equals(stored.offsetUnit, ignoreCase = true)
-                }
+    suspend fun getReminderEditConfiguration(reminderId: String): ReminderEditConfiguration {
+        val schedules = repository.getSchedulesSync(reminderId).filterNot { it.id.startsWith("snooze_") }
+        val offsets = schedules.mapNotNull { stored ->
+            PredefinedOffset.entries.find {
+                it.value == stored.offsetValue &&
+                    it.unit.name.equals(stored.offsetUnit, ignoreCase = true)
             }
-            .distinct()
-            .toList()
+        }.distinct()
+        val repeatType = schedules.firstOrNull()?.repeatType
+            ?.let { value -> RepeatType.entries.firstOrNull { it.name.equals(value, ignoreCase = true) } }
+            ?: RepeatType.NONE
+        val repeatInterval = schedules.firstOrNull()?.repeatInterval?.coerceIn(1, 365) ?: 1
+        return ReminderEditConfiguration(offsets, repeatType, repeatInterval)
     }
 
     fun updateInstallmentReminder(
