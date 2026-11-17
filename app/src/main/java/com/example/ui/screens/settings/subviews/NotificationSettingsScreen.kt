@@ -17,10 +17,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.data.security.SessionManager
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.reminder.data.ReminderEntity
-import com.example.reminder.domain.MockSmsDispatcher
 import com.example.reminder.domain.NotificationDispatcher
 import com.example.ui.screens.settings.components.SettingsHeader
 import com.example.ui.screens.settings.components.SettingsItem
@@ -30,7 +28,6 @@ import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
 import com.example.ui.theme.WarningAmberLight
-import com.example.util.IranianPhoneUtils
 import kotlinx.coroutines.launch
 
 @Composable
@@ -45,7 +42,6 @@ fun NotificationSettingsScreen(
     val preferences = remember { AppPreferencesRepository.getInstance(context) }
 
     val pushNotificationsEnabled by preferences.notificationsEnabled.collectAsState()
-    val smsNotificationsEnabled by preferences.smsNotificationsEnabled.collectAsState()
     val soundEnabled by preferences.notificationSoundEnabled.collectAsState()
     val vibrationEnabled by preferences.notificationVibrationEnabled.collectAsState()
 
@@ -64,11 +60,6 @@ fun NotificationSettingsScreen(
     }
     val quietStart = formatQuietTime(quietStartMinute)
     val quietEnd = formatQuietTime(quietEndMinute)
-
-    // Verified phone from session
-    val sessionUser = remember { SessionManager.currentUser }
-    val rawPhone = sessionUser?.phoneNumber ?: "09123456789"
-    val maskedPhone = remember(rawPhone) { IranianPhoneUtils.maskPhoneNumber(rawPhone) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -105,61 +96,6 @@ fun NotificationSettingsScreen(
                         }
                     )
 
-                    SettingsItem(
-                        title = "یادآوری از طریق پیامک (SMS)",
-                        subtitle = "ارسال پیامک یادآوری به شماره تأییدشده",
-                        iconRes = R.drawable.img_3d_shield_security,
-                        iconAccentColor = InfoIndigoLight,
-                        checked = smsNotificationsEnabled,
-                        onCheckedChange = { preferences.setSmsNotificationsEnabled(it) }
-                    )
-
-                    // Phone Number Card
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
-                            .clip(RoundedCornerShape(RadiusMD))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(RadiusMD))
-                            .padding(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text(
-                                    text = "شماره موبایل تأییدشده (Primary)",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = maskedPhone,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                )
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(RadiusSM),
-                                color = EmeraldPrimaryLight.copy(alpha = 0.15f)
-                            ) {
-                                Text(
-                                    text = "تأیید با OTP",
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = EmeraldPrimaryLight,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                )
-                            }
-                        }
-                    }
                 }
             }
 
@@ -230,11 +166,8 @@ fun NotificationSettingsScreen(
             // Test & Simulation Section
             item {
                 SettingsSectionCard(title = "تست و بررسی عملکرد هشدارها") {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                     ) {
                         OutlinedButton(
                             onClick = {
@@ -263,36 +196,14 @@ fun NotificationSettingsScreen(
                                     }
                                 }
                             },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(RadiusMD)
                         ) {
                             Icon(Icons.Rounded.NotificationsActive, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("تست اعلان Push", fontSize = 12.sp)
                         }
-
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    val smsDispatcher = MockSmsDispatcher()
-                                    val res = smsDispatcher.sendSms(
-                                        phoneNumber = rawPhone,
-                                        message = "دارینو: این یک پیامک آزمایشی است. سررسید قسط شما نزدیک است.",
-                                        reminderType = "TEST"
-                                    )
-                                    if (res.success) {
-                                        snackbarHostState.showSnackbar("پیامک آزمایشی با شناسه ${res.providerMessageId} با موفقیت در صف ارسال ثبت شد.")
-                                    }
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(RadiusMD)
-                        ) {
-                            Icon(Icons.Rounded.Sms, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("تست پیامک Mock", fontSize = 12.sp)
-                        }
-                    }
+}
                 }
             }
         }
