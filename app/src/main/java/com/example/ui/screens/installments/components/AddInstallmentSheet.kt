@@ -65,6 +65,13 @@ import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.launch
 
+private fun installmentDateMillis(date: String): Long? {
+    val parts = com.example.calendar.domain.CalendarDateUtils.parseJalali(date) ?: return null
+    return runCatching {
+        PersianCalendarHelper.jalaliToEpochMillis(parts.first, parts.second, parts.third, 9, 0)
+    }.getOrNull()
+}
+
 private val INSTALLMENT_IRANIAN_BANK_NAMES = listOf(
     "ملی", "ملت", "صادرات", "تجارت",
     "سپه", "رفاه", "مسکن", "کشاورزی",
@@ -226,6 +233,8 @@ fun AddInstallmentSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(bottom = 24.dp)
         ) {
             if (currentStep == 1) {
@@ -311,6 +320,10 @@ fun AddInstallmentSheet(
                         val parsedMonthlyForValidation = IranianAmountUtils.parseAmountToBigDecimal(installmentAmount)?.let {
                             runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
                         } ?: 0L
+                        if (providerOrPerson.isBlank()) {
+                            submitValidationError = "نام بانک یا طرف حساب را وارد کنید."
+                            return@FormDetailsStep
+                        }
                         if (selectedCategory == InstallmentCategory.CAR_INSURANCE && insuranceType == null) {
                             submitValidationError = "نوع بیمه را انتخاب کنید."
                             return@FormDetailsStep
@@ -319,16 +332,30 @@ fun AddInstallmentSheet(
                             submitValidationError = "ابتدا تاریخ واقعی اولین قسط را وارد یا از تقویم انتخاب کنید."
                             return@FormDetailsStep
                         }
-                        if (paidCountValue > totalCountValue) {
-                            submitValidationError = "تعداد اقساط پرداخت‌شده نمی‌تواند از تعداد کل اقساط بیشتر باشد."
+                        if (totalCountValue <= 0 || parsedTotalForValidation <= 0L) {
+                            submitValidationError = "مبلغ کل و تعداد اقساط باید معتبر و بیشتر از صفر باشند."
                             return@FormDetailsStep
                         }
-                        if (currentCustomScheduleItems.isNullOrEmpty() &&
-                            totalCountValue > 0 &&
-                            Math.multiplyExact(parsedMonthlyForValidation, totalCountValue.toLong()) < parsedTotalForValidation
-                        ) {
-                            submitValidationError = "مجموع مبلغ اقساط نمی‌تواند از مبلغ کل وام کمتر باشد؛ لطفاً مبالغ را بررسی کنید."
+                        if (paidCountValue !in 0..totalCountValue) {
+                            submitValidationError = "تعداد اقساط پرداخت‌شده باید بین صفر و تعداد کل اقساط باشد."
                             return@FormDetailsStep
+                        }
+                        if (currentCustomScheduleItems.isNullOrEmpty()) {
+                            if (parsedMonthlyForValidation <= 0L) {
+                                submitValidationError = "مبلغ هر قسط باید بیشتر از صفر باشد."
+                                return@FormDetailsStep
+                            }
+                            val scheduledTotal = runCatching {
+                                Math.multiplyExact(parsedMonthlyForValidation, totalCountValue.toLong())
+                            }.getOrNull()
+                            if (scheduledTotal == null) {
+                                submitValidationError = "مبلغ یا تعداد اقساط بیش از محدوده قابل محاسبه است؛ لطفاً مقادیر را کاهش دهید."
+                                return@FormDetailsStep
+                            }
+                            if (scheduledTotal < parsedTotalForValidation) {
+                                submitValidationError = "مجموع مبلغ اقساط نمی‌تواند از مبلغ کل وام کمتر باشد؛ لطفاً مبالغ را بررسی کنید."
+                                return@FormDetailsStep
+                            }
                         }
                         submitValidationError = null
                         val offsets = mutableListOf<PredefinedOffset>()
@@ -1560,33 +1587,37 @@ private fun CustomInstallmentsDialog(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            val sumCustom = scheduleList.fold(0L) { total, item -> Math.addExact(total, item.amount) }
-                            val expectedTotal = totalAmountLong
-                            val totalDifference = Math.subtractExact(expectedTotal, sumCustom)
+                            val sumCustom = scheduleList.fold(java.math.BigInteger.ZERO) { total, item ->
+                                total.add(java.math.BigInteger.valueOf(item.amount))
+                            }
+                            val expectedTotal = java.math.BigInteger.valueOf(totalAmountLong)
+                            val sumFitsInLong = sumCustom <= java.math.BigInteger.valueOf(Long.MAX_VALUE)
+                            val totalDifference = expectedTotal.subtract(sumCustom)
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
                                 Text(
-                                    text = "جمع کل اقساط: ${MoneyFormatter.formatExact(MoneyAmount.of(sumCustom, AppCurrency.RIAL))}",
+                                    text = "جمع کل اقساط: " + if (sumFitsInLong) {
+                                        MoneyFormatter.formatExact(MoneyAmount.of(sumCustom.longValueExact(), AppCurrency.RIAL))
+                                    } else "بیش از محدوده قابل ذخیره‌سازی",
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = if (sumFitsInLong) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                 )
                                 Text(
-                                    text = "مبلغ کل وام: ${MoneyFormatter.formatExact(MoneyAmount.of(expectedTotal, AppCurrency.RIAL))}",
+                                    text = "مبلغ کل وام: ${MoneyFormatter.formatExact(MoneyAmount.of(totalAmountLong, AppCurrency.RIAL))}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = if (totalDifference == 0L) {
-                                        "مجموع اقساط با مبلغ کل وام برابر است."
-                                    } else if (totalDifference > 0L) {
-                                        "مبلغ اقساط ${MoneyFormatter.formatExact(MoneyAmount.of(totalDifference, AppCurrency.RIAL))} کمتر از مبلغ وام است."
-                                    } else {
-                                        "مبلغ اقساط ${MoneyFormatter.formatExact(MoneyAmount.of(totalDifference.absoluteValue, AppCurrency.RIAL))} بیشتر از مبلغ وام است."
+                                    text = when {
+                                        !sumFitsInLong -> "جمع اقساط از محدوده قابل ذخیره‌سازی بیشتر است."
+                                        totalDifference.signum() == 0 -> "مجموع اقساط با مبلغ کل وام برابر است."
+                                        totalDifference.signum() > 0 -> "مبلغ اقساط ${MoneyFormatter.formatExact(MoneyAmount.of(totalDifference.longValueExact(), AppCurrency.RIAL))} کمتر از مبلغ وام است."
+                                        else -> "مبلغ اقساط ${MoneyFormatter.formatExact(MoneyAmount.of(totalDifference.abs().longValueExact(), AppCurrency.RIAL))} بیشتر از مبلغ وام است."
                                     },
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = if (totalDifference <= 0L) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                    color = if (sumFitsInLong && totalDifference.signum() <= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                 )
                             }
                         }
@@ -1623,17 +1654,29 @@ private fun CustomInstallmentsDialog(
                                 item.dueDate.isBlank() ||
                                 !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(item.dueDate)
                             }
-                            val expectedTotal = totalAmountLong
-                            val actualTotal = scheduleList.fold(0L) { total, item -> Math.addExact(total, item.amount) }
+                            val expectedTotal = java.math.BigInteger.valueOf(totalAmountLong)
+                            val actualTotal = scheduleList.fold(java.math.BigInteger.ZERO) { total, item ->
+                                total.add(java.math.BigInteger.valueOf(item.amount))
+                            }
                             val expectedNumbers = (1..countInt).toList()
                             val actualNumbers = scheduleList.map { it.installmentNumber }.sorted()
+                            val chronologicalItems = scheduleList.sortedBy { it.installmentNumber }
+                            val hasOutOfOrderDates = chronologicalItems.zipWithNext().any { (first, second) ->
+                                val firstMillis = installmentDateMillis(first.dueDate)
+                                val secondMillis = installmentDateMillis(second.dueDate)
+                                firstMillis == null || secondMillis == null || secondMillis < firstMillis
+                            }
                             if (scheduleList.size != countInt || actualNumbers != expectedNumbers) {
                                 validationError = "شماره اقساط باید از ۱ تا ${IranianPhoneUtils.convertDigitsToPersian(countInt.toString())} کامل و بدون تکرار باشد."
                             } else if (invalidItem != null) {
                                 validationError = "تمام اقساط باید شماره معتبر، مبلغ بیشتر از صفر و تاریخ سررسید معتبر شمسی داشته باشند."
-                            } else if (expectedTotal <= 0L || actualTotal < expectedTotal) {
-                                val difference = expectedTotal - actualTotal
-                                validationError = "جمع اقساط نمی‌تواند از مبلغ کل وام کمتر باشد. مبلغ کل: ${MoneyFormatter.formatExact(MoneyAmount.of(expectedTotal, AppCurrency.RIAL))}، جمع اقساط: ${MoneyFormatter.formatExact(MoneyAmount.of(actualTotal, AppCurrency.RIAL))}، کسری: ${MoneyFormatter.formatExact(MoneyAmount.of(difference, AppCurrency.RIAL))}"
+                            } else if (hasOutOfOrderDates) {
+                                validationError = "تاریخ سررسید اقساط باید مطابق ترتیب شماره اقساط باشد."
+                            } else if (actualTotal > java.math.BigInteger.valueOf(Long.MAX_VALUE)) {
+                                validationError = "جمع اقساط از محدوده قابل ذخیره‌سازی بیشتر است؛ مبالغ را بررسی کنید."
+                            } else if (expectedTotal.signum() <= 0 || actualTotal < expectedTotal) {
+                                val difference = expectedTotal.subtract(actualTotal)
+                                validationError = "جمع اقساط نمی‌تواند از مبلغ کل وام کمتر باشد. مبلغ کل: ${MoneyFormatter.formatExact(MoneyAmount.of(totalAmountLong, AppCurrency.RIAL))}، جمع اقساط: ${MoneyFormatter.formatExact(MoneyAmount.of(actualTotal.longValueExact(), AppCurrency.RIAL))}، کسری: ${MoneyFormatter.formatExact(MoneyAmount.of(difference.longValueExact(), AppCurrency.RIAL))}"
                             } else {
                                 validationError = null
                                 onConfirm(scheduleList)
