@@ -37,6 +37,7 @@ import com.example.data.preferences.AppPreferencesRepository
 import com.example.ui.screens.settings.model.AlertDeliveryPreference
 import androidx.compose.ui.platform.LocalContext
 import com.example.reminder.domain.ReminderType
+import com.example.reminder.domain.ReminderPolicyEngine
 import com.example.reminder.domain.PredefinedOffset
 import com.example.reminder.domain.SnoozeOption
 import com.example.reminder.viewmodel.ReminderFilterChip
@@ -600,7 +601,7 @@ fun ReminderScreen(
                                     onToggleCompleted = {
                                         viewModel.completeReminder(reminder.id)
                                     },
-                                    showSnooze = globalDeliveryConfigured && (reminder.sourceType.equals("VEHICLE", true) || reminder.notificationEnabled || reminder.fullScreenAlarmEnabled),
+                                    showSnooze = ReminderPolicyEngine.canSnooze(reminder, globalDeliveryConfigured),
                                     onSnoozeClick = {
                                         showSnoozeSheetForReminder = reminder
                                     },
