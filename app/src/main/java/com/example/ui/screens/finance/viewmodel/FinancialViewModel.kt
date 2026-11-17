@@ -140,26 +140,6 @@ class FinancialViewModel(
         val currentYearName = com.example.util.PersianCalendarHelper.fromEpochMillis(monthNow).year
             .toString().let { MoneyFormatter.toPersianDigits(it) }
 
-        // Calculate real balances for all accounts (unrestricted by period)
-        val accountBalances = accounts.associate { acc ->
-            var balance = MoneyAmount.of(acc.initialBalance, acc.initialBalanceUnit).asRialsLongExact()
-            transactions.forEach { tx ->
-                // Note: transactions from repository are already filtered by user and not deleted
-                when (tx.type) {
-                    TransactionType.INCOME -> if (tx.accountId == acc.id) balance = Math.addExact(balance, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
-                    TransactionType.EXPENSE -> if (tx.accountId == acc.id) balance = Math.subtractExact(balance, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact())
-                    TransactionType.TRANSFER -> {
-                        val transferAmountRials = MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact()
-                        if (tx.transferSourceAccountId == acc.id) balance = Math.subtractExact(balance, transferAmountRials)
-                        if (tx.transferDestinationAccountId == acc.id) balance = Math.addExact(balance, transferAmountRials)
-                    }
-                }
-            }
-            acc.id to balance
-        }
-
-        val totalRealBalance = accountBalances.values.fold(0L) { total, value -> Math.addExact(total, value) }
-
         val income = FinanceEngine.calculateMonthlyIncome(filteredTransactions)
         val expense = FinanceEngine.calculateMonthlyExpense(filteredTransactions)
         val balance = FinanceEngine.calculateMonthlyBalance(income, expense)
@@ -180,7 +160,7 @@ class FinancialViewModel(
             savingsRate = savingsRate,
             formattedIncome = MoneyFormatter.formatExact(MoneyAmount.of(income, AppCurrency.RIAL), targetCurrency = currency).let { if (it.startsWith("−")) it else "+$it" },
             formattedExpense = MoneyFormatter.formatExact(MoneyAmount.of(expense, AppCurrency.RIAL), targetCurrency = currency).let { if (it.startsWith("−")) it else "−$it" },
-            formattedBalance = MoneyFormatter.formatExact(MoneyAmount.of(totalRealBalance, AppCurrency.RIAL), targetCurrency = currency),
+            formattedBalance = MoneyFormatter.formatExact(MoneyAmount.of(balance, AppCurrency.RIAL), targetCurrency = currency),
             currentMonthName = currentMonthName,
             currentMonthFormattedIncome = formatSummarySignedAmount(currentMonthIncome, currency, isExpense = false),
             currentMonthFormattedExpense = formatSummarySignedAmount(currentMonthExpense, currency, isExpense = true),
