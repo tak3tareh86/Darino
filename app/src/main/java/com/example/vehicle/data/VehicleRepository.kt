@@ -51,6 +51,7 @@ class VehicleRepository {
     private var dbContext: Context? = null
     private var sessionObserverStarted = false
     private var roomCollectorsJob: Job? = null
+    private var activeRoomUserId: String? = null
 
     /**
      * Attempts every cleanup operation independently so one platform failure does not
@@ -187,6 +188,7 @@ class VehicleRepository {
                     }
                     if (userId == null) {
                         roomCollectorsJob?.cancel()
+                        activeRoomUserId = null
                         clearAllVehiclesData()
                         return@collectLatest
                     }
@@ -197,6 +199,12 @@ class VehicleRepository {
     }
 
     private suspend fun setupRoomCollectors(appCtx: Context, userId: String) {
+        if (activeRoomUserId != userId) {
+            // Never leave the previous account's vehicle records visible while the new
+            // account's Room flows are still loading.
+            clearAllVehiclesData()
+            activeRoomUserId = userId
+        }
         roomCollectorsJob?.cancel()
         val db = AppDatabase.getDatabase(appCtx)
         runCatching { retryPendingVehicleReminderCleanup(appCtx, userId) }
@@ -343,6 +351,49 @@ class VehicleRepository {
                         )
                     })
 
+                    // Rebuild only explicitly opted-in legacy insurance/inspection reminders.
+                    // Their schedules are persisted in the same transaction as the migrated records.
+                    migratedInsurances.filter { it.reminderEnabled }.forEach { insurance ->
+                        val offsets = VehicleReminderMigrationPolicy.offsetsForDays(insurance.reminderDays)
+                        if (offsets.isNotEmpty() && parseJalaliToTimestamp(insurance.endDate) != null &&
+                            isValidReminderTime(insurance.reminderTime)
+                        ) {
+                            syncReminderPersistenceInternal(
+                                db = db,
+                                userId = userId,
+                                id = insurance.id,
+                                title = "تمدید ${insurance.type} خودرو",
+                                description = "سررسید انقضای بیمه‌نامه برای خودرو. شماره بیمه‌نامه: ${insurance.policyNumber}",
+                                date = insurance.endDate,
+                                time = insurance.reminderTime,
+                                type = "INSURANCE",
+                                offsets = offsets,
+                                reminderEnabled = true,
+                                notificationEnabled = true
+                            )
+                        }
+                    }
+                    migratedInspections.filter { it.reminderEnabled }.forEach { inspection ->
+                        val offsets = VehicleReminderMigrationPolicy.offsetsForDays(inspection.reminderDays)
+                        if (offsets.isNotEmpty() && parseJalaliToTimestamp(inspection.expiryDate) != null &&
+                            isValidReminderTime(inspection.reminderTime)
+                        ) {
+                            syncReminderPersistenceInternal(
+                                db = db,
+                                userId = userId,
+                                id = inspection.id,
+                                title = "معاینه فنی خودرو",
+                                description = "موعد سررسید معاینه فنی خودرو در مرکز ${inspection.centerName}",
+                                date = inspection.expiryDate,
+                                time = inspection.reminderTime,
+                                type = "VEHICLE",
+                                offsets = offsets,
+                                reminderEnabled = true,
+                                notificationEnabled = true
+                            )
+                        }
+                    }
+
                     // All legacy collections have now been migrated (or safely excluded as orphans).
                     // Clear every collection atomically so stale child JSON cannot poison later backups.
                     vDao.insertVehicleStore(
@@ -363,8 +414,15 @@ class VehicleRepository {
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("VehicleRepository", "Legacy vehicle JSON migration failed; original JSON was retained for retry.", e)
         }
+
+        // Re-arm only already-active vehicle reminders for this authenticated account.
+        // ReminderManager applies the existing global delivery preference and stable schedule IDs.
+        runCatching { restoreActiveVehicleReminders(appCtx, userId) }
+            .onFailure {
+                android.util.Log.e("VehicleRepository", "Could not restore active vehicle reminders for the current account.", it)
+            }
 
         // 2. Observe Room DAOs as authoritative Source of Truth
         roomCollectorsJob = repositoryScope.launch {
@@ -511,6 +569,33 @@ class VehicleRepository {
                     _inspections.value = mappedInspections
                 }
             }
+        }
+    }
+
+    private suspend fun restoreActiveVehicleReminders(context: Context, userId: String) {
+        val db = AppDatabase.getDatabase(context)
+        val activeVehicleReminders = db.smartReminderDao().getActiveRemindersList(userId)
+            .filter(VehicleReminderMigrationPolicy::shouldRestore)
+        if (activeVehicleReminders.isEmpty()) return
+
+        val manager = com.example.reminder.domain.ReminderManager(context)
+        activeVehicleReminders.forEach { reminder ->
+            val schedules = db.smartReminderDao().getSchedulesForReminderSync(userId, reminder.id)
+            if (schedules.isEmpty()) {
+                android.util.Log.w(
+                    "VehicleRepository",
+                    "Active vehicle reminder ${reminder.id} has no persisted schedules; it was not recreated."
+                )
+                return@forEach
+            }
+            runCatching { manager.enableReminder(reminder.id) }
+                .onFailure {
+                    android.util.Log.e(
+                        "VehicleRepository",
+                        "Could not re-arm persisted vehicle reminder ${reminder.id}; its stored configuration was retained.",
+                        it
+                    )
+                }
         }
     }
 
