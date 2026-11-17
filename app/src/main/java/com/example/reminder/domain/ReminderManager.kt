@@ -298,7 +298,11 @@ class ReminderManager(
         val reminder = repository.getReminderById(reminderId)
             ?: throw NoSuchElementException("یادآور با شناسه $reminderId یافت نشد.")
         val storedSchedules = repository.getSchedulesSync(reminderId)
-        if (storedSchedules.isEmpty()) {
+        val baseSchedules = storedSchedules.filterNot { it.id.startsWith("snooze_") }
+        if (baseSchedules.size != storedSchedules.size) {
+            repository.updateReminderWithSchedules(reminder, baseSchedules)
+        }
+        if (baseSchedules.isEmpty()) {
             val reminderHasExplicitDelivery = reminder.notificationEnabled || reminder.fullScreenAlarmEnabled
             val isVehicleReminder = reminder.sourceType.equals("VEHICLE", ignoreCase = true)
             if (!reminderHasExplicitDelivery && !isVehicleReminder) {
@@ -334,7 +338,7 @@ class ReminderManager(
         val now = System.currentTimeMillis()
         val enabledReminder = reminder.copy(status = "ACTIVE", updatedAt = now)
         // A 7-day offset may already be past while shorter selected offsets are still valid.
-        val enabledSchedules = storedSchedules.map { it.copy(enabled = it.triggerDateTime > now) }
+        val enabledSchedules = baseSchedules.map { it.copy(enabled = it.triggerDateTime > now) }
         if (enabledSchedules.none { it.enabled }) {
             repository.updateReminderWithSchedules(
                 enabledReminder.copy(status = "DISABLED"),
