@@ -372,11 +372,14 @@ class LocalFinanceRepository private constructor() : FinanceRepository {
         val entity = AppDatabase.getDatabase(ctx).transactionDao().getTransactionByStringId(userId, id)
         val original = entity?.let { toItemData(it, _categories.value) } ?: return null
 
+        val duplicatedAt = System.currentTimeMillis()
+        val duplicatedDate = PersianCalendarHelper.fromEpochMillis(duplicatedAt)
         val duplicate = original.copy(
             id = UUID.randomUUID().toString(),
             title = "${original.title} (کپی)",
-            datePersian = "امروز",
-            dateMillis = System.currentTimeMillis()
+            datePersian = duplicatedDate.toFormattedDate(),
+            timePersian = duplicatedDate.toFormattedTime(),
+            dateMillis = duplicatedAt
         )
         val result = addTransactionResult(duplicate)
         return if (result == TransactionOperationResult.SUCCESS) duplicate else null
