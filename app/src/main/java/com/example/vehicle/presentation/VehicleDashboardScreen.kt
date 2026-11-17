@@ -1246,12 +1246,20 @@ private fun VehicleInsuranceDocumentsTabContent(
                         val expired = !invalidExpiry && normalizedExpiry!! < today
                         val inspectionStatusText = insp.status.trim().ifBlank { "دارای اعتبار" }
                         val normalizedInspectionStatus = inspectionStatusText.lowercase()
-                        val inspectionStatusApproved = normalizedInspectionStatus.contains("معتبر") ||
-                            normalizedInspectionStatus.contains("قبول") ||
-                            normalizedInspectionStatus.contains("تایید") ||
-                            normalizedInspectionStatus.contains("تأیید")
+                        val inspectionStatusRejected = listOf(
+                            "مردود", "رد شده", "ردشده", "نامعتبر", "غیرمعتبر",
+                            "غیر قابل قبول", "غیرقابل قبول", "عدم تایید", "عدم تأیید",
+                            "تایید نشده", "تأیید نشده", "نقص", "نیاز به تعمیر"
+                        ).any(normalizedInspectionStatus::contains)
+                        val inspectionStatusApproved = !inspectionStatusRejected && (
+                            inspectionStatusText.isBlank() ||
+                                normalizedInspectionStatus.contains("معتبر") ||
+                                normalizedInspectionStatus.contains("قبول") ||
+                                normalizedInspectionStatus.contains("تایید") ||
+                                normalizedInspectionStatus.contains("تأیید")
+                            )
                         val inspectionStatusColor = when {
-                            invalidExpiry || expired -> MaterialTheme.colorScheme.error
+                            invalidExpiry || expired || inspectionStatusRejected -> MaterialTheme.colorScheme.error
                             inspectionStatusApproved -> Color(0xFF10B981)
                             else -> MaterialTheme.colorScheme.tertiary
                         }
