@@ -238,15 +238,40 @@ object VehicleAnalyzer {
         }
 
         fun insuranceStatus(title: String, iconRes: Int, typeMatch: (String) -> Boolean): VehicleHealthCheckItem {
-            val insurance = carInsurances.filter { typeMatch(it.type) }
-                .maxByOrNull { parseAndValidateJalaliDate(it.startDate) ?: "" }
-                ?: return VehicleHealthCheckItem(title, "ثبت نشده", false, true, iconRes)
+            val matchingInsurances = carInsurances.filter { typeMatch(it.type) }
+            if (matchingInsurances.isEmpty()) {
+                return VehicleHealthCheckItem(title, "ثبت نشده", false, true, iconRes)
+            }
 
+            // Prefer a policy that covers today; a future-dated renewal must not
+            // incorrectly replace an already-active policy in the health checklist.
+            val activeInsurance = matchingInsurances
+                .mapNotNull { insurance ->
+                    val start = parseAndValidateJalaliDate(insurance.startDate)
+                    val expiry = parseAndValidateJalaliDate(insurance.endDate)
+                    if (start != null && expiry != null && start <= today && expiry >= today) {
+                        insurance to start
+                    } else {
+                        null
+                    }
+                }
+                .maxByOrNull { it.second }
+                ?.first
+            val insurance = activeInsurance ?: matchingInsurances.maxByOrNull {
+                parseAndValidateJalaliDate(it.startDate) ?: ""
+            }!!
+
+            val start = parseAndValidateJalaliDate(insurance.startDate)
             val expiry = parseAndValidateJalaliDate(insurance.endDate)
-            return if (expiry != null && expiry >= today) {
-                VehicleHealthCheckItem(title, "دارای اعتبار", true, false, iconRes)
-            } else {
-                VehicleHealthCheckItem(title, "فاقد اعتبار", false, true, iconRes)
+            return when {
+                start == null || expiry == null ->
+                    VehicleHealthCheckItem(title, "تاریخ نامعتبر یا ثبت نشده", false, true, iconRes)
+                start > today ->
+                    VehicleHealthCheckItem(title, "هنوز شروع نشده", false, true, iconRes)
+                expiry < today ->
+                    VehicleHealthCheckItem(title, "منقضی شده", false, true, iconRes)
+                else ->
+                    VehicleHealthCheckItem(title, "دارای اعتبار", true, false, iconRes)
             }
         }
 
@@ -258,11 +283,25 @@ object VehicleAnalyzer {
                 if (inspection == null) {
                     VehicleHealthCheckItem("معاینه فنی", "ثبت نشده", false, true, R.drawable.fani)
                 } else {
+                    val lastInspection = parseAndValidateJalaliDate(inspection.lastInspectionDate)
                     val expiry = parseAndValidateJalaliDate(inspection.expiryDate)
-                    if (expiry != null && expiry >= today) {
-                        VehicleHealthCheckItem("معاینه فنی", "دارای اعتبار", true, false, R.drawable.fani)
-                    } else {
-                        VehicleHealthCheckItem("معاینه فنی", "فاقد اعتبار", false, true, R.drawable.fani)
+                    val statusText = inspection.status.trim()
+                    val statusApproved = statusText.isBlank() ||
+                        statusText.contains("معتبر") ||
+                        statusText.contains("قبول") ||
+                        statusText.contains("تایید") ||
+                        statusText.contains("تأیید")
+                    when {
+                        lastInspection == null || expiry == null ->
+                            VehicleHealthCheckItem("معاینه فنی", "تاریخ نامعتبر یا ثبت نشده", false, true, R.drawable.fani)
+                        lastInspection > today ->
+                            VehicleHealthCheckItem("معاینه فنی", "تاریخ معاینه در آینده است", false, true, R.drawable.fani)
+                        expiry < today ->
+                            VehicleHealthCheckItem("معاینه فنی", "معاینه فنی منقضی شده", false, true, R.drawable.fani)
+                        !statusApproved ->
+                            VehicleHealthCheckItem("معاینه فنی", statusText, false, true, R.drawable.fani)
+                        else ->
+                            VehicleHealthCheckItem("معاینه فنی", "دارای اعتبار", true, false, R.drawable.fani)
                     }
                 }
             },
