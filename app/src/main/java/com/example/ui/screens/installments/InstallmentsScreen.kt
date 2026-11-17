@@ -742,9 +742,12 @@ fun InstallmentsScreen(
                     return@AddInstallmentSheet false
                 }
 
-                if (reminderEnabled && remainingInstallments > 0) {
-                    try {
-                        val scheduledCount = com.example.reminder.domain.ReminderManager(context).syncInstallmentReminder(
+                // Close the form immediately after the installment is persisted.
+                // Reminder synchronization and its feedback must not block dismissal.
+                coroutineScope.launch {
+                    if (reminderEnabled && remainingInstallments > 0) {
+                        try {
+                            val scheduledCount = com.example.reminder.domain.ReminderManager(context).syncInstallmentReminder(
                                 installmentId = newItem.id,
                                 title = newItem.title,
                                 amount = nextUnpaidPayment?.amount ?: parsedMonthly,
@@ -755,24 +758,24 @@ fun InstallmentsScreen(
                                 paymentDueDates = paymentHistoryList
                                     .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
                                     .map { it.id to it.dueDate }
-                        )
-                        if (scheduledCount > 0) {
-                            snackbarHostState.showSnackbar("قسط و یادآور با موفقیت ثبت شدند ($scheduledCount یادآور فعال تنظیم شد).")
-                        } else {
-                            snackbarHostState.showSnackbar("قسط ثبت شد، اما هیچ یادآور آینده‌ای تنظیم نشد (زمان‌های سررسید انتخاب‌شده در گذشته بودند یا گزینه‌ای انتخاب نشده بود).")
+                            )
+                            if (scheduledCount > 0) {
+                                snackbarHostState.showSnackbar("وام و یادآور با موفقیت ثبت شدند ($scheduledCount یادآور فعال تنظیم شد).")
+                            } else {
+                                snackbarHostState.showSnackbar("وام ثبت شد، اما هیچ یادآور آینده‌ای تنظیم نشد (زمان‌های سررسید انتخاب‌شده در گذشته بودند یا گزینه‌ای انتخاب نشده بود).")
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("InstallmentsScreen", "Failed to sync reminder for installment ${newItem.id}", e)
+                            snackbarHostState.showSnackbar("وام ثبت شد، اما ثبت یادآور با خطا مواجه شد: ${e.localizedMessage ?: "خطای ناشناخته"}")
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        android.util.Log.e("InstallmentsScreen", "Failed to sync reminder for installment ${newItem.id}", e)
-                        snackbarHostState.showSnackbar("قسط ثبت شد، اما ثبت یادآور با خطا مواجه شد: ${e.localizedMessage ?: "خطای ناشناخته"}")
-                    }
-                } else {
-                    val message = if (remainingInstallments == 0) {
-                        "وام با تمام اقساط پرداخت‌شده ثبت شد."
                     } else {
-                        "قسط با موفقیت ثبت شد (یادآور غیرفعال است)."
+                        val message = if (remainingInstallments == 0) {
+                            "وام با تمام اقساط پرداخت‌شده ثبت شد."
+                        } else {
+                            "وام با موفقیت ثبت شد (یادآور غیرفعال است)."
+                        }
+                        snackbarHostState.showSnackbar(message)
                     }
-                    snackbarHostState.showSnackbar(message)
                 }
                 true
             }
