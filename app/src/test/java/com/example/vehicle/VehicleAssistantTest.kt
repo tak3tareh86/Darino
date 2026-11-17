@@ -1580,6 +1580,13 @@ class VehicleAssistantTest {
         val inspectionCheck = rejectedInspectionReport.checklist.first { it.title == "معاینه فنی" }
         assertFalse("A rejected inspection certificate must not be scored as valid", inspectionCheck.isOk)
         assertEquals("مردود", inspectionCheck.statusText)
+
+        val unapprovedInspection = rejectedInspection.copy(status = "عدم تأیید")
+        val unapprovedReport = VehicleAnalyzer.analyzeHealth(
+            car, emptyList(), emptyList(), listOf(unapprovedInspection)
+        )
+        val unapprovedCheck = unapprovedReport.checklist.first { it.title == "معاینه فنی" }
+        assertFalse("A certificate explicitly marked as not approved must not be scored as valid", unapprovedCheck.isOk)
     }
 
     @Test
