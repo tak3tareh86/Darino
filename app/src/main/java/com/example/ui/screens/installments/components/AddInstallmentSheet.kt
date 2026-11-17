@@ -187,7 +187,7 @@ fun AddInstallmentSheet(
                     installmentsCount,
                     paidInstallmentsCount,
                     dueDate,
-                    providerOrPerson,
+                    providerOrPerson.trim(),
                     notes,
                     reminderActive,
                     daysSummary,
