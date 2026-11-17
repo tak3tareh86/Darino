@@ -181,7 +181,7 @@ fun AddInstallmentSheet(
             val saved = try {
                 onAddConfirm(
                     selectedCategory,
-                    title.ifBlank { selectedCategory.title },
+                    title.trim(),
                     totalAmount,
                     installmentAmount,
                     installmentsCount,
@@ -326,6 +326,10 @@ fun AddInstallmentSheet(
                         val parsedMonthlyForValidation = IranianAmountUtils.parseAmountToBigDecimal(installmentAmount)?.let {
                             runCatching { MoneyAmount(it, activeCurrency).asRialsLongExact() }.getOrNull()
                         } ?: 0L
+                        if (title.isBlank()) {
+                            submitValidationError = "عنوان وام یا تعهد را وارد کنید."
+                            return@FormDetailsStep
+                        }
                         if (providerOrPerson.isBlank()) {
                             submitValidationError = "نام بانک یا طرف حساب را وارد کنید."
                             return@FormDetailsStep
