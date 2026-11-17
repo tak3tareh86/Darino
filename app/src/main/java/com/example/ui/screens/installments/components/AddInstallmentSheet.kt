@@ -331,7 +331,11 @@ fun AddInstallmentSheet(
                             return@FormDetailsStep
                         }
                         if (providerOrPerson.isBlank()) {
-                            submitValidationError = "نام بانک یا طرف حساب را وارد کنید."
+                            submitValidationError = if (selectedCategory == InstallmentCategory.BANK_LOANS) {
+                                "نام بانک را وارد کنید."
+                            } else {
+                                "نام بانک یا طرف حساب را وارد کنید."
+                            }
                             return@FormDetailsStep
                         }
                         if (selectedCategory == InstallmentCategory.CAR_INSURANCE && insuranceType == null) {
@@ -901,7 +905,14 @@ private fun FormDetailsStep(
                     OutlinedTextField(
                         value = title,
                         onValueChange = onTitleChange,
-                        label = { Text("عنوان وام/تعهد *") },
+                        label = {
+                            Text(
+                                "عنوان وام/تعهد *",
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
                         singleLine = true,
                         modifier = Modifier
                             .weight(1f)
@@ -912,7 +923,14 @@ private fun FormDetailsStep(
                     OutlinedTextField(
                         value = provider,
                         onValueChange = onProviderChange,
-                        label = { Text("نام بانک/طرف حساب *") },
+                        label = {
+                            Text(
+                                if (category == InstallmentCategory.BANK_LOANS) "نام بانک *" else "نام بانک/طرف حساب *",
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                         trailingIcon = {
