@@ -525,7 +525,12 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                     timestamp = item.timestampMillis,
                     timeFormatted = item.timeText,
                     datePersian = item.dateText,
-                    paymentMethod = "OTHER",
+                    paymentMethod = when (sourceAccount.type.uppercase()) {
+                        "CARD" -> "BANK_CARD"
+                        "BANK" -> "BANK_TRANSFER"
+                        "CASH" -> "CASH"
+                        else -> "OTHER"
+                    },
                     sourceType = "BANK_SMS",
                     sourceId = id,
                     accountId = if (finalType == TransactionType.TRANSFER) null else sourceAccount.stringId,
