@@ -297,8 +297,8 @@ fun AddInstallmentSheet(
                     onOpenCustomSchedule = {
                         val requestedCount = IranianPhoneUtils.convertDigitsToEnglish(installmentsCount)
                             .filter { it.isDigit() }.toIntOrNull() ?: 0
-                        if (requestedCount !in 1..60) {
-                            submitValidationError = "برای تنظیم اقساط غیرهمسان، تعداد اقساط باید بین ۱ تا ۶۰ باشد."
+                        if (requestedCount <= 0) {
+                            submitValidationError = "برای تنظیم اقساط غیرهمسان، تعداد اقساط باید بیشتر از صفر باشد."
                         } else if (dueDate.isBlank() || !com.example.calendar.domain.CalendarDateUtils.isValidJalaliDate(dueDate)) {
                             submitValidationError = "ابتدا تاریخ واقعی اولین قسط را وارد یا از تقویم انتخاب کنید."
                         } else {
@@ -342,11 +342,11 @@ fun AddInstallmentSheet(
                             submitValidationError = "ابتدا تاریخ واقعی اولین قسط را وارد یا از تقویم انتخاب کنید."
                             return@FormDetailsStep
                         }
-                        if (enteredCountValue !in 1..60 || totalCountValue <= 0 ||
+                        if (enteredCountValue <= 0 || totalCountValue <= 0 ||
                             (!currentCustomScheduleItems.isNullOrEmpty() && enteredCountValue != totalCountValue) ||
                             parsedTotalForValidation <= 0L
                         ) {
-                            submitValidationError = "مبلغ کل باید بیشتر از صفر و تعداد اقساط باید بین ۱ تا ۶۰ باشد؛ تعداد برنامه سفارشی نیز باید با تعداد اقساط یکسان باشد."
+                            submitValidationError = "مبلغ کل و تعداد اقساط باید بیشتر از صفر باشند؛ تعداد برنامه سفارشی نیز باید با تعداد اقساط یکسان باشد."
                             return@FormDetailsStep
                         }
                         if (paidCountValue !in 0..totalCountValue) {
