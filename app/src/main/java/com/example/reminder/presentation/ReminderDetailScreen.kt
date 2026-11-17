@@ -52,7 +52,6 @@ fun ReminderDetailScreen(
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     val normalizedStatus = reminder.status.uppercase()
-    val isCompleted = normalizedStatus == "COMPLETED"
     val statusLabel = when (normalizedStatus) {
         "ACTIVE" -> "فعال"
         "COMPLETED" -> "انجام شده"
