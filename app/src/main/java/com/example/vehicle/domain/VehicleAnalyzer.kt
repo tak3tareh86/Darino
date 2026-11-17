@@ -286,11 +286,19 @@ object VehicleAnalyzer {
                     val lastInspection = parseAndValidateJalaliDate(inspection.lastInspectionDate)
                     val expiry = parseAndValidateJalaliDate(inspection.expiryDate)
                     val statusText = inspection.status.trim()
-                    val statusApproved = statusText.isBlank() ||
-                        statusText.contains("معتبر") ||
-                        statusText.contains("قبول") ||
-                        statusText.contains("تایید") ||
-                        statusText.contains("تأیید")
+                    val normalizedStatus = statusText.lowercase()
+                    val statusRejected = listOf(
+                        "مردود", "رد شده", "ردشده", "نامعتبر", "غیرمعتبر",
+                        "غیر قابل قبول", "غیرقابل قبول", "عدم تایید", "عدم تأیید",
+                        "تایید نشده", "تأیید نشده", "نقص", "نیاز به تعمیر"
+                    ).any(normalizedStatus::contains)
+                    val statusApproved = !statusRejected && (
+                        statusText.isBlank() ||
+                            normalizedStatus.contains("معتبر") ||
+                            normalizedStatus.contains("قبول") ||
+                            normalizedStatus.contains("تایید") ||
+                            normalizedStatus.contains("تأیید")
+                        )
                     when {
                         lastInspection == null || expiry == null || expiry < lastInspection ->
                             VehicleHealthCheckItem("معاینه فنی", "تاریخ نامعتبر یا ثبت نشده", false, true, R.drawable.fani)
