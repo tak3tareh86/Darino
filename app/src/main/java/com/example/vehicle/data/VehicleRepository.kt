@@ -270,7 +270,7 @@ class VehicleRepository {
                                 costUnit = s.costUnit.name,
                                 serviceMileage = s.mileage,
                                 dueMileage = s.nextReminderMileage,
-                                status = "PENDING",
+                                status = s.status,
                                 reminderEnabled = s.isReminderEnabled,
                                 notes = if (s.cost > 0L) "COST:${s.cost}|${s.description}" else s.description
                             )
@@ -320,7 +320,9 @@ class VehicleRepository {
                             amount = ins.amount,
                             amountUnit = ins.amountUnit.name,
                             policyNumber = ins.policyNumber,
-                            reminderDays = ins.reminderDays.joinToString(",")
+                            reminderDays = ins.reminderDays.joinToString(","),
+                            reminderEnabled = ins.reminderEnabled,
+                            reminderTime = ins.reminderTime
                         )
                     })
 
@@ -334,7 +336,10 @@ class VehicleRepository {
                             cost = insp.cost,
                             costUnit = insp.costUnit.name,
                             status = insp.status,
-                            centerName = insp.centerName
+                            centerName = insp.centerName,
+                            reminderEnabled = insp.reminderEnabled,
+                            reminderTime = insp.reminderTime,
+                            reminderDays = insp.reminderDays.joinToString(",")
                         )
                     })
 
@@ -2814,6 +2819,20 @@ class VehicleRepository {
         }.getOrNull()
     }
 
+    private fun parseAppCurrency(value: String): AppCurrency =
+        runCatching { AppCurrency.valueOf(value.trim().uppercase()) }.getOrDefault(AppCurrency.TOMAN)
+
+    private fun jsonToIntList(obj: JSONObject, key: String): List<Int> {
+        val raw = obj.opt(key) ?: return emptyList()
+        val values = when (raw) {
+            is JSONArray -> (0 until raw.length()).mapNotNull { raw.optInt(it).takeIf { number -> number >= 0 } }
+            is String -> raw.split(",").mapNotNull { it.trim().toIntOrNull()?.takeIf { number -> number >= 0 } }
+            is Number -> listOf(raw.toInt()).filter { it >= 0 }
+            else -> emptyList()
+        }
+        return values.distinct().sortedDescending()
+    }
+
     private fun jsonToVehicles(json: String): List<VehicleEntity> {
         val list = mutableListOf<VehicleEntity>()
         if (json.isBlank()) return list
@@ -2831,7 +2850,10 @@ class VehicleRepository {
                     vin = obj.optString("vin", ""),
                     currentMileage = obj.getInt("currentMileage"),
                     estimatedValue = obj.optLong("estimatedValue", 0L),
-                    createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                    estimatedValueUnit = parseAppCurrency(obj.optString("estimatedValueUnit", AppCurrency.TOMAN.name)),
+                    createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                    engine = obj.optString("engine", ""),
+                    transmission = obj.optString("transmission", "")
                 )
             )
         }
@@ -2858,7 +2880,9 @@ class VehicleRepository {
                     description = obj.optString("description", ""),
                     nextReminderDate = obj.optString("nextReminderDate", "").let { if (it.isBlank()) null else it },
                     nextReminderMileage = obj.optInt("nextReminderMileage", 0).let { if (it == 0) null else it },
-                    isReminderEnabled = obj.optBoolean("isReminderEnabled", false)
+                    isReminderEnabled = obj.optBoolean("isReminderEnabled", false),
+                    costUnit = parseAppCurrency(obj.optString("costUnit", AppCurrency.TOMAN.name)),
+                    status = obj.optString("status", "PENDING").takeIf { it == "COMPLETED" } ?: "PENDING"
                 )
             )
         }
@@ -2880,6 +2904,7 @@ class VehicleRepository {
                     title = obj.getString("title"),
                     category = category,
                     amount = obj.getLong("amount"),
+                    amountUnit = parseAppCurrency(obj.optString("amountUnit", AppCurrency.TOMAN.name)),
                     date = obj.getString("date"),
                     description = obj.optString("description", ""),
                     receiptImageUri = obj.optString("receiptImageUri", "").let { if (it.isBlank()) null else it }
@@ -2904,7 +2929,11 @@ class VehicleRepository {
                     startDate = obj.getString("startDate"),
                     endDate = obj.getString("endDate"),
                     amount = obj.getLong("amount"),
-                    policyNumber = obj.optString("policyNumber", "")
+                    amountUnit = parseAppCurrency(obj.optString("amountUnit", AppCurrency.TOMAN.name)),
+                    policyNumber = obj.optString("policyNumber", ""),
+                    reminderDays = jsonToIntList(obj, "reminderDays"),
+                    reminderEnabled = obj.optBoolean("reminderEnabled", false),
+                    reminderTime = obj.optString("reminderTime", "۰۹:۰۰")
                 )
             )
         }
@@ -2924,8 +2953,12 @@ class VehicleRepository {
                     lastInspectionDate = obj.getString("lastInspectionDate"),
                     expiryDate = obj.getString("expiryDate"),
                     cost = obj.getLong("cost"),
+                    costUnit = parseAppCurrency(obj.optString("costUnit", AppCurrency.TOMAN.name)),
                     status = obj.optString("status", "معتبر"),
-                    centerName = obj.optString("centerName", "")
+                    centerName = obj.optString("centerName", ""),
+                    reminderEnabled = obj.optBoolean("reminderEnabled", false),
+                    reminderTime = obj.optString("reminderTime", "۰۹:۰۰"),
+                    reminderDays = jsonToIntList(obj, "reminderDays")
                 )
             )
         }
