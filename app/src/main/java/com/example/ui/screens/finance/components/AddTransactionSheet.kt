@@ -7,7 +7,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -308,11 +307,10 @@ fun AddTransactionSheet(
                             )
                         }
                     } else {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             activeAccounts.forEach { acc ->
                                 val isSelected = selectedAccount?.id == acc.id
@@ -324,24 +322,15 @@ fun AddTransactionSheet(
                                     color = if (isSelected) MaterialTheme.colorScheme.primary else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
                                     border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                                 ) {
-                                    Column(
+                                    Text(
+                                        text = acc.name,
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Text(
-                                            text = acc.name,
-                                            style = MaterialTheme.typography.labelMedium.copy(
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                fontSize = 12.sp
-                                            ),
-                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = com.example.util.MoneyFormatter.formatExact(MoneyAmount.of(acc.initialBalance, acc.initialBalanceUnit)),
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                            color = if (isSelected) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            fontSize = 12.sp
+                                        ),
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                    )
                                 }
                             }
                         }
@@ -357,11 +346,10 @@ fun AddTransactionSheet(
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             activeAccounts.forEach { acc ->
                                 val isSelected = selectedSourceAccount?.id == acc.id
@@ -416,11 +404,10 @@ fun AddTransactionSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         availableCategories.forEach { category ->
                             val isSelected = selectedCategory.id == category.id
