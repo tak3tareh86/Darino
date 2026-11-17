@@ -285,7 +285,8 @@ class ReminderManager(
         val storedSchedules = repository.getSchedulesSync(reminderId)
         if (storedSchedules.isEmpty()) {
             val reminderHasExplicitDelivery = reminder.notificationEnabled || reminder.fullScreenAlarmEnabled
-            if (!reminderHasExplicitDelivery) {
+            val isVehicleReminder = reminder.sourceType.equals("VEHICLE", ignoreCase = true)
+            if (!reminderHasExplicitDelivery && !isVehicleReminder) {
                 // A reminder intentionally saved without alerts can still be reactivated
                 // as a visible list item; it must not acquire an implicit alarm.
                 repository.updateStatus(reminderId, "ACTIVE")
@@ -372,7 +373,8 @@ class ReminderManager(
         if (baseSchedules.size != storedSchedules.size) {
             repository.updateReminderWithSchedules(reminder, baseSchedules)
         }
-        if ((reminder.notificationEnabled || reminder.fullScreenAlarmEnabled) &&
+        if ((reminder.notificationEnabled || reminder.fullScreenAlarmEnabled ||
+                reminder.sourceType.equals("VEHICLE", ignoreCase = true)) &&
             (baseSchedules.isNotEmpty() || reminder.sourceType.equals("CALENDAR", ignoreCase = true))
         ) {
             enableReminder(reminderId)
@@ -417,10 +419,7 @@ class ReminderManager(
         val reminder = repository.getReminderById(reminderId)
             ?: return@withContext Result.failure(IllegalStateException("یادآور با شناسه موردنظر یافت نشد."))
 
-        if (!reminder.status.equals("ACTIVE", ignoreCase = true)) {
-            return@withContext Result.failure(IllegalStateException("فقط یادآور فعال قابل تعویق است."))
-        }
-        if (!scheduler.hasConfiguredDelivery(reminder)) {
+        if (!ReminderPolicyEngine.canSnooze(reminder, scheduler.hasConfiguredDelivery(reminder))) {
             return@withContext Result.failure(IllegalStateException("روش دریافت هشدار برای این یادآور فعال نیست."))
         }
 
