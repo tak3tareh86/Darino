@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -51,7 +50,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 private val PremiumNavy = Color(0xFF031638)
 private val PremiumDeepNavy = Color(0xFF00102B)
 private val PremiumGold = Color(0xFFFFC21C)
-private val PremiumOrange = Color(0xFFFF9800)
 private val PremiumBlue = Color(0xFF398BFF)
 private val PremiumText = Color(0xFFF6F7FF)
 
