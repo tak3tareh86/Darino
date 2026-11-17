@@ -73,9 +73,16 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val completedList = allReminders.filter { it.status.equals("COMPLETED", ignoreCase = true) }
         val missedList = allReminders.filter { it.status.equals("MISSED", ignoreCase = true) }
 
-        val todayReminders = activeList.filter { it.date == todayPersian }
-        val tomorrowReminders = activeList.filter { it.date == tomorrowPersian }
-        val upcomingReminders = activeList.filter { it.date >= todayPersian }
+        // Compare complete Jalali date-time values, not date strings. This excludes
+        // reminders whose time today has already passed and safely ignores malformed dates.
+        val futureActiveReminders = activeList.mapNotNull { reminder ->
+            runCatching {
+                reminder to ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
+            }.getOrNull()?.takeIf { it.second >= now }
+        }
+        val todayReminders = futureActiveReminders.filter { it.first.date == todayPersian }.map { it.first }
+        val tomorrowReminders = futureActiveReminders.filter { it.first.date == tomorrowPersian }.map { it.first }
+        val upcomingReminders = futureActiveReminders.sortedBy { it.second }.map { it.first }
 
         // Filter by Tab
         val tabFiltered = when (filters.tab) {
@@ -113,7 +120,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             chipFiltered
         }
 
-        val nearest = activeList.sortedBy { it.date + it.time }.firstOrNull()
+        val nearest = futureActiveReminders.minByOrNull { it.second }?.first
 
         ReminderState(
             reminders = finalFiltered,
@@ -341,6 +348,17 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
 
     fun clearUserMessage() {
         _userMessage.value = null
+    }
+
+    fun restoreReminder(reminderId: String) {
+        viewModelScope.launch {
+            try {
+                manager.restoreReminder(reminderId)
+                _userMessage.value = "یادآور دوباره فعال شد."
+            } catch (e: Exception) {
+                _errorMessage.value = e.localizedMessage ?: "فعال‌سازی دوباره یادآور انجام نشد."
+            }
+        }
     }
 
     fun toggleReminderEnabled(reminderId: String, enabled: Boolean) {
