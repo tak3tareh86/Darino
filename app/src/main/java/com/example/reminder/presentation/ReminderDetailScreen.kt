@@ -233,12 +233,7 @@ fun ReminderDetailScreen(
                     DetailRow(
                         icon = Icons.Rounded.Repeat,
                         label = "وضعیت",
-                        value = when (reminder.status) {
-                            "ACTIVE" -> "فعال"
-                            "COMPLETED" -> "انجام شده"
-                            "MISSED" -> "از دست رفته"
-                            else -> "غیرفعال"
-                        }
+                        value = statusLabel
                     )
 
                     val formattedReminderAmount = reminder.amount?.takeIf { it > 0L }?.let { amount ->
