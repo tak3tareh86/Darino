@@ -10,6 +10,13 @@
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
 
+    <!-- Poolakey must be able to discover the installed Cafe Bazaar billing package
+         on Android 11+ before it can connect, restore purchases, or launch checkout. -->
+    <queries>
+        <package android:name="com.farsitel.bazaar" />
+        <package android:name="com.farsitel.bazaar.tv" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
