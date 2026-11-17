@@ -306,7 +306,9 @@ fun FinancialPressureChart(
                             Text(
                                 text = item.monthName,
                                 modifier = Modifier
-                                    .width(64.dp)
+                                    .align(Alignment.Center)
+                                    .requiredWidth(64.dp)
+                                    .height(22.dp)
                                     .graphicsLayer(rotationZ = -90f),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
