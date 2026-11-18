@@ -167,7 +167,7 @@ fun PersianDateInputField(
                         onTextLayout = { labelWidthPx = it.size.width.toFloat() },
                         modifier = if (isLabelFloating) {
                             Modifier
-                                .align(if (layoutDirection == LayoutDirection.Rtl) Alignment.TopRight else Alignment.TopLeft)
+                                .align(Alignment.TopStart)
                                 .offset(
                                     x = if (layoutDirection == LayoutDirection.Rtl) -RadiusMD else RadiusMD,
                                     y = (-8).dp
