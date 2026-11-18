@@ -9,8 +9,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -446,48 +449,67 @@ fun AppNavigationContainer(
                             onBackClick = { isFinancialHealthOpen = false }
                         )
                     } else {
-                        tabStateHolder.SaveableStateProvider(currentTab) {
-                            key(currentTab) {
-                                AnimatedVisibility(
-                                    visible = true,
-                                    enter = when (currentNavTransition) {
-                                        NavigationTransitionAnimation.SLIDE -> slideInHorizontally(
+                        AnimatedContent(
+                            targetState = currentTab,
+                            modifier = Modifier.fillMaxSize(),
+                            transitionSpec = {
+                                when (currentNavTransition) {
+                                    NavigationTransitionAnimation.SLIDE ->
+                                        (slideInHorizontally(
                                             initialOffsetX = { it },
                                             animationSpec = tween(180, easing = FastOutSlowInEasing)
+                                        )).togetherWith(
+                                            slideOutHorizontally(
+                                                targetOffsetX = { -it / 4 },
+                                                animationSpec = tween(150, easing = FastOutSlowInEasing)
+                                            )
                                         )
-                                        NavigationTransitionAnimation.FADE -> fadeIn(
-                                            animationSpec = tween(150, easing = FastOutSlowInEasing)
-                                        )
-                                        NavigationTransitionAnimation.SCALE -> scaleIn(
-                                            initialScale = 0.88f,
+                                    NavigationTransitionAnimation.FADE ->
+                                        fadeIn(animationSpec = tween(150, easing = FastOutSlowInEasing))
+                                            .togetherWith(fadeOut(animationSpec = tween(120, easing = FastOutSlowInEasing)))
+                                    NavigationTransitionAnimation.SCALE ->
+                                        (scaleIn(
+                                            initialScale = 0.96f,
                                             animationSpec = tween(170, easing = FastOutSlowInEasing)
-                                        ) + fadeIn(animationSpec = tween(150))
-                                        NavigationTransitionAnimation.ZOOM -> scaleIn(
-                                            initialScale = 0.72f,
-                                            animationSpec = tween(190, easing = FastOutSlowInEasing)
-                                        ) + fadeIn(animationSpec = tween(160))
-                                        NavigationTransitionAnimation.SLIDE_FADE -> slideInHorizontally(
-                                            initialOffsetX = { (it * 0.45f).toInt() },
-                                            animationSpec = tween(180, easing = FastOutSlowInEasing)
-                                        ) + fadeIn(animationSpec = tween(170))
-                                        NavigationTransitionAnimation.DYNAMIC -> slideInHorizontally(
-                                            initialOffsetX = { (it * 0.5f).toInt() },
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessMedium
-                                            )
-                                        ) + scaleIn(
+                                        ) + fadeIn(animationSpec = tween(150)))
+                                            .togetherWith(scaleOut(
+                                                targetScale = 1.02f,
+                                                animationSpec = tween(130, easing = FastOutSlowInEasing)
+                                            ) + fadeOut(animationSpec = tween(120)))
+                                    NavigationTransitionAnimation.ZOOM ->
+                                        (scaleIn(
                                             initialScale = 0.90f,
+                                            animationSpec = tween(190, easing = FastOutSlowInEasing)
+                                        ) + fadeIn(animationSpec = tween(160)))
+                                            .togetherWith(scaleOut(
+                                                targetScale = 1.06f,
+                                                animationSpec = tween(150, easing = FastOutSlowInEasing)
+                                            ) + fadeOut(animationSpec = tween(140)))
+                                    NavigationTransitionAnimation.SLIDE_FADE ->
+                                        (slideInHorizontally(
+                                            initialOffsetX = { (it * 0.35f).toInt() },
+                                            animationSpec = tween(180, easing = FastOutSlowInEasing)
+                                        ) + fadeIn(animationSpec = tween(170)))
+                                            .togetherWith(slideOutHorizontally(
+                                                targetOffsetX = { -it / 5 },
+                                                animationSpec = tween(150, easing = FastOutSlowInEasing)
+                                            ) + fadeOut(animationSpec = tween(140)))
+                                    NavigationTransitionAnimation.DYNAMIC ->
+                                        (slideInHorizontally(
+                                            initialOffsetX = { (it * 0.25f).toInt() },
                                             animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessMedium
+                                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                                stiffness = Spring.StiffnessMediumLow
                                             )
-                                        ) + fadeIn(animationSpec = tween(130))
-                                    },
-                                    exit = ExitTransition.None,
-                                    label = "MainTabEnter"
-                                ) {
-                                    when (currentTab) {
+                                        ) + fadeIn(animationSpec = tween(150)))
+                                            .togetherWith(fadeOut(animationSpec = tween(110)))
+                                }
+                            },
+                            label = "MainTabTransition"
+                        ) { targetTab ->
+                            tabStateHolder.SaveableStateProvider(targetTab) {
+                                key(targetTab) {
+                                    when (targetTab) {
                                 BottomNavItem.HOME -> {
                                     HomeScreen(
                                         onNavigateToTab = { tab ->
@@ -510,7 +532,7 @@ fun AppNavigationContainer(
                                 }
                                 BottomNavItem.FINANCE -> {
                                     FinancialScreen(
-                                        currentNavTab = currentTab,
+                                        currentNavTab = targetTab,
                                         onNavigateToTab = { tab ->
                                             navigateToTab(tab)
                                         },
