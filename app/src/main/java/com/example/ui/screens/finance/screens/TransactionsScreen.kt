@@ -1013,16 +1013,13 @@ fun TransactionCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = transaction.accountName,
+                    text = if (transaction.type == TransactionType.TRANSFER) {
+                        transaction.accountName
+                    } else {
+                        transaction.paymentMethod.title
+                    },
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = transaction.paymentMethod.title,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
