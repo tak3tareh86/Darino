@@ -341,6 +341,48 @@ fun AddTransactionSheet(
                         }
                     }
                 }
+
+                // Explicit payment method selection, separate from the account itself.
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "روش پرداخت",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            PaymentMethod.BANK_CARD,
+                            PaymentMethod.CASH,
+                            PaymentMethod.WALLET
+                        ).forEach { method ->
+                            val isSelected = paymentMethod == method
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { paymentMethod = method },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary
+                                else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
+                                border = if (isSelected) null
+                                else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Text(
+                                    text = "${method.iconEmoji} ${method.title}",
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        fontSize = 12.sp
+                                    ),
+                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                }
             } else {
                 // Transfer Account Selection
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
