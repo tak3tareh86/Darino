@@ -135,6 +135,7 @@ fun GeneralPreferencesScreen(
     }
     var pendingDeliveryMode by remember { mutableStateOf<AlertDeliveryPreference?>(null) }
     var showAccessDialog by remember { mutableStateOf(false) }
+    var showAccessInfoDialog by remember { mutableStateOf(false) }
 
     fun hasAllRequiredAccess(mode: AlertDeliveryPreference): Boolean {
         val needsFullScreen = mode != AlertDeliveryPreference.NOTIFICATION_ONLY
@@ -143,7 +144,13 @@ fun GeneralPreferencesScreen(
     }
 
     fun requestDeliveryMode(mode: AlertDeliveryPreference) {
-        if (hasAllRequiredAccess(mode)) {
+        if (mode == AlertDeliveryPreference.FULL_SCREEN_ALARM ||
+            mode == AlertDeliveryPreference.BOTH
+        ) {
+            // Explain the current access status before enabling a full-screen alert.
+            pendingDeliveryMode = mode
+            showAccessInfoDialog = true
+        } else if (hasAllRequiredAccess(mode)) {
             pendingDeliveryMode = null
             showAccessDialog = false
             onDeliveryModeChanged(mode)
@@ -181,6 +188,51 @@ fun GeneralPreferencesScreen(
         pendingDeliveryMode != AlertDeliveryPreference.NOTIFICATION_ONLY && !canUseFullScreenIntent
     val needsExactAlarmAccess = pendingDeliveryMode != null && !canScheduleExactAlarms
     val needsNotificationPermission = pendingDeliveryMode != null && !canPostNotifications
+
+    if (showAccessInfoDialog && pendingDeliveryMode != null) {
+        val infoModeLabel = if (pendingDeliveryMode == AlertDeliveryPreference.BOTH) {
+            "نوتیفیکیشن و آلارم تمام‌صفحه"
+        } else {
+            "آلارم تمام‌صفحه"
+        }
+        AlertDialog(
+            onDismissRequest = {
+                pendingDeliveryMode = null
+                showAccessInfoDialog = false
+            },
+            title = { Text("وضعیت دسترسی‌های دارینو") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("برای استفاده از $infoModeLabel، وضعیت دسترسی‌ها به این صورت است:")
+                    Text(if (canPostNotifications) "✓ اعلان‌های برنامه: فعال" else "✗ اعلان‌های برنامه: غیرفعال")
+                    Text(if (canScheduleExactAlarms) "✓ آلارم دقیق: فعال" else "✗ آلارم دقیق: غیرفعال")
+                    Text(if (canUseFullScreenIntent) "✓ نمایش آلارم تمام‌صفحه: فعال" else "✗ نمایش آلارم تمام‌صفحه: غیرفعال")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val requestedMode = pendingDeliveryMode
+                    showAccessInfoDialog = false
+                    if (requestedMode != null && hasAllRequiredAccess(requestedMode)) {
+                        onDeliveryModeChanged(requestedMode)
+                        pendingDeliveryMode = null
+                    } else {
+                        showAccessDialog = true
+                    }
+                }) {
+                    Text(if (hasAllRequiredAccess(pendingDeliveryMode!!)) "فعال‌سازی" else "ادامه برای تنظیم مجوزها")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    pendingDeliveryMode = null
+                    showAccessInfoDialog = false
+                }) {
+                    Text("انصراف")
+                }
+            }
+        )
+    }
 
     if (showAccessDialog && pendingDeliveryMode != null) {
         val missingAccesses = buildList {
