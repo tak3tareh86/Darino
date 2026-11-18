@@ -154,14 +154,6 @@ fun AddTransactionSheet(
     var transferRecipientName by remember { mutableStateOf(initialTransaction?.transferRecipientName.orEmpty()) }
     var tagsText by remember { mutableStateOf(initialTransaction?.tags?.joinToString("، ") ?: "") }
     val activeAccounts = remember(accounts) { accounts.filter { it.isActive } }
-    var selectedAccount by remember(activeAccounts, initialTransaction) {
-        mutableStateOf(
-            activeAccounts.find { it.id == initialTransaction?.accountId }
-                ?: if (initialTransaction == null) {
-                    activeAccounts.find { it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی") } ?: activeAccounts.firstOrNull()
-                } else null
-        )
-    }
     var selectedSourceAccount by remember(activeAccounts, initialTransaction) {
         mutableStateOf(
             activeAccounts.find { it.id == initialTransaction?.transferSourceAccountId }
@@ -171,13 +163,8 @@ fun AddTransactionSheet(
         )
     }
     LaunchedEffect(activeAccounts) {
-        if (initialTransaction == null) {
-            if (selectedAccount == null && activeAccounts.isNotEmpty()) {
-                selectedAccount = activeAccounts.find { it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی") } ?: activeAccounts.firstOrNull()
-            }
-            if (selectedSourceAccount == null && activeAccounts.isNotEmpty()) {
-                selectedSourceAccount = activeAccounts.find { it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی") } ?: activeAccounts.firstOrNull()
-            }
+        if (initialTransaction == null && selectedSourceAccount == null && activeAccounts.isNotEmpty()) {
+            selectedSourceAccount = activeAccounts.find { it.name == "کارت بانکی" || it.name.startsWith("کارت بانکی") } ?: activeAccounts.firstOrNull()
         }
     }
     var isRecurring by remember { mutableStateOf(initialTransaction?.isRecurring ?: false) }
@@ -290,59 +277,8 @@ fun AddTransactionSheet(
                 }
             }
 
-            // Account Selector Section
             if (selectedType != TransactionType.TRANSFER) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "انتخاب حساب",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (activeAccounts.isEmpty()) {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(RadiusMD),
-                            color = Color(0xFFEF4444).copy(alpha = 0.1f)
-                        ) {
-                            Text(
-                                text = "هیچ حساب فعالی یافت نشد. لطفاً ابتدا از بخش تنظیمات حساب اضافه کنید.",
-                                modifier = Modifier.padding(12.dp),
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFEF4444)),
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    } else {
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            activeAccounts.forEach { acc ->
-                                val isSelected = selectedAccount?.id == acc.id
-                                Surface(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable { selectedAccount = acc },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
-                                    border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                                ) {
-                                    Text(
-                                        text = acc.name,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            fontSize = 12.sp
-                                        ),
-                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Explicit payment method selection, separate from the account itself.
+                // Payment method selection remains independent of account management.
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         text = "روش پرداخت",
@@ -756,16 +692,7 @@ fun AddTransactionSheet(
             // Submit Button
             Button(
                 onClick = {
-                    if (selectedType != TransactionType.TRANSFER) {
-                        if (selectedAccount == null) {
-                            errorMessage = "لطفاً حساب مورد نظر را انتخاب کنید."
-                            return@Button
-                        }
-                        if (activeAccounts.isEmpty()) {
-                            errorMessage = "هیچ حساب فعالی موجود نیست."
-                            return@Button
-                        }
-                    } else {
+                    if (selectedType == TransactionType.TRANSFER) {
                         if (selectedSourceAccount == null) {
                             errorMessage = "لطفاً حساب مبدأ را انتخاب کنید."
                             return@Button
@@ -837,8 +764,8 @@ fun AddTransactionSheet(
                         accountName = if (selectedType == TransactionType.TRANSFER)
                             (selectedSourceAccount?.name ?: "کارت بانکی")
                         else
-                            (selectedAccount?.name ?: paymentMethod.title),
-                        accountId = if (selectedType == TransactionType.TRANSFER) null else selectedAccount?.id,
+                            paymentMethod.title,
+                        accountId = null,
                         transferSourceAccountId = if (selectedType == TransactionType.TRANSFER) selectedSourceAccount?.id else null,
                         transferDestinationAccountId = null,
                         transferRecipientName = if (selectedType == TransactionType.TRANSFER) transferRecipientName.trim().takeIf { it.isNotEmpty() } else null,
