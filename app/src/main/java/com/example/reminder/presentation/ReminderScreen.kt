@@ -354,12 +354,21 @@ fun ReminderScreen(
                     // Compact reminder summary: today / nearest / tomorrow
                     item {
                         Surface(
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 104.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 112.dp)
+                                .shadow(
+                                    elevation = 3.dp,
+                                    shape = RoundedCornerShape(20.dp),
+                                    ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                ),
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            tonalElevation = 4.dp,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
                             )
                         ) {
                             Row(
@@ -385,7 +394,7 @@ fun ReminderScreen(
                                         text = IranianPhoneUtils.convertDigitsToPersian(uiState.todayCount.toString()),
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = WarningAmberLight
+                                            color = MaterialTheme.colorScheme.tertiary
                                         )
                                     )
                                 }
@@ -410,7 +419,7 @@ fun ReminderScreen(
                                         overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = EmeraldPrimaryLight
+                                            color = MaterialTheme.colorScheme.primary
                                         ),
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                     )
@@ -455,7 +464,7 @@ fun ReminderScreen(
                                         text = IranianPhoneUtils.convertDigitsToPersian(uiState.tomorrowCount.toString()),
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = InfoIndigoLight
+                                            color = MaterialTheme.colorScheme.secondary
                                         )
                                     )
                                 }
