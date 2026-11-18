@@ -38,14 +38,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -117,23 +114,21 @@ fun SubscriptionLockedScreenContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = if (tiny) 16.dp else 20.dp, vertical = if (tiny) 3.dp else 6.dp),
+                .padding(
+                start = if (tiny) 16.dp else 20.dp,
+                end = if (tiny) 16.dp else 20.dp,
+                top = if (tiny) 2.dp else 6.dp,
+                bottom = if (tiny) 10.dp else 22.dp
+            ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceEvenly
         ) {
-            Spacer(Modifier.height(2.dp))
-
-            ImageLogo()
-
-            Spacer(Modifier.height(3.dp))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(Modifier.weight(1f).height(2.dp).background(PremiumGold))
-                HandshakeMark(Modifier.size(width = 40.dp, height = 36.dp))
                 Text(
                     text = "دوست خوبم",
                     color = PremiumGold,
@@ -388,41 +383,6 @@ fun SubscriptionLockedScreenContent(
 }
 
 @Composable
-private fun ImageLogo() {
-    androidx.compose.foundation.Image(
-        painter = painterResource(id = com.example.R.drawable.img_darino_logo),
-        contentDescription = "لوگوی دارینو",
-        modifier = Modifier
-            .width(190.dp)
-            .height(88.dp),
-        contentScale = ContentScale.Fit
-    )
-}
-
-
-
-@Composable
-private fun HandshakeMark(modifier: Modifier = Modifier) {
-    Canvas(modifier) {
-        drawContext.transform.scale(size.width / 100f, size.height / 100f, pivot = Offset.Zero)
-        val gold = Color(0xFFFFBE16)
-        val ink = Color(0xFF09234D)
-        val hand = Path().apply {
-            moveTo(7f, 35f); lineTo(25f, 17f); lineTo(39f, 21f); lineTo(50f, 32f)
-            lineTo(62f, 19f); lineTo(76f, 23f); lineTo(94f, 41f); lineTo(77f, 59f)
-            lineTo(54f, 83f); lineTo(43f, 73f); lineTo(21f, 53f); close()
-        }
-        drawPath(hand, gold)
-        drawLine(ink, Offset(38f, 29f), Offset(27f, 40f), 8f)
-        drawLine(ink, Offset(27f, 40f), Offset(39f, 51f), 8f)
-        drawLine(ink, Offset(50f, 34f), Offset(68f, 51f), 8f)
-        drawLine(ink, Offset(41f, 49f), Offset(56f, 64f), 7f)
-        drawLine(ink, Offset(33f, 58f), Offset(47f, 72f), 7f)
-        drawLine(ink, Offset(26f, 66f), Offset(38f, 77f), 7f)
-    }
-}
-
-@Composable
 private fun DiamondMark(modifier: Modifier = Modifier) {
     Canvas(modifier) {
         drawContext.transform.scale(size.width / 100f, size.height / 80f, pivot = Offset.Zero)
@@ -440,7 +400,10 @@ private fun DiamondMark(modifier: Modifier = Modifier) {
 private fun ExpiredSubscriptionIllustration(modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val s = minOf(size.width / 400f, size.height / 270f)
+        val offsetX = (size.width - 400f * s) / 2f
+        val offsetY = (size.height - 270f * s) / 2f
         drawContext.transform.scale(s, s, pivot = Offset.Zero)
+        drawContext.transform.translate(offsetX / s, offsetY / s)
         val gold = Color(0xFFFFC21C)
         val blue = Color(0xFF1768E8)
         drawOval(androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color(0xFF20BFFF).copy(alpha = .7f), Color.Transparent)), Offset(40f, 220f), Size(320f, 38f))
