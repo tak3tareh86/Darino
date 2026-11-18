@@ -282,23 +282,13 @@ private fun SmsOnboardingView(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "دیگر نیازی به ثبت دستی تراکنش‌های بانکی نیست! الگوهای پیامک بانکی خود را تعریف کنید تا دارینو پیامک‌های واریز، برداشت و انتقال وجه را شناسایی کرده و تراکنش‌ها را به‌صورت خودکار به شما",
+                text = "دیگر نیازی به ثبت دستی تراکنش‌های بانکی نیست! الگوهای پیامک بانکی خود را تعریف کنید تا دارینو پیامک‌های واریز، برداشت و انتقال وجه را شناسایی کرده و تراکنش‌ها را به‌صورت خودکار به شما نمایش دهد.",
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = 10.5.sp,
                     lineHeight = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 ),
                 textAlign = TextAlign.Justify,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                text = "نمایش دهد.",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                ),
-                textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
         }
