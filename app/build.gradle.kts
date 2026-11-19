@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.financemanager.vkqjxp"
     minSdk = 24
     targetSdk = 36
-    versionCode = 3
-    versionName = "1.0"
+    versionCode = 4
+    versionName = "1.0.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -89,7 +89,8 @@ secrets {
 googleServices { missingGoogleServicesStrategy = com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy.WARN }
 
 // Some unused dependencies are commented out below instead of being removed.
-// This makes it easy to add them back in the future if needed.
+// This makes it easy to add them back in the future without deleting their
+// declarations.
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
