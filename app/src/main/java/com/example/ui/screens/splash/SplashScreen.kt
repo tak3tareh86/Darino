@@ -188,7 +188,7 @@ fun SplashScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     DarinoLogoMark(
-                        size = 100.dp,
+                        size = 150.dp,
                         showShadow = true
                     )
                 }
