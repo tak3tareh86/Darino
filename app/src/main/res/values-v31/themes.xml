@@ -4,6 +4,5 @@
         <item name="android:windowSplashScreenBackground">#060B12</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/img_darino_logo_new</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
-        <item name="android:postSplashScreenTheme">@style/Theme.MyApplication</item>
     </style>
 </resources>
