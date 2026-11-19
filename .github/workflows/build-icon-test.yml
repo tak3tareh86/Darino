@@ -1,0 +1,41 @@
+name: Build Darino launcher icon test APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/darino-launcher-icon-2026-11
+    paths:
+      - 'app/src/main/res/mipmap-*/darino_launcher.xml'
+      - '.github/workflows/build-icon-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: Restore persistent debug keystore
+        run: |
+          base64 --decode debug.keystore.base64 > debug.keystore
+          keytool -list -keystore debug.keystore -storepass android -alias androiddebugkey
+      - name: Build debug APK
+        run: ./gradlew --no-daemon :app:assembleDebug --stacktrace
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Darino-icon-test-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
