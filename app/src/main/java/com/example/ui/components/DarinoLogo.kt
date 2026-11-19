@@ -57,7 +57,34 @@ fun DarinoLogoMark(
     showShadow: Boolean = true,
     style: LogoStyle = LogoStyle.IMAGE_ASSET
 ) {
-    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
+    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+
+    Box(
+        modifier = modifier
+            .size(size)
+            .then(
+                if (showShadow) {
+                    Modifier.drawBehind {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF10B981).copy(alpha = if (isDark) 0.35f else 0.22f),
+                                    Color.Transparent
+                                ),
+                                radius = size.toPx() * 0.75f
+                            )
+                        )
+                    }
+                } else Modifier
+            )
+            .shadow(
+                elevation = if (showShadow) (size.value * 0.14f).dp else 0.dp,
+                shape = CircleShape,
+                spotColor = Color(0xFF10B981).copy(alpha = 0.5f),
+                ambientColor = Color.Black.copy(alpha = 0.35f)
+            ),
+        contentAlignment = Alignment.Center
+    ) {
         Image(
             painter = painterResource(id = R.drawable.img_darino_logo_new),
             contentDescription = "لوگوی دارینو",
