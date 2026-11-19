@@ -276,12 +276,12 @@ object VehicleAnalyzer {
         }
 
         val fixedChecklist = listOf(
-            insuranceStatus("بیمه‌نامه شخص ثالث", R.drawable.sales) { it.contains("ثالث") },
-            insuranceStatus("بیمه‌نامه بدنه", R.drawable.badaneh) { it.contains("بدنه") },
+            insuranceStatus("بیمه‌نامه شخص ثالث", R.drawable.img_health_third_party) { it.contains("ثالث") },
+            insuranceStatus("بیمه‌نامه بدنه", R.drawable.img_health_body_insurance) { it.contains("بدنه") },
             run {
                 val inspection = carInspections.maxByOrNull { parseAndValidateJalaliDate(it.lastInspectionDate) ?: "" }
                 if (inspection == null) {
-                    VehicleHealthCheckItem("معاینه فنی", "ثبت نشده", false, true, R.drawable.fani)
+                    VehicleHealthCheckItem("معاینه فنی", "ثبت نشده", false, true, R.drawable.img_health_inspection)
                 } else {
                     val lastInspection = parseAndValidateJalaliDate(inspection.lastInspectionDate)
                     val expiry = parseAndValidateJalaliDate(inspection.expiryDate)
@@ -301,24 +301,24 @@ object VehicleAnalyzer {
                         )
                     when {
                         lastInspection == null || expiry == null || expiry < lastInspection ->
-                            VehicleHealthCheckItem("معاینه فنی", "تاریخ نامعتبر یا ثبت نشده", false, true, R.drawable.fani)
+                            VehicleHealthCheckItem("معاینه فنی", "تاریخ نامعتبر یا ثبت نشده", false, true, R.drawable.img_health_inspection)
                         lastInspection > today ->
-                            VehicleHealthCheckItem("معاینه فنی", "تاریخ معاینه در آینده است", false, true, R.drawable.fani)
+                            VehicleHealthCheckItem("معاینه فنی", "تاریخ معاینه در آینده است", false, true, R.drawable.img_health_inspection)
                         expiry < today ->
-                            VehicleHealthCheckItem("معاینه فنی", "معاینه فنی منقضی شده", false, true, R.drawable.fani)
+                            VehicleHealthCheckItem("معاینه فنی", "معاینه فنی منقضی شده", false, true, R.drawable.img_health_inspection)
                         !statusApproved ->
-                            VehicleHealthCheckItem("معاینه فنی", statusText, false, true, R.drawable.fani)
+                            VehicleHealthCheckItem("معاینه فنی", statusText, false, true, R.drawable.img_health_inspection)
                         else ->
-                            VehicleHealthCheckItem("معاینه فنی", "دارای اعتبار", true, false, R.drawable.fani)
+                            VehicleHealthCheckItem("معاینه فنی", "دارای اعتبار", true, false, R.drawable.img_health_inspection)
                     }
                 }
             },
-            serviceStatus("روغن موتور", listOf(ServiceType.OIL_CHANGE), R.drawable.motor),
-            serviceStatus("فیلتر روغن", listOf(ServiceType.OIL_FILTER_CHANGE), R.drawable.filter),
-            serviceStatus("فیلتر هوا", listOf(ServiceType.AIR_FILTER_CHANGE), R.drawable.filter),
-            serviceStatus("روغن گیربکس", listOf(ServiceType.TRANSMISSION_OIL_CHANGE), R.drawable.girbox),
-            serviceStatus("تسمه دینام", listOf(ServiceType.ALTERNATOR_BELT_CHANGE), R.drawable.dinam),
-            serviceStatus("تسمه تایم", listOf(ServiceType.TIMING_BELT_CHANGE), R.drawable.time)
+            serviceStatus("روغن موتور", listOf(ServiceType.OIL_CHANGE), R.drawable.img_health_engine_oil),
+            serviceStatus("فیلتر روغن", listOf(ServiceType.OIL_FILTER_CHANGE), R.drawable.img_health_filters),
+            serviceStatus("فیلتر هوا", listOf(ServiceType.AIR_FILTER_CHANGE), R.drawable.img_health_filters),
+            serviceStatus("روغن گیربکس", listOf(ServiceType.TRANSMISSION_OIL_CHANGE), R.drawable.img_health_gearbox),
+            serviceStatus("تسمه دینام", listOf(ServiceType.ALTERNATOR_BELT_CHANGE), R.drawable.img_health_alternator_belt),
+            serviceStatus("تسمه تایم", listOf(ServiceType.TIMING_BELT_CHANGE), R.drawable.img_health_timing_belt)
         )
 
         // The vehicle health checklist is intentionally limited to these nine fixed items.
