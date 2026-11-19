@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - fix/darino-launcher-icon-2026-11
+      - fix/darino-launcher-icon-safe-zone-2026-11
     paths:
       - 'app/src/main/res/mipmap-*/darino_launcher.xml'
       - '.github/workflows/build-icon-test.yml'
