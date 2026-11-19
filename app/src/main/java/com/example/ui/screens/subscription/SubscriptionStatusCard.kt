@@ -177,7 +177,7 @@ fun SubscriptionStatusCard(
                     }
 
                     androidx.compose.foundation.Image(
-                        painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.img_darino_logo_new),
+                        painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.img_darino_logo),
                         contentDescription = "لوگوی دارینو",
                         contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                         modifier = Modifier
