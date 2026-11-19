@@ -12,6 +12,7 @@ on:
       - '*.gradle.kts'
       - 'gradle.properties'
       - 'settings.gradle.kts'
+      - 'debug.keystore.base64'
       - '.github/workflows/build-apk.yml'
 
 permissions:
@@ -34,8 +35,15 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
-      - name: Generate debug keystore
-        run: keytool -genkeypair -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+      - name: Restore persistent debug keystore
+        run: |
+          echo "${{ secrets.DARINO_DEBUG_KEYSTORE_BASE64 }}" > /tmp/secret-keystore.txt
+          if [ -s /tmp/secret-keystore.txt ] && [ "${{ secrets.DARINO_DEBUG_KEYSTORE_BASE64 }}" != "" ]; then
+            base64 --decode /tmp/secret-keystore.txt > debug.keystore
+          else
+            base64 --decode debug.keystore.base64 > debug.keystore
+          fi
+          keytool -list -keystore debug.keystore -storepass android -alias androiddebugkey
 
       - name: Build debug APK (skip unit tests)
         run: ./gradlew --no-daemon :app:assembleDebug --stacktrace
