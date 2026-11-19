@@ -86,11 +86,9 @@ fun DarinoLogoMark(
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(id = R.drawable.img_darino_logo_new),
+            painter = painterResource(id = R.drawable.img_darino_logo),
             contentDescription = "لوگوی دارینو",
-            modifier = Modifier
-                .size(size)
-                .padding(8.dp),
+            modifier = Modifier.size(size),
             contentScale = ContentScale.Fit
         )
     }
