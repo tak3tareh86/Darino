@@ -37,12 +37,7 @@ jobs:
 
       - name: Restore persistent debug keystore
         run: |
-          echo "${{ secrets.DARINO_DEBUG_KEYSTORE_BASE64 }}" > /tmp/secret-keystore.txt
-          if [ -s /tmp/secret-keystore.txt ] && [ "${{ secrets.DARINO_DEBUG_KEYSTORE_BASE64 }}" != "" ]; then
-            base64 --decode /tmp/secret-keystore.txt > debug.keystore
-          else
-            base64 --decode debug.keystore.base64 > debug.keystore
-          fi
+          base64 --decode debug.keystore.base64 > debug.keystore
           keytool -list -keystore debug.keystore -storepass android -alias androiddebugkey
 
       - name: Build debug APK (skip unit tests)
