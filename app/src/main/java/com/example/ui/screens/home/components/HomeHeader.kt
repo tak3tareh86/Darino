@@ -59,12 +59,11 @@ fun HomeHeader(
         modifier = modifier,
         leadingIcon = {
             Image(
-                painter = painterResource(id = R.drawable.img_darino_logo),
+                painter = painterResource(id = R.drawable.img_darino_logo_new),
                 contentDescription = "لوگوی دارینو",
                 modifier = Modifier
-                    .size(28.dp)
-                    .clip(RoundedCornerShape(6.dp)),
-                contentScale = ContentScale.Crop
+                    .size(28.dp),
+                contentScale = ContentScale.Fit
             )
         },
         actions = {

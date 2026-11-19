@@ -57,64 +57,13 @@ fun DarinoLogoMark(
     showShadow: Boolean = true,
     style: LogoStyle = LogoStyle.IMAGE_ASSET
 ) {
-    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
-    val cornerRadius = size * 0.26f
-
-    Box(
-        modifier = modifier
-            .size(size)
-            .then(
-                if (showShadow) {
-                    Modifier.drawBehind {
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    Color(0xFF10B981).copy(alpha = if (isDark) 0.35f else 0.22f),
-                                    Color.Transparent
-                                ),
-                                radius = size.toPx() * 0.75f
-                            )
-                        )
-                    }
-                } else Modifier
-            )
-            .shadow(
-                elevation = if (showShadow) (size.value * 0.14f).dp else 0.dp,
-                shape = RoundedCornerShape(cornerRadius),
-                spotColor = Color(0xFF10B981).copy(alpha = 0.5f),
-                ambientColor = Color.Black.copy(alpha = 0.35f)
-            )
-            .clip(RoundedCornerShape(cornerRadius))
-            .background(
-                Brush.linearGradient(
-                    colors = if (isDark) {
-                        listOf(Color(0xFF0F1D2B), Color(0xFF09111A))
-                    } else {
-                        listOf(Color(0xFFFFFFFF), Color(0xFFF1F5F9))
-                    }
-                )
-            )
-            .border(
-                BorderStroke(
-                    width = 1.2.dp,
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF34D399).copy(alpha = if (isDark) 0.5f else 0.7f),
-                            Color(0xFF0284C7).copy(alpha = if (isDark) 0.25f else 0.4f)
-                        )
-                    )
-                ),
-                shape = RoundedCornerShape(cornerRadius)
-            ),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
         Image(
-            painter = painterResource(id = R.drawable.img_darino_logo),
+            painter = painterResource(id = R.drawable.img_darino_logo_new),
             contentDescription = "لوگوی دارینو",
             modifier = Modifier
-                .size(size)
-                .clip(RoundedCornerShape(cornerRadius)),
-            contentScale = ContentScale.Crop
+                .size(size),
+            contentScale = ContentScale.Fit
         )
     }
 }
