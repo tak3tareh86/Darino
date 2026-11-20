@@ -159,6 +159,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             tomorrowCount = tomorrowReminders.size,
             nearestReminder = nearest,
             nearestReminderTriggerAt = nearest?.let(::displayTime),
+            reminderDisplayTimes = activeList.mapNotNull { reminder -> displayTime(reminder)?.let { reminder.id to it } }.toMap(),
             smartSuggestions = suggestions,
             isLoading = isLoading,
             errorMessage = error,
