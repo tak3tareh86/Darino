@@ -275,7 +275,6 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
     ) {
         SessionManager.init(context.applicationContext)
         val userId = SessionManager.userId
-        val db = AppDatabase.getDatabase(context)
         if (userId == null) {
             val dispatcher = NotificationDispatcher(context)
             if (notificationId != -1) dispatcher.cancelNotification(notificationId)
@@ -283,12 +282,12 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             Log.w(TAG, "Ignoring snooze action because no authenticated user is available.")
             return
         }
+
+        val db = AppDatabase.getDatabase(context)
         if (reminderId.startsWith("calendar_")) {
             val eventId = reminderId.removePrefix("calendar_")
-            val event = if (userId != null) {
-                db.financialEventDao().getEventById(userId, eventId)?.toDomain()
-            } else null
-            if (event != null && event.status.name != "PAID" && userId != null) {
+            val event = db.financialEventDao().getEventById(userId, eventId)?.toDomain()
+            if (event != null && event.status.name != "PAID") {
                 val manager = ReminderManager(context)
                 val reminderDao = db.smartReminderDao()
                 val storedReminder = reminderDao.getReminderById(userId, reminderId)
@@ -310,60 +309,22 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
 
                 if (reminder.status.equals("ACTIVE", ignoreCase = true)) {
                     val target = System.currentTimeMillis() + snoozeMinutes.coerceAtLeast(1) * 60_000L
-                    val result = manager.snoozeReminder(reminder.id, SnoozeOption.CUSTOM, target)
-                    result.onFailure { error ->
-                        Log.e(TAG, "Unable to persist calendar reminder snooze for $eventId", error)
-                    }
+                    manager.snoozeReminder(reminder.id, SnoozeOption.CUSTOM, target)
+                        .onFailure { error ->
+                            Log.e(TAG, "Unable to persist calendar reminder snooze for $eventId", error)
+                        }
                 }
             }
-            val calendarDispatcher = NotificationDispatcher(context)
-            if (notificationId != -1) calendarDispatcher.cancelNotification(notificationId)
-            if (secondaryNotificationId != -1) calendarDispatcher.cancelNotification(secondaryNotificationId)
-            return
-        }
-        val dao = db.smartReminderDao()
-        val reminder = dao.getReminderById(userId, reminderId) ?: run {
-            val dispatcher = NotificationDispatcher(context)
-            if (notificationId != -1) dispatcher.cancelNotification(notificationId)
-            if (secondaryNotificationId != -1) dispatcher.cancelNotification(secondaryNotificationId)
-            Log.w(TAG, "Cannot snooze reminder $reminderId: reminder was not found for the current user.")
-            return
-        }
-        if (!reminder.status.equals("ACTIVE", ignoreCase = true) ||
-            !ReminderScheduler(context).hasConfiguredDelivery(reminder)
-        ) {
-            val dispatcher = NotificationDispatcher(context)
-            if (notificationId != -1) dispatcher.cancelNotification(notificationId)
-            if (secondaryNotificationId != -1) dispatcher.cancelNotification(secondaryNotificationId)
-            return
+        } else {
+            // Use the same serialized replacement path as the reminder screen.
+            // This prevents notification actions from creating parallel snooze rows.
+            val target = System.currentTimeMillis() + snoozeMinutes.coerceAtLeast(1) * 60_000L
+            ReminderManager(context).snoozeReminder(reminderId, SnoozeOption.CUSTOM, target)
+                .onFailure { error ->
+                    Log.e(TAG, "Unable to persist reminder snooze for $reminderId", error)
+                }
         }
 
-        val triggerTime = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
-        val schedule = com.example.reminder.data.ReminderScheduleEntity(
-            id = "snooze_${java.util.UUID.randomUUID()}",
-            reminderId = reminder.id,
-            triggerType = "EXACT",
-            offsetValue = snoozeMinutes,
-            offsetUnit = "MINUTE",
-            triggerDateTime = triggerTime,
-            repeatType = "NONE",
-            enabled = true,
-            createdAt = System.currentTimeMillis()
-        )
-        // Persist first so the receiver can always resolve the trigger when it fires.
-        // Roll back the row and dismiss the stale notification if either step fails.
-        try {
-            dao.insertSchedule(schedule)
-            ReminderScheduler(context).scheduleSingle(reminder, schedule)
-        } catch (e: Exception) {
-            Log.e("ReminderBroadcastReceiver", "Failed to persist or schedule reminder snooze. Performing rollback.", e)
-            runCatching { dao.deleteSchedule(schedule) }
-                .onFailure { Log.e("ReminderBroadcastReceiver", "Failed to rollback snooze schedule row.", it) }
-            val dispatcher = NotificationDispatcher(context)
-            if (notificationId != -1) dispatcher.cancelNotification(notificationId)
-            if (secondaryNotificationId != -1) dispatcher.cancelNotification(secondaryNotificationId)
-            return
-        }
         val dispatcher = NotificationDispatcher(context)
         if (notificationId != -1) dispatcher.cancelNotification(notificationId)
         if (secondaryNotificationId != -1) dispatcher.cancelNotification(secondaryNotificationId)
