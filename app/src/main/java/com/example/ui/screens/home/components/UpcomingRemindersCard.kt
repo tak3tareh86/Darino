@@ -268,7 +268,7 @@ private fun ReminderFlatItem(
                 maxLines = 1
             )
             Text(
-                text = "ساعت یادآوری: ${item.timePersian.takeIf { it.isNotBlank() }?.let(IranianPhoneUtils::convertDigitsToPersian) ?: "تنظیم نشده"}",
+                text = "ساعت یادآوری: ${item.timePersian.takeIf { it.isNotBlank() }?.let { IranianPhoneUtils.convertDigitsToPersian(it) } ?: "تنظیم نشده"}",
                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
