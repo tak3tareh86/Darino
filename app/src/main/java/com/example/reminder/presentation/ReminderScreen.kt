@@ -602,6 +602,7 @@ fun ReminderScreen(
                                 ReminderCard(
                                     reminder = reminder,
                                     vehiclePlate = vehiclePlateForReminder(reminder),
+                                    scheduledTriggerAt = uiState.reminderDisplayTimes[reminder.id],
                                     onClick = {
                                         selectedReminderForDetail = reminder
                                         currentSubScreen = ReminderSubScreen.DETAIL
