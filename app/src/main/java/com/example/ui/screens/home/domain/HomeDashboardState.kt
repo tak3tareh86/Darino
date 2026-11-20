@@ -40,7 +40,9 @@ data class UpcomingReminderItem(
     val typeTitle: String,
     @DrawableRes val iconRes: Int,
     val accentColor: Color,
-    val datePersian: String = ""
+    val datePersian: String = "",
+    val dueDatePersian: String? = null,
+    val reminderDatePersian: String? = null
 )
 
 data class HomeDashboardState(
