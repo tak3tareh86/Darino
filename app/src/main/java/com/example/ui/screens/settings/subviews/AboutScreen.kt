@@ -105,10 +105,15 @@ fun AboutScreen(
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    com.example.ui.components.DarinoBrandHeader(
-                        logoSize = 54.dp,
+                    com.example.ui.components.DarinoLogoMark(
+                        size = 54.dp,
+                        showShadow = false
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    com.example.ui.components.DarinoWordmark(
                         showSubtitle = true,
                         subtitleText = "سامانه مدیریت جامع مالی، اقساط و خودرو",
+                        fontSize = 20f,
                         isDark = isDark
                     )
                     Spacer(modifier = Modifier.height(5.dp))
