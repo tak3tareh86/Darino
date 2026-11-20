@@ -129,20 +129,17 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
 
                                         ExampleLessonCard(
                                         number = "۱",
-                                        title = "پیامک واریز وجه",
-                                        sender = "بانک نمونه",
+                                        title = "پیامک واریز وجه بانک قرض‌الحسنه رسالت",
+                                        sender = "بانک قرض‌الحسنه رسالت",
                                         message = buildAnnotatedString {
-                                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF087F5B))) { append("واریز") }
-                                            append(" وجه: ")
-                                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFFB45309))) { append("۵,۰۰۰,۰۰۰ ریال") }
-                                            append(" به حساب ۱۲۳۴ ")
-                                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF087F5B))) { append("نشست") }
-                                            append(".")
+                                            append("10.9096543.1\n")
+                                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF087F5B))) { append("+") }
+                                            append("30,000,000 \\n08/25_21:43\\nمانده: 30,000,000")
                                         },
-                                        fixedTerms = listOf("واریز", "نشست"),
-                                        variableTerms = "مبلغ و شماره حساب",
-                                        marker = "واریز/نشست",
-                                        explanation = "در این نمونه، دو عبارت «واریز» و «نشست» هر دو در همان پیامک وجود دارند و برای تشخیص واریز به کار می‌آیند."
+                                        fixedTerms = listOf("965", "+"),
+                                        variableTerms = "مبلغ، تاریخ، ساعت و مانده حساب",
+                                        marker = "965/+",
+                                        explanation = "نشانه می‌تواند عددی باشد؛ مثلاً چند رقم از شماره حساب. ولی تاریخ، ساعت، مبلغ و واحد پول نباید به‌عنوان نشانه ثبت شوند."
                                     )
                                     }
                     item {
