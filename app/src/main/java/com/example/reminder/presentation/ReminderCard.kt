@@ -131,9 +131,12 @@ fun ReminderCard(
                         softWrap = true
                     )
 
-                    Box(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         Row(
-                            modifier = Modifier.align(Alignment.CenterStart),
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
@@ -231,13 +234,13 @@ fun ReminderCard(
                             }
                         }
 
+                        // Vehicle details occupy their own layout row; they no longer float over the title/status row.
                         if (!vehiclePlate.isNullOrBlank() || reminder.targetKilometer != null) {
                             Column(
                                 modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .offset(x = 25.dp)
-                                    .padding(horizontal = 54.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
+                                    .fillMaxWidth()
+                                    .padding(end = 38.dp),
+                                horizontalAlignment = Alignment.End,
                                 verticalArrangement = Arrangement.spacedBy(1.dp)
                             ) {
                                 if (!vehiclePlate.isNullOrBlank()) {
@@ -274,9 +277,8 @@ fun ReminderCard(
                                         )
                                     }
 
-                                    // Vehicle service reminder date and time sit directly below the target mileage.
                                     Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        horizontalAlignment = Alignment.End,
                                         verticalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
                                         Row(
