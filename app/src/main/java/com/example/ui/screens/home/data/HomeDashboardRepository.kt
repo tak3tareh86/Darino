@@ -114,11 +114,40 @@ class HomeDashboardRepository(
         }
     }
 
-    fun getUpcomingObligations(): List<UpcomingObligationItem> {
-        val list = mutableListOf<UpcomingObligationItem>()
+    suspend fun getUpcomingObligations(): List<UpcomingObligationItem> {
+        val now = System.currentTimeMillis()
+        val nowPdt = PersianCalendarHelper.fromEpochMillis(now)
+        val todayEpochDay = PersianCalendarHelper.getJalaliEpochDay(
+            nowPdt.year, nowPdt.month, nowPdt.day
+        )
+        val userId = SessionManager.userId
+        val reminderDao = if (context != null && !userId.isNullOrBlank()) {
+            runCatching { context?.let { AppDatabase.getDatabase(it).smartReminderDao() } }.getOrNull()
+        } else null
 
-        // Include every installment category managed by the installments module.
-        // The dashboard still displays only the single nearest unpaid installment.
+        fun parsePersianDate(date: String): Triple<Int, Int, Int>? = runCatching {
+            IranianDateUtils.parsePersianDate(date)
+        }.getOrNull()
+
+        fun parseReminderDateTime(date: String, time: String): Long? {
+            val (year, month, day) = parsePersianDate(date) ?: return null
+            val parts = IranianPhoneUtils.convertDigitsToEnglish(time)
+                .trim()
+                .split(":")
+            val hour = parts.getOrNull(0)?.toIntOrNull() ?: 9
+            val minute = parts.getOrNull(1)?.take(2)?.toIntOrNull() ?: 0
+            if (hour !in 0..23 || minute !in 0..59) return null
+            return runCatching {
+                PersianCalendarHelper.jalaliToEpochMillis(year, month, day, hour, minute)
+            }.getOrNull()
+        }
+
+        data class ObligationCandidate(
+            val item: UpcomingObligationItem,
+            val nextTriggerMillis: Long
+        )
+
+        val candidates = mutableListOf<ObligationCandidate>()
         val activeInstallments = installmentRepository.installments.value.filter {
             it.category in setOf(
                 InstallmentCategory.BANK_LOANS,
@@ -126,90 +155,116 @@ class HomeDashboardRepository(
                 InstallmentCategory.CAR_INSURANCE,
                 InstallmentCategory.MISC
             ) &&
-            it.remainingInstallments > 0 &&
-            it.status != InstallmentStatus.COMPLETED &&
-            it.status != InstallmentStatus.PAID
+                it.remainingInstallments > 0 &&
+                it.status != InstallmentStatus.COMPLETED &&
+                it.status != InstallmentStatus.PAID
         }
-        for (item in activeInstallments) {
-            val unpaidPayments = item.paymentHistory.filter {
+
+        for (installment in activeInstallments) {
+            val reminder = if (reminderDao != null && !userId.isNullOrBlank()) {
+                runCatching {
+                    reminderDao.getReminderBySource(userId, "INSTALLMENT", installment.id)
+                }.getOrNull()
+            } else null
+            val storedSchedules = if (reminder != null && reminder.status.equals("ACTIVE", ignoreCase = true) &&
+                reminderDao != null && !userId.isNullOrBlank()
+            ) {
+                runCatching {
+                    reminderDao.getSchedulesForReminderSync(userId, reminder.id)
+                }.getOrDefault(emptyList())
+            } else emptyList()
+
+            val unpaidPayments = installment.paymentHistory.filter {
                 it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
             }
-            val nearestUnpaid = if (unpaidPayments.isNotEmpty()) {
-                unpaidPayments.minWithOrNull(
-                    compareBy<PaymentHistoryItem> { p ->
-                        val date = p.dueDate.ifBlank { item.nextPaymentDate }
-                        val diff = calculateDaysDifference(date)
-                        if (diff < 0) 0 else if (diff == 0) 1 else 2
-                    }.thenBy { p ->
-                        val date = p.dueDate.ifBlank { item.nextPaymentDate }
-                        calculateDaysDifference(date)
-                    }.thenBy { p ->
-                        p.dueDate.ifBlank { item.nextPaymentDate }
-                    }.thenBy { p ->
-                        p.installmentNumber
+            val paymentRows = if (unpaidPayments.isNotEmpty()) unpaidPayments else listOf(null)
+
+            for (payment in paymentRows) {
+                val dueDate = payment?.dueDate?.takeIf { it.isNotBlank() } ?: installment.nextPaymentDate
+                val parsedDate = parsePersianDate(dueDate) ?: continue
+                val dueEpochDay = runCatching {
+                    PersianCalendarHelper.getJalaliEpochDay(parsedDate.first, parsedDate.second, parsedDate.third)
+                }.getOrNull() ?: continue
+
+                // A commitment whose due date has passed must never appear in this card.
+                if (dueEpochDay < todayEpochDay) continue
+
+                val matchingSchedules = if (reminder != null && !reminder.sourceId.isNullOrBlank() && payment != null) {
+                    val expectedPrefix = "installment:${reminder.sourceId}:${payment.id}:"
+                    storedSchedules.filter { schedule ->
+                        schedule.id == UUID.nameUUIDFromBytes(
+                            "${expectedPrefix}${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
+                                .toByteArray(Charsets.UTF_8)
+                        ).toString()
                     }
+                } else emptyList()
+
+                val nextStoredTrigger = matchingSchedules
+                    .asSequence()
+                    .filter { it.enabled && it.triggerDateTime > now }
+                    .minByOrNull { it.triggerDateTime }
+
+                // Prefer the next enabled schedule. If none remains, fall back to the
+                // reminder's base time (or the standard 09:00 time); a past fallback is
+                // rejected below, so an already-fired reminder cannot stay at the top.
+                val triggerMillis = nextStoredTrigger?.triggerDateTime
+                    ?: parseReminderDateTime(dueDate, reminder?.time ?: "09:00")
+                    ?: continue
+
+                if (triggerMillis <= now) continue
+
+                val diff = (dueEpochDay - todayEpochDay).toInt()
+                val relativeText = when {
+                    diff == 0 -> "امروز"
+                    diff == 1 -> "فردا"
+                    else -> "${IranianPhoneUtils.convertDigitsToPersian(diff.toString())} روز دیگر"
+                }
+                val paymentAmount = if (payment != null && payment.amount > 0L) {
+                    payment.amount
+                } else {
+                    installment.totalAmount / installment.totalInstallments.coerceAtLeast(1)
+                }
+                val formattedAmount = MoneyFormatter.formatExact(
+                    MoneyAmount.of(paymentAmount, installment.amountUnit)
                 )
-            } else null
 
-            val effectiveDueDate = nearestUnpaid?.dueDate?.ifBlank { item.nextPaymentDate } ?: item.nextPaymentDate
-            val paymentAmount = if (nearestUnpaid != null && nearestUnpaid.amount > 0L) {
-                nearestUnpaid.amount
-            } else {
-                item.totalAmount / item.totalInstallments.coerceAtLeast(1)
-            }
-            val formattedAmount = MoneyFormatter.formatExact(MoneyAmount.of(paymentAmount, item.amountUnit))
-            val bankName = item.providerOrPerson.trim()
-
-            val diff = calculateDaysDifference(effectiveDueDate)
-            val isOverdue = diff < 0 || item.status == InstallmentStatus.OVERDUE
-            val relativeText = when {
-                diff < 0 -> "${IranianPhoneUtils.convertDigitsToPersian((-diff).toString())} روز گذشته (معوق)"
-                diff == 0 -> "امروز"
-                diff == 1 -> "فردا"
-                else -> "${IranianPhoneUtils.convertDigitsToPersian(diff.toString())} روز دیگر"
-            }
-
-            list.add(
-                UpcomingObligationItem(
-                    id = "ob_loan_${item.id}",
-                    title = item.title,
-                    amount = paymentAmount,
-                    amountUnit = item.amountUnit,
-                    formattedAmount = formattedAmount,
-                    relativeDaysText = relativeText,
-                    dueDatePersian = effectiveDueDate,
-                    type = ObligationType.INSTALLMENT,
-                    destinationTab = BottomNavItem.INSTALLMENTS,
-                    iconRes = R.drawable.img_3d_bank,
-                    accentColor = ColorUtils.blueAccent,
-                    isOverdue = isOverdue,
-                    rawId = item.id,
-                    bankName = bankName,
-                    totalInstallments = item.totalInstallments,
-                    remainingInstallments = item.remainingInstallments,
-                    scheduleItemId = nearestUnpaid?.id
+                candidates.add(
+                    ObligationCandidate(
+                        item = UpcomingObligationItem(
+                            id = "ob_loan_${installment.id}",
+                            title = installment.title,
+                            amount = paymentAmount,
+                            amountUnit = installment.amountUnit,
+                            formattedAmount = formattedAmount,
+                            relativeDaysText = relativeText,
+                            dueDatePersian = dueDate,
+                            type = ObligationType.INSTALLMENT,
+                            destinationTab = BottomNavItem.INSTALLMENTS,
+                            iconRes = R.drawable.img_3d_bank,
+                            accentColor = ColorUtils.blueAccent,
+                            isOverdue = false,
+                            rawId = installment.id,
+                            bankName = installment.providerOrPerson.trim(),
+                            totalInstallments = installment.totalInstallments,
+                            remainingInstallments = installment.remainingInstallments,
+                            scheduleItemId = payment?.id
+                        ),
+                        nextTriggerMillis = triggerMillis
+                    )
                 )
-            )
+            }
         }
 
-        // Sort by priority/urgency:
-        // 1. Overdue (diff < 0) priority 0
-        // 2. Due today (diff == 0) priority 1
-        // 3. Upcoming (diff > 0) priority 2
-        // Tie-break deterministically by dueDatePersian and id
-        return list.sortedWith(
-            compareBy<UpcomingObligationItem> { item ->
-                val diff = calculateDaysDifference(item.dueDatePersian)
-                if (diff < 0) 0 else if (diff == 0) 1 else 2
-            }.thenBy { item ->
-                val diff = calculateDaysDifference(item.dueDatePersian)
-                diff
-            }.thenBy { item ->
-                item.dueDatePersian
-            }.thenBy { item ->
-                item.id
-            }
-        ).take(1)
+        // Pick the next future reminder by its actual scheduled epoch time.
+        // This also advances to the next payment/reminder after an earlier trigger fires.
+        return candidates
+            .sortedWith(
+                compareBy<ObligationCandidate> { it.nextTriggerMillis }
+                    .thenBy { it.item.dueDatePersian }
+                    .thenBy { it.item.id }
+            )
+            .map { it.item }
+            .take(1)
     }
 
     suspend fun getUpcomingReminders(): List<UpcomingReminderItem> {

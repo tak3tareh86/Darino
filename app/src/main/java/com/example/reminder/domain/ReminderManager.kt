@@ -101,7 +101,7 @@ class ReminderManager(
             )
         }
 
-        repository.insertReminderWithSchedules(reminderToPersist, schedules)
+        repository.insertReminderWithSchedules(reminder, schedules)
         val scheduledCount = try {
             scheduler.schedule(reminder, schedules).also { count ->
                 if (reminder.sourceType.equals("CHECK", ignoreCase = true) && schedules.any { it.enabled } && count == 0) {
