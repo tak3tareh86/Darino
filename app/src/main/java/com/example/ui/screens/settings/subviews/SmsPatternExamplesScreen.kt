@@ -129,13 +129,14 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
                     message = buildAnnotatedString {
                         withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("انتقال") }
                         append(" وجه ")
-                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("کارت به کارت") }
-                        append(" به مبلغ ۱,۲۰۰,۰۰۰ ریال انجام شد.")
+                        append("وجه کارت به کارت به مبلغ ۱,۲۰۰,۰۰۰ ریال ")
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("انجام") }
+                        append(" شد.")
                     },
-                    fixedTerms = listOf("انتقال", "کارت به کارت"),
+                    fixedTerms = listOf("انتقال", "انجام"),
                     variableTerms = "مبلغ و شماره کارت‌ها",
-                    marker = "انتقال/کارت_به_کارت",
-                    explanation = "برای عبارتی که در پیامک فاصله دارد، می‌توانی در کادر نشانه از زیرخط استفاده کنی؛ زیرخط و خط تیره هنگام تطبیق معادل‌اند."
+                    marker = "انتقال/انجام",
+                    explanation = "در این نمونه، دو واژه مستقل «انتقال» و «انجام» هر دو در پیامک وجود دارند. برای عبارت‌های مرکب، زیرخط و خط تیره در منطق تطبیق معادل‌اند؛ اما فاصله معمولی به زیرخط تبدیل نمی‌شود."
                 )
             }
             item {
