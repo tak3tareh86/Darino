@@ -101,7 +101,7 @@ class ReminderManager(
             )
         }
 
-        repository.insertReminderWithSchedules(reminder, schedules)
+        repository.insertReminderWithSchedules(reminderToPersist, schedules)
         val scheduledCount = try {
             scheduler.schedule(reminder, schedules).also { count ->
                 if (reminder.sourceType.equals("CHECK", ignoreCase = true) && schedules.any { it.enabled } && count == 0) {
@@ -584,6 +584,18 @@ class ReminderManager(
 
         val payments = paymentDueDates ?: listOf("legacy" to dueDatePersian)
         val now = System.currentTimeMillis()
+        // Once every payment is paid, complete the loan-level reminder and retain
+        // its schedule preferences only as disabled history. This does not alter
+        // per-payment trigger generation for loans that still have unpaid payments.
+        val reminderToPersist = if (payments.isEmpty()) {
+            reminder.copy(
+                status = "COMPLETED",
+                completedAt = existing?.completedAt ?: now,
+                updatedAt = now
+            )
+        } else {
+            reminder
+        }
         val today = Calendar.getInstance().apply {
             timeInMillis = now
             set(Calendar.HOUR_OF_DAY, 0)
@@ -655,7 +667,7 @@ class ReminderManager(
             try {
                 scheduler.cancel(existing.id, oldSchedules)
                 NotificationDispatcher(context).cancelReminderNotifications(existing.id, oldSchedules)
-                repository.updateReminderWithSchedules(reminder, schedules)
+                repository.updateReminderWithSchedules(reminderToPersist, schedules)
             } catch (e: Exception) {
                 Log.e("ReminderManager", "Failed to persist installment reminder changes for $installmentId; restoring previous alarms.", e)
                 runCatching {
