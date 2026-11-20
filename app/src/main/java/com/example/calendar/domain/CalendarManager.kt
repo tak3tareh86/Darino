@@ -138,8 +138,8 @@ class CalendarManager(private val context: Context) {
             installments.forEach { inst ->
                 val providerSuffix = if (inst.providerName.isNotBlank()) " (${inst.providerName})" else ""
                 val title = "${inst.title}$providerSuffix"
-                val installmentAmountUnit = parseCalendarCurrencyUnit(inst.amountUnit)
                 inst.paymentHistory.forEach { payment ->
+                    val paymentAmountUnit = parseCalendarCurrencyUnit(payment.amountUnit.name)
                     val eventId = "auto_inst_${inst.id}_${payment.id}"
                     if (seenIds.add(eventId)) {
                         val status = when (payment.status.name) {
@@ -153,8 +153,8 @@ class CalendarManager(private val context: Context) {
                                 title = title,
                                 description = "قسط ${payment.installmentNumber} از ${inst.totalInstallments}",
                                 type = FinancialEventType.INSTALLMENT,
-                                amount = payment.amount.takeIf { installmentAmountUnit != null },
-                                amountUnit = installmentAmountUnit ?: AppCurrency.TOMAN,
+                                amount = payment.amount.takeIf { paymentAmountUnit != null },
+                                amountUnit = paymentAmountUnit ?: AppCurrency.TOMAN,
                                 date = CalendarDateUtils.normalizeDate(payment.dueDate),
                                 time = "09:00",
                                 repeatType = "NONE",
