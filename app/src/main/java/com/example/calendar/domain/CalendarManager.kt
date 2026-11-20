@@ -78,6 +78,16 @@ class CalendarManager(private val context: Context) {
                 .mapNotNull { it.sourceId }
                 .toSet()
 
+            // Installment reminders are the canonical per-loan calendar entry.
+            // Do not also emit the synthetic contract-level monthly event for the
+            // same installment, otherwise the calendar shows a second, averaged
+            // amount (contract principal / installment count) beside the real
+            // next-payment reminder.
+            val linkedInstallmentSourceIds = reminders
+                .filter { it.sourceType.equals("INSTALLMENT", ignoreCase = true) }
+                .mapNotNull { it.sourceId }
+                .toSet()
+
             // 1. Add DB events that have not yet been adopted into the reminder store.
             for (ev in dbEvents) {
                 if (ev.id !in linkedCalendarEventIds && seenIds.add(ev.id)) {
@@ -126,7 +136,11 @@ class CalendarManager(private val context: Context) {
             // 3. Cross-integrate Installments / Loans
             installments.forEach { inst ->
                 val eventId = "auto_inst_${inst.id}"
-                if (seenIds.add(eventId)) {
+                // ReminderManager links installment reminders to the public/server
+                // ID when available, falling back to the local Room ID. Match the
+                // same identity here so only one calendar event represents a loan.
+                val installmentSourceId = inst.serverId ?: inst.id.toString()
+                if (installmentSourceId !in linkedInstallmentSourceIds && seenIds.add(eventId)) {
                     val formattedDate = if (inst.nextDueDate > 0) {
                         CalendarDateUtils.normalizeDate(
                             PersianCalendarHelper.fromEpochMillis(inst.nextDueDate).toFormattedDate()
