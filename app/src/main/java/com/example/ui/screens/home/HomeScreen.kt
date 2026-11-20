@@ -80,6 +80,7 @@ fun HomeScreen(
     val subState by subscriptionViewModel.uiState.collectAsState()
     var debugSubscriptionState by remember { mutableStateOf<SubscriptionState?>(null) }
     var showSubscriptionDebugPanel by remember { mutableStateOf(false) }
+    var pendingInstallmentPaymentId by remember { mutableStateOf<String?>(null) }
     val displayedSubscriptionState = if (BuildConfig.DEBUG) debugSubscriptionState ?: subState else subState
     val smsPermissionState by viewModel.smsPermissionState.collectAsState()
     val isScanningSms by viewModel.isScanningSms.collectAsState()
@@ -417,12 +418,17 @@ fun HomeScreen(
                                     }
                                 },
                                 onMarkDoneClick = { id ->
-                                    viewModel.markObligationDone(id) { success ->
-                                        scope.launch {
-                                            if (success) {
-                                                snackbarHostState.showSnackbar("تعهد مورد نظر با موفقیت پرداخت و تسویه شد.")
-                                            } else {
-                                                snackbarHostState.showSnackbar("خطا در ثبت پرداخت یا قسط قبلاً پرداخت شده است.")
+                                    val obligation = uiState.upcomingObligations.find { it.id == id }
+                                    if (obligation?.type == ObligationType.INSTALLMENT) {
+                                        pendingInstallmentPaymentId = id
+                                    } else {
+                                        viewModel.markObligationDone(id) { success ->
+                                            scope.launch {
+                                                if (success) {
+                                                    snackbarHostState.showSnackbar("تعهد مورد نظر با موفقیت پرداخت و تسویه شد.")
+                                                } else {
+                                                    snackbarHostState.showSnackbar("خطا در ثبت پرداخت یا قسط قبلاً پرداخت شده است.")
+                                                }
                                             }
                                         }
                                     }
@@ -456,5 +462,52 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    pendingInstallmentPaymentId?.let { obligationId ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingInstallmentPaymentId = null },
+            title = { androidx.compose.material3.Text("تأیید پرداخت قسط") },
+            text = {
+                androidx.compose.material3.Text(
+                    "آیا می‌خواهید مبلغ این قسط علاوه بر ثبت پرداخت، در بخش هزینه‌ها هم ثبت شود؟"
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        pendingInstallmentPaymentId = null
+                        viewModel.markObligationDone(obligationId, includeInExpenses = true) { success ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    if (success) "قسط پرداخت و مبلغ آن در هزینه‌ها ثبت شد."
+                                    else "خطا در ثبت پرداخت یا قسط قبلاً پرداخت شده است."
+                                )
+                            }
+                        }
+                    }
+                ) { androidx.compose.material3.Text("بله، در هزینه‌ها ثبت شود") }
+            },
+            dismissButton = {
+                Row {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            pendingInstallmentPaymentId = null
+                            viewModel.markObligationDone(obligationId, includeInExpenses = false) { success ->
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        if (success) "قسط پرداخت شد؛ در هزینه‌ها ثبت نشد."
+                                        else "خطا در ثبت پرداخت یا قسط قبلاً پرداخت شده است."
+                                    )
+                                }
+                            }
+                        }
+                    ) { androidx.compose.material3.Text("فقط ثبت پرداخت") }
+                    androidx.compose.material3.TextButton(
+                        onClick = { pendingInstallmentPaymentId = null }
+                    ) { androidx.compose.material3.Text("انصراف") }
+                }
+            }
+        )
     }
 }
