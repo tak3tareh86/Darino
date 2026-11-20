@@ -107,18 +107,20 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
             item {
                 ExampleLessonCard(
                     number = "۲",
-                    title = "پیامک برداشت وجه",
-                    sender = "بانک نمونه",
+                    title = "پیامک برداشت با کارت",
+                    sender = "بانک شهر",
                     message = buildAnnotatedString {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF087F5B))) { append("خريد") }
+                        append(" با کارت\\n")
                         withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFFB45309))) { append("برداشت") }
-                        append(" وجه: ۲,۵۰۰,۰۰۰ ریال از حساب ۱۲۳۴ ")
-                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFFB45309))) { append("کسر شد") }
-                        append(".")
+                        append(" از:1234567000")
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("0987") }
+                        append("\\nمبلغ:400,000ريال\\nموجودي:97,124,864 ريال\\n1405/08/28 06:54:12")
                     },
-                    fixedTerms = listOf("برداشت", "کسر شد"),
-                    variableTerms = "مبلغ و شماره حساب",
-                    marker = "برداشت/کسرشد",
-                    explanation = "عبارت‌های «برداشت» و «کسر شد» در این نمونه کنار هم آمده‌اند. هنگام ورود نشانه، فاصله‌ها حذف می‌شوند؛ بنابراین «کسرشد» با عبارت پیامک تطبیق می‌کند."
+                    fixedTerms = listOf("خرید", "برداشت", "0987"),
+                    variableTerms = "مبلغ، موجودی، تاریخ، ساعت و واحد پول",
+                    marker = "خرید/برداشت/0987",
+                    explanation = "نشانه می‌تواند عددی هم باشد؛ مثلاً چند رقم پایانی شماره حساب مانند «0987». تاریخ، ساعت، مبلغ و واحد پول را هرگز به‌عنوان نشانه ثبت نکنید، چون در پیامک‌های مختلف تغییر می‌کنند."
                 )
             }
             item {
@@ -149,7 +151,7 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
                             Icon(Icons.Rounded.TipsAndUpdates, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Text("چند نکته مهم قبل از ثبت", style = MaterialTheme.typography.titleSmall)
                         }
-                        TipLine("نشانه‌ها باید ثابت و مرتبط با نوع تراکنش باشند؛ مبلغ، مانده، تاریخ و کد پیگیری را انتخاب نکن.")
+                        TipLine("نشانه‌ها باید ثابت و مرتبط با نوع تراکنش باشند؛ مبلغ، موجودی، تاریخ، ساعت و واحد پول را به‌عنوان نشانه انتخاب نکن.")
                         TipLine("در منطق فعلی دارینو، تمام نشانه‌هایی که با / جدا می‌کنی باید هم‌زمان در همان پیامک وجود داشته باشند؛ / به معنی «یا» نیست.")
                         TipLine("حداقل دو نشانه متفاوت برای هر دسته لازم است. نشانه‌ها را با / از هم جدا کن.")
                         TipLine("سرشناسه فرستنده را جداگانه در کادر سرشماره متنی یا عددی ثبت کن؛ سرشناسه با نشانه تراکنش فرق دارد.")
