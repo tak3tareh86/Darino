@@ -204,13 +204,12 @@ class HomeDashboardRepository(
                     .filter { it.enabled && it.triggerDateTime > now }
                     .minByOrNull { it.triggerDateTime }
 
-                // If schedules exist for this payment but all have already fired or are disabled,
-                // do not resurrect an old trigger as the nearest reminder.
-                val triggerMillis = when {
-                    nextStoredTrigger != null -> nextStoredTrigger.triggerDateTime
-                    matchingSchedules.isNotEmpty() -> null
-                    else -> parseReminderDateTime(dueDate, reminder?.time ?: "09:00")
-                } ?: continue
+                // Prefer the next enabled schedule. If none remains, fall back to the
+                // reminder's base time (or the standard 09:00 time); a past fallback is
+                // rejected below, so an already-fired reminder cannot stay at the top.
+                val triggerMillis = nextStoredTrigger?.triggerDateTime
+                    ?: parseReminderDateTime(dueDate, reminder?.time ?: "09:00")
+                    ?: continue
 
                 if (triggerMillis <= now) continue
 
