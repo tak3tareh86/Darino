@@ -335,11 +335,20 @@ class LocalInstallmentRepository private constructor() {
         val activeItems = items.filter { it.remainingInstallments > 0 }
         val nearestItem = activeItems.minByOrNull { parseJalaliStringToMillis(it.nextPaymentDate) ?: Long.MAX_VALUE }
 
-        val totalPaid = items.fold(0L) { total, item -> Math.addExact(total, MoneyAmount.of(item.paidAmount, item.amountUnit).asRialsLongExact()) }
-        val totalRemaining = items.fold(0L) { total, item -> Math.addExact(total, MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact()) }
+        // Keep all summary figures scoped to active loans and aggregate the persisted
+        // installment-derived amounts in canonical Rials. This preserves legacy schedule
+        // recovery estimates already applied while loading incomplete historical records.
+        val totalPaid = activeItems.fold(0L) { total, item ->
+            Math.addExact(total, MoneyAmount.of(item.paidAmount, item.amountUnit).asRialsLongExact())
+        }
+        val totalRemaining = activeItems.fold(0L) { total, item ->
+            Math.addExact(total, MoneyAmount.of(item.remainingAmount, item.amountUnit).asRialsLongExact())
+        }
+        val totalRepayment = Math.addExact(totalPaid, totalRemaining)
 
         _summary.value = InstallmentSummaryData(
             activeCount = activeItems.size,
+            totalRepaymentAmount = totalRepayment,
             paidAmount = totalPaid,
             remainingAmount = totalRemaining,
             paidAmountFormatted = MoneyFormatter.formatExact(MoneyAmount.of(totalPaid, AppCurrency.RIAL)),
