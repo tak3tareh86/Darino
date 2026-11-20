@@ -125,7 +125,9 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
             }
             when (selectedTab) {
                 0 -> {
-                                    ExampleLessonCard(
+                                    item {
+
+                                        ExampleLessonCard(
                                         number = "۱",
                                         title = "پیامک واریز وجه",
                                         sender = "بانک نمونه",
@@ -142,6 +144,7 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
                                         marker = "واریز/نشست",
                                         explanation = "در این نمونه، دو عبارت «واریز» و «نشست» هر دو در همان پیامک وجود دارند و برای تشخیص واریز به کار می‌آیند."
                                     )
+                                    }
                     item {
                         TipCard(
                             title = "نکات تشخیص واریز",
@@ -154,7 +157,9 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
                     }
                 }
                 1 -> {
-                                    ExampleLessonCard(
+                                    item {
+
+                                        ExampleLessonCard(
                                         number = "۲",
                                         title = "پیامک برداشت با کارت",
                                         sender = "بانک شهر",
@@ -171,6 +176,7 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
                                         marker = "خرید/برداشت/0987",
                                         explanation = "نشانه می‌تواند عددی هم باشد؛ مثلاً چند رقم پایانی شماره حساب مانند «0987». تاریخ، ساعت، مبلغ و واحد پول را هرگز به‌عنوان نشانه ثبت نکنید، چون در پیامک‌های مختلف تغییر می‌کنند."
                                     )
+                                    }
                     item {
                         TipCard(
                             title = "نکات تشخیص برداشت",
@@ -184,7 +190,9 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
                     }
                 }
                 else -> {
-                                    ExampleLessonCard(
+                                    item {
+
+                                        ExampleLessonCard(
                                         number = "۳",
                                         title = "پیامک انتقال وجه",
                                         sender = "بانک نمونه",
@@ -199,6 +207,7 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
                                         marker = "انتقال/انجام",
                                         explanation = "در این نمونه، دو واژه مستقل «انتقال» و «انجام» هر دو در پیامک وجود دارند. برای عبارت‌های مرکب، زیرخط و خط تیره در منطق تطبیق معادل‌اند؛ اما فاصله معمولی به زیرخط تبدیل نمی‌شود."
                                     )
+                                    }
                     item {
                         TipCard(
                             title = "نکات تشخیص انتقال وجه",
@@ -235,7 +244,8 @@ private fun TipCard(title: String, tips: List<String>) {
     }
 }
 @Composable
-private fun ExampleLessonCard(
+private fun item {
+     ExampleLessonCard(
     number: String,
     title: String,
     sender: String,
