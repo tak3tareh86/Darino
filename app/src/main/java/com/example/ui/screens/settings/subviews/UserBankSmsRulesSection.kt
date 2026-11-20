@@ -107,7 +107,7 @@ private fun renderBankLogo(source: String): Bitmap? = runCatching {
 }.getOrNull()
 
 @Composable
-fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit, addBankRequest: Int) {
+fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit, addBankRequest: Int, onOpenExamples: () -> Unit) {
     val context = LocalContext.current
     val repository = remember(context) { UserBankSmsRuleRepository(context) }
     var rules by remember { mutableStateOf(repository.getAll()) }
@@ -133,7 +133,7 @@ fun UserBankSmsRulesSection(selectedTab: Int, onSelectedTabChange: (Int) -> Unit
         }
 
         if (selectedTab == 1) {
-            SmsRulesGuide()
+            SmsRulesGuide(onOpenExamples)
         } else {
         OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("جست‌وجوی بانک یا سرشناسه") }, placeholder = { Text("نام بانک، سرشناسه متنی یا عددی") }, leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) }, trailingIcon = { if (searchQuery.isNotEmpty()) androidx.compose.material3.IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Rounded.Close, contentDescription = "پاک کردن جست‌وجو") } })
 
@@ -654,7 +654,7 @@ private data class SmsGuideGroup(
 )
 
 @Composable
-private fun SmsRulesGuide() {
+private fun SmsRulesGuide(onOpenExamples: () -> Unit) {
     val groups = listOf(
         SmsGuideGroup(
             icon = "↔",
@@ -690,6 +690,13 @@ private fun SmsRulesGuide() {
                 "علامت‌های _ و - هنگام تطبیق معادل یکدیگرند؛ اما برای جداکردن نشانه‌ها فقط / معتبر است."
             ),
             examples = listOf("نمونه معادل", "کارت_به_کارت  =  کارت-به-کارت", "نمونه غیرمجاز", "واریز / برداشت (فاصله در کادر مجاز نیست)")
+        ),
+        SmsGuideGroup(
+            icon = "✦",
+            title = "مثال‌های کاربردی استخراج نشانه",
+            shortTitle = "مثال‌ها",
+            bullets = emptyList(),
+            examples = emptyList()
         )
     )
     var selectedGroup by remember { mutableStateOf<SmsGuideGroup?>(null) }
@@ -706,33 +713,45 @@ private fun SmsRulesGuide() {
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            groups.forEach { group ->
-                Surface(
-                    onClick = { selectedGroup = group },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 2.dp,
-                    shadowElevation = 1.dp
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            groups.chunked(2).forEach { rowGroups ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 14.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(7.dp)
-                    ) {
-                        Text(group.icon, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                        Text(
-                            group.shortTitle,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2
-                        )
+                    rowGroups.forEach { group ->
+                        Surface(
+                            onClick = {
+                                if (group.shortTitle == "مثال‌ها") onOpenExamples()
+                                else selectedGroup = group
+                            },
+                            modifier = Modifier.weight(1f).height(88.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (group.shortTitle == "مثال‌ها") MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                            tonalElevation = 2.dp,
+                            shadowElevation = 1.dp
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(7.dp)
+                            ) {
+                                Text(
+                                    group.icon,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = if (group.shortTitle == "مثال‌ها") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    group.shortTitle,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (group.shortTitle == "مثال‌ها") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 2
+                                )
+                            }
+                        }
                     }
+                    if (rowGroups.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }
