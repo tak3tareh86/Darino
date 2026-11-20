@@ -584,7 +584,11 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
      * Real payment / completion action for an obligation.
      * Updates the underlying Room database & repositories, and records financial transaction atomically and idempotently.
      */
-    fun markObligationDone(id: String, onResult: (Boolean) -> Unit = {}) {
+    fun markObligationDone(
+        id: String,
+        includeInExpenses: Boolean = false,
+        onResult: (Boolean) -> Unit = {}
+    ) {
         viewModelScope.launch {
             var resultReported = false
             fun safeResult(success: Boolean) {
@@ -619,35 +623,37 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
                             val installmentId = obligation.rawId
                             val scheduleItemId = obligation.scheduleItemId
                             val stableSchedId = scheduleItemId?.takeIf { it.isNotBlank() } ?: "sched_${obligation.dueDatePersian.replace('/', '_')}"
-                            val txId = "tx_inst_${installmentId}_${stableSchedId}"
 
-                            val finTxEntity = TransactionEntity(
-                                stringId = txId,
-                                userId = userId,
-                                title = "پرداخت قسط: ${obligation.title}",
-                                amount = obligation.amount,
-                                amountUnit = obligation.amountUnit.name,
-                                type = "EXPENSE",
-                                category = "اقساط و وام",
-                                accountName = "بدون حساب مشخص",
-                                description = "پرداخت قسط از داشبورد خانه",
-                                timestamp = System.currentTimeMillis(),
-                                timeFormatted = nowTime,
-                                datePersian = todayJalali,
-                                paymentMethod = "OTHER",
-                                sourceType = "INSTALLMENT",
-                                sourceId = installmentId,
-                                accountId = null
-                            )
+                            val finTxEntity = if (includeInExpenses) {
+                                TransactionEntity(
+                                    stringId = "tx_inst_${installmentId}_${stableSchedId}",
+                                    userId = userId,
+                                    title = "پرداخت قسط: ${obligation.title}",
+                                    amount = obligation.amount,
+                                    amountUnit = obligation.amountUnit.name,
+                                    type = "EXPENSE",
+                                    category = "اقساط و وام",
+                                    accountName = "بدون حساب مشخص",
+                                    description = "پرداخت قسط از داشبورد خانه",
+                                    timestamp = System.currentTimeMillis(),
+                                    timeFormatted = nowTime,
+                                    datePersian = todayJalali,
+                                    paymentMethod = "OTHER",
+                                    sourceType = "INSTALLMENT",
+                                    sourceId = installmentId,
+                                    accountId = null
+                                )
+                            } else {
+                                null
+                            }
 
-                            val paidSuccessfully = LocalInstallmentRepository.instance.payInstallment(
+                            LocalInstallmentRepository.instance.payInstallment(
                                 installmentId = installmentId,
                                 paymentDate = todayJalali,
                                 context = getApplication(),
                                 scheduleItemId = scheduleItemId,
                                 financialTransaction = finTxEntity
                             )
-                            paidSuccessfully
                         }
 
                         ObligationType.VEHICLE_INSURANCE -> {
