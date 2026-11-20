@@ -713,45 +713,34 @@ private fun SmsRulesGuide(onOpenExamples: () -> Unit) {
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            groups.chunked(2).forEach { rowGroups ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            groups.forEach { group ->
+                Surface(
+                    onClick = {
+                        if (group.shortTitle == "مثال‌ها") onOpenExamples()
+                        else selectedGroup = group
+                    },
+                    modifier = Modifier.weight(1f).height(58.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                    tonalElevation = 1.dp
                 ) {
-                    rowGroups.forEach { group ->
-                        Surface(
-                            onClick = {
-                                if (group.shortTitle == "مثال‌ها") onOpenExamples()
-                                else selectedGroup = group
-                            },
-                            modifier = Modifier.weight(1f).height(88.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            color = if (group.shortTitle == "مثال‌ها") MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                            tonalElevation = 2.dp,
-                            shadowElevation = 1.dp
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(7.dp)
-                            ) {
-                                Text(
-                                    group.icon,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = if (group.shortTitle == "مثال‌ها") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    group.shortTitle,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = if (group.shortTitle == "مثال‌ها") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 2
-                                )
-                            }
-                        }
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            group.shortTitle,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            softWrap = true
+                        )
                     }
-                    if (rowGroups.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }
