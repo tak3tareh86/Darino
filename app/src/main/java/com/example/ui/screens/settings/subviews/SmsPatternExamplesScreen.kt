@@ -194,27 +194,31 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
 
                                         ExampleLessonCard(
                                         number = "۳",
-                                        title = "پیامک انتقال وجه",
-                                        sender = "بانک نمونه",
+                                        title = "پیامک انتقال وجه کارت به کارت",
+                                        sender = "بانک شهر",
                                         message = buildAnnotatedString {
                                             withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("انتقال") }
-                                            append(" وجه کارت به کارت به مبلغ ۱,۲۰۰,۰۰۰ ریال ")
-                                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("انجام") }
-                                            append(" شد.")
+                                            append(" ")
+                                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("وجه") }
+                                            append(" کارتي\\nبرداشت ")
+                                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("از") }
+                                            append(":1234567000")
+                                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF087F5B))) { append("5670") }
+                                            append("\\nمبلغ:20,014,500ريال\\nموجودي:77,060,364 ريال\\n1405/08/29 15:57:42")
                                         },
-                                        fixedTerms = listOf("انتقال", "انجام"),
-                                        variableTerms = "مبلغ و شماره کارت‌ها",
-                                        marker = "انتقال/انجام",
-                                        explanation = "در این نمونه، دو واژه مستقل «انتقال» و «انجام» هر دو در پیامک وجود دارند. برای عبارت‌های مرکب، زیرخط و خط تیره در منطق تطبیق معادل‌اند؛ اما فاصله معمولی به زیرخط تبدیل نمی‌شود."
+                                        fixedTerms = listOf("انتقال", "از", "وجه", "5670"),
+                                        variableTerms = "مبلغ، موجودی، تاریخ، ساعت و واحد پول",
+                                        marker = "انتقال/از/وجه/5670",
+                                        explanation = "نشانه می‌تواند عددی باشد؛ مثلاً چند رقم از شماره حساب. ولی تاریخ، ساعت، مبلغ و واحد پول نباید به‌عنوان نشانه ثبت شوند."
                                     )
                                     }
                     item {
                         TipCard(
                             title = "نکات تشخیص انتقال وجه",
                             tips = listOf(
-                                "واژه‌های ثابت مانند «انتقال» و «انجام» را انتخاب کن، نه مبلغ یا شماره کارت‌های متغیر.",
-                                "برای عبارت‌های مرکب، زیرخط و خط تیره در منطق تطبیق معادل‌اند؛ فاصله معمولی جایگزین آن‌ها نیست.",
-                                "حداقل دو نشانه متفاوت را با / جدا کن؛ همه نشانه‌ها باید در همان پیامک وجود داشته باشند."
+                                "نشانه‌های ثابت این نمونه «انتقال»، «از»، «وجه» و «5670» هستند؛ نشانه عددی می‌تواند از شماره حساب انتخاب شود.",
+                                "مبلغ، موجودی، تاریخ، ساعت و واحد پول متغیرند و نباید به‌عنوان نشانه ثبت شوند.",
+                                "همه نشانه‌هایی که با / جدا می‌کنی باید هم‌زمان در همان پیامک وجود داشته باشند."
                             )
                         )
                     }
