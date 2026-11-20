@@ -244,8 +244,7 @@ private fun TipCard(title: String, tips: List<String>) {
     }
 }
 @Composable
-private fun item {
-     ExampleLessonCard(
+private fun ExampleLessonCard(
     number: String,
     title: String,
     sender: String,
