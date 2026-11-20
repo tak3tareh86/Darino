@@ -50,6 +50,7 @@ class CalendarManager(private val context: Context) {
         val dbEventsFlow = repository.getAllEvents()
         val remindersFlow = database.smartReminderDao().getAllReminders(userId)
         val installmentsFlow = database.installmentDao().getAllInstallments(userId)
+        val installmentPaymentsFlow = database.installmentDao().getAllPayments(userId)
         val vehicleServicesFlow = VehicleRepository.instance.services
         val vehicleInsurancesFlow = VehicleRepository.instance.insurances
         val vehicleInspectionsFlow = VehicleRepository.instance.inspections
@@ -58,7 +59,9 @@ class CalendarManager(private val context: Context) {
         return combine(
             dbEventsFlow,
             remindersFlow,
-            installmentsFlow,
+            combine(installmentsFlow, installmentPaymentsFlow) { installments, payments ->
+                installments to payments
+            },
             combine(
                 vehicleServicesFlow,
                 vehicleInsurancesFlow,
@@ -67,7 +70,8 @@ class CalendarManager(private val context: Context) {
             ) { svcs, ins, insp, exp ->
                 Quadruple(svcs, ins, insp, exp)
             }
-        ) { dbEvents, reminders, installments, vehicleData ->
+        ) { dbEvents, reminders, installmentData, vehicleData ->
+            val (installments, installmentPayments) = installmentData
             val allEvents = mutableListOf<FinancialEvent>()
             val seenIds = mutableSetOf<String>()
 
@@ -138,33 +142,39 @@ class CalendarManager(private val context: Context) {
             installments.forEach { inst ->
                 val providerSuffix = if (inst.providerName.isNotBlank()) " (${inst.providerName})" else ""
                 val title = "${inst.title}$providerSuffix"
-                inst.paymentHistory.forEach { payment ->
-                    val paymentAmountUnit = parseCalendarCurrencyUnit(payment.amountUnit.name)
-                    val eventId = "auto_inst_${inst.id}_${payment.id}"
-                    if (seenIds.add(eventId)) {
-                        val status = when (payment.status.name) {
-                            "PAID", "COMPLETED" -> FinancialEventStatus.PAID
-                            "OVERDUE" -> FinancialEventStatus.OVERDUE
-                            else -> FinancialEventStatus.PENDING
-                        }
-                        allEvents.add(
-                            FinancialEvent(
-                                id = eventId,
-                                title = title,
-                                description = "قسط ${payment.installmentNumber} از ${inst.totalInstallments}",
-                                type = FinancialEventType.INSTALLMENT,
-                                amount = payment.amount.takeIf { paymentAmountUnit != null },
-                                amountUnit = paymentAmountUnit ?: AppCurrency.TOMAN,
-                                date = CalendarDateUtils.normalizeDate(payment.dueDate),
-                                time = "09:00",
-                                repeatType = "NONE",
-                                reminderBefore = ReminderBeforeOption.NONE,
-                                sourceId = payment.id,
-                                status = status
+                installmentPayments
+                    .asSequence()
+                    .filter { it.installmentId == inst.id }
+                    .forEach { payment ->
+                        val paymentAmountUnit = parseCalendarCurrencyUnit(payment.amountUnit)
+                        val eventId = "auto_inst_${inst.id}_${payment.id}"
+                        if (seenIds.add(eventId)) {
+                            val status = when (payment.status.uppercase()) {
+                                "PAID", "COMPLETED" -> FinancialEventStatus.PAID
+                                "OVERDUE" -> FinancialEventStatus.OVERDUE
+                                else -> FinancialEventStatus.PENDING
+                            }
+                            val dueDate = PersianCalendarHelper
+                                .fromEpochMillis(payment.dueDate)
+                                .toFormattedDate()
+                            allEvents.add(
+                                FinancialEvent(
+                                    id = eventId,
+                                    title = title,
+                                    description = "قسط ${payment.installmentNumber} از ${inst.totalInstallments}",
+                                    type = FinancialEventType.INSTALLMENT,
+                                    amount = payment.amount.takeIf { paymentAmountUnit != null },
+                                    amountUnit = paymentAmountUnit ?: AppCurrency.TOMAN,
+                                    date = CalendarDateUtils.normalizeDate(dueDate),
+                                    time = "09:00",
+                                    repeatType = "NONE",
+                                    reminderBefore = ReminderBeforeOption.NONE,
+                                    sourceId = payment.id.toString(),
+                                    status = status
+                                )
                             )
-                        )
+                        }
                     }
-                }
             }
 
             // 4. Cross-integrate Vehicle Services
