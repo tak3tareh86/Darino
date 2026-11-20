@@ -135,6 +135,24 @@ fun InstallmentsSummaryCard(
                 }
             }
 
+            // Total scheduled repayment across active loans.
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "مجموع کل اقساط وام‌های فعال",
+                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = summary.displayTotal,
+                    style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
             // Divider Line
             Box(
                 modifier = Modifier
@@ -143,21 +161,19 @@ fun InstallmentsSummaryCard(
                     .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
             )
 
-            // Bottom Metrics: Paid vs Remaining
+            // Paid and unpaid installment totals for active loans.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Paid Metric
                 SummaryMetricItem(
-                    title = "مبلغ پرداخت‌شده",
+                    title = "مبلغ اقساط پرداخت‌شده",
                     amount = summary.displayPaid,
                     color = EmeraldPrimaryLight,
                     icon = Icons.Rounded.CheckCircle,
                     modifier = Modifier.weight(1f)
                 )
 
-                // Divider
                 Box(
                     modifier = Modifier
                         .height(38.dp)
@@ -170,9 +186,8 @@ fun InstallmentsSummaryCard(
                     )
                 }
 
-                // Remaining Metric
                 SummaryMetricItem(
-                    title = "مبلغ باقیمانده",
+                    title = "مبلغ اقساط باقی‌مانده",
                     amount = summary.displayRemaining,
                     color = Color(0xFF3B82F6),
                     icon = Icons.Rounded.Payments,
