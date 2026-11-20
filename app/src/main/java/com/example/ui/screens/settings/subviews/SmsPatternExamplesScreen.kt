@@ -1,6 +1,5 @@
 package com.example.ui.screens.settings.subviews
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -92,8 +91,9 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
                     title = "پیامک واریز وجه",
                     sender = "بانک نمونه",
                     message = buildAnnotatedString {
-                        append("واریز وجه: ")
-                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF087F5B))) { append("۵,۰۰۰,۰۰۰ ریال") }
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF087F5B))) { append("واریز") }
+                        append(" وجه: ")
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFFB45309))) { append("۵,۰۰۰,۰۰۰ ریال") }
                         append(" به حساب ۱۲۳۴ ")
                         withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF087F5B))) { append("نشست") }
                         append(".")
@@ -128,8 +128,7 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
                     sender = "بانک نمونه",
                     message = buildAnnotatedString {
                         withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("انتقال") }
-                        append(" وجه ")
-                        append("وجه کارت به کارت به مبلغ ۱,۲۰۰,۰۰۰ ریال ")
+                        append(" وجه کارت به کارت به مبلغ ۱,۲۰۰,۰۰۰ ریال ")
                         withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("انجام") }
                         append(" شد.")
                     },
