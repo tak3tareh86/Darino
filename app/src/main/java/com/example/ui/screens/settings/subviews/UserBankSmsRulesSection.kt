@@ -734,7 +734,7 @@ private fun SmsRulesGuide(onOpenExamples: () -> Unit) {
                     ) {
                         Text(
                             group.shortTitle,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center,
                             maxLines = 2,
