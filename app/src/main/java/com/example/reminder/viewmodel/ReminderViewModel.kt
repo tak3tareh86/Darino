@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.repository.NotificationRepository
 import com.example.reminder.data.LocalReminderRepository
 import com.example.reminder.data.ReminderEntity
+import com.example.reminder.data.ReminderScheduleEntity
 import com.example.reminder.data.ReminderRepository
 import com.example.reminder.domain.PredefinedOffset
 import com.example.reminder.domain.ReminderManager
@@ -55,15 +56,21 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         FilterParams(tab, chip, query)
     }
 
+    private val reminderData = combine(repository.getAllReminders(), repository.getAllSchedules()) { reminders, schedules ->
+        reminders to schedules
+    }
+
     val uiState: StateFlow<ReminderState> = combine(
-        repository.getAllReminders(),
+        reminderData,
         filterParams,
         _activeSuggestions,
         _isLoading,
         combine(_errorMessage, _userMessage, notificationRepository.getUnreadCount()) { error, userMsg, unreadCount ->
             Triple(error, userMsg, unreadCount)
         }
-    ) { allReminders: List<ReminderEntity>, filters: FilterParams, suggestions: List<SmartSuggestion>, isLoading: Boolean, triple: Triple<String?, String?, Int> ->
+    ) { reminderData: Pair<List<ReminderEntity>, List<ReminderScheduleEntity>>, filters: FilterParams, suggestions: List<SmartSuggestion>, isLoading: Boolean, triple: Triple<String?, String?, Int> ->
+        val allReminders = reminderData.first
+        val allSchedules = reminderData.second
         val error = triple.first
         val userMsg = triple.second
         val unreadCount = triple.third
@@ -80,11 +87,29 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val completedList = allReminders.filter { it.status.equals("COMPLETED", ignoreCase = true) }
         val missedList = allReminders.filter { it.status.equals("MISSED", ignoreCase = true) }
 
-        // Compare complete Jalali date-time values, not date strings. This excludes
-        // reminders whose time today has already passed and safely ignores malformed dates.
-        val upcomingReminders = ReminderPolicyEngine.upcomingByDateTime(activeList, now) { date, time ->
-            ReminderManager.parsePersianDateTimeToMillis(date, time)
-        }
+        // Display ordering follows the real, still-enabled future schedule first.
+        // A fired occurrence is already disabled by the receiver and therefore cannot
+        // remain the nearest item. Reminders without a future schedule retain their
+        // own due date/time as a display fallback; no reminder status is mutated.
+        val nextTriggerByReminder = allSchedules.asSequence()
+            .filter { it.enabled && it.triggerDateTime > now }
+            .groupBy { it.reminderId }
+            .mapValues { (_, schedules) -> schedules.minOf { it.triggerDateTime } }
+        val remindersWithScheduleHistory = allSchedules.mapTo(mutableSetOf()) { it.reminderId }
+        fun displayTime(reminder: ReminderEntity): Long? =
+            if (reminder.id in remindersWithScheduleHistory) {
+                // If this reminder has schedule records but none remain enabled in the
+                // future, do not misrepresent its base due date as a pending alert.
+                nextTriggerByReminder[reminder.id]
+            } else {
+                // Manual reminders without configured alert schedules keep their
+                // original date/time ordering.
+                runCatching { ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time) }.getOrNull()
+            }
+        val upcomingReminders = activeList.mapNotNull { reminder ->
+            val trigger = displayTime(reminder) ?: return@mapNotNull null
+            if (trigger > now) reminder to trigger else null
+        }.sortedBy { it.second }.map { it.first }
         val todayReminders = activeList.filter { it.date == todayPersian }
         val tomorrowReminders = activeList.filter { it.date == tomorrowPersian }
 
@@ -117,14 +142,14 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         }
 
         // Filter by Search Query
-        val finalFiltered = if (filters.searchQuery.isNotBlank()) {
+        val finalFiltered = (if (filters.searchQuery.isNotBlank()) {
             chipFiltered.filter {
                 it.title.contains(filters.searchQuery, ignoreCase = true) ||
                 it.description.contains(filters.searchQuery, ignoreCase = true)
             }
         } else {
             chipFiltered
-        }
+        }).sortedWith(compareBy<ReminderEntity>({ if (it.status.equals("ACTIVE", ignoreCase = true)) 0 else 1 }, { displayTime(it) ?: Long.MAX_VALUE }))
 
         val nearest = upcomingReminders.firstOrNull()
 
@@ -141,6 +166,8 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             todayCount = todayReminders.size,
             tomorrowCount = tomorrowReminders.size,
             nearestReminder = nearest,
+            nearestReminderTriggerAt = nearest?.let { nextTriggerByReminder[it.id] },
+            reminderDisplayTimes = nextTriggerByReminder,
             smartSuggestions = suggestions,
             isLoading = isLoading,
             errorMessage = error,
