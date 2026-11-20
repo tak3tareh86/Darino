@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -360,15 +361,21 @@ fun ReminderScreen(
                                 .shadow(
                                     elevation = 3.dp,
                                     shape = RoundedCornerShape(20.dp),
-                                    ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-                                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                    ambientColor = Color(0xFF064E3B).copy(alpha = 0.24f),
+                                    spotColor = Color(0xFF022C22).copy(alpha = 0.30f)
+                                )
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(Color(0xFF07543D), Color(0xFF032D22), Color(0xFF011B16))
+                                    )
                                 ),
                             shape = RoundedCornerShape(20.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            tonalElevation = 4.dp,
+                            color = Color.Transparent,
+                            tonalElevation = 0.dp,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+                                Color(0xFF4ADE80).copy(alpha = 0.28f)
                             )
                         ) {
                             Row(
@@ -386,7 +393,7 @@ fun ReminderScreen(
                                         text = "امروز",
                                         maxLines = 1,
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = Color(0xFFD1FAE5),
                                             fontSize = 10.sp
                                         )
                                     )
@@ -394,7 +401,7 @@ fun ReminderScreen(
                                         text = IranianPhoneUtils.convertDigitsToPersian(uiState.todayCount.toString()),
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.tertiary
+                                            color = Color(0xFF86EFAC)
                                         )
                                     )
                                 }
@@ -407,7 +414,7 @@ fun ReminderScreen(
                                     Text(
                                         text = "نزدیک‌ترین",
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = Color(0xFFD1FAE5),
                                             fontSize = 10.sp
                                         )
                                     )
@@ -419,7 +426,7 @@ fun ReminderScreen(
                                         overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
+                                            color = Color.White
                                         ),
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                     )
@@ -429,7 +436,7 @@ fun ReminderScreen(
                                             maxLines = 1,
                                             softWrap = false,
                                             style = MaterialTheme.typography.labelSmall.copy(
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                color = Color(0xFFDCFCE7),
                                                 fontSize = 10.sp
                                             ),
                                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -439,7 +446,7 @@ fun ReminderScreen(
                                             maxLines = 1,
                                             softWrap = false,
                                             style = MaterialTheme.typography.labelSmall.copy(
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                color = Color(0xFFDCFCE7),
                                                 fontSize = 10.sp
                                             ),
                                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -456,7 +463,7 @@ fun ReminderScreen(
                                         text = "فردا",
                                         maxLines = 1,
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = Color(0xFFD1FAE5),
                                             fontSize = 10.sp
                                         )
                                     )
