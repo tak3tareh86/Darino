@@ -683,6 +683,122 @@ class HomeDashboardTest {
     }
 
     @Test
+    fun `test UpcomingObligations orders same-date installments by next actual reminder time and advances after first fires`() = kotlinx.coroutines.runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val userId = "test_user_obligation_trigger_order"
+        com.example.data.security.SessionManager.setAuthenticatedUser(
+            com.example.data.api.NetworkUserDto(
+                id = userId,
+                fullName = "کاربر تست",
+                email = null,
+                phoneNumber = "09120000009",
+                phoneVerified = true
+            )
+        )
+
+        val installmentRepo = com.example.ui.screens.installments.data.LocalInstallmentRepository.instance
+        installmentRepo.init(context)
+        installmentRepo.clearAllInstallments(context)
+        var clearWait = 0
+        while (installmentRepo.installments.value.isNotEmpty() && clearWait < 30) {
+            kotlinx.coroutines.delay(50L)
+            clearWait++
+        }
+
+        val dueDate = PersianCalendarHelper.fromEpochMillis(
+            System.currentTimeMillis() + 2L * 24L * 60L * 60L * 1000L
+        ).toFormattedDate()
+        val (year, month, day) = com.example.util.IranianDateUtils.parsePersianDate(dueDate)
+        val db = AppDatabase.getDatabase(context)
+
+        suspend fun addLoan(id: String, title: String, paymentId: String, hour: Int) {
+            installmentRepo.addInstallment(
+                com.example.ui.screens.installments.model.InstallmentItem(
+                    id = id,
+                    title = title,
+                    category = com.example.ui.screens.installments.model.InstallmentCategory.BANK_LOANS,
+                    providerOrPerson = "بانک تست",
+                    totalAmount = 10_000_000L,
+                    paidAmount = 0L,
+                    remainingAmount = 10_000_000L,
+                    totalInstallments = 1,
+                    remainingInstallments = 1,
+                    nextPaymentDate = dueDate,
+                    nextDueDaysText = "۲ روز دیگر",
+                    startDate = dueDate,
+                    endDate = dueDate,
+                    status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING,
+                    monthlyPaymentFormatted = "۱۰,۰۰۰,۰۰۰ تومان",
+                    paymentHistory = listOf(
+                        com.example.ui.screens.installments.model.PaymentHistoryItem(
+                            id = paymentId,
+                            installmentNumber = 1,
+                            dueDate = dueDate,
+                            amount = 10_000_000L,
+                            status = com.example.ui.screens.installments.model.InstallmentStatus.PENDING
+                        )
+                    )
+                ),
+                context = context
+            )
+            var attempts = 0
+            while (!installmentRepo.installments.value.any { it.id == id } && attempts < 40) {
+                kotlinx.coroutines.delay(50L)
+                attempts++
+            }
+
+            val reminderId = "rem_inst_$id"
+            db.smartReminderDao().insertReminder(
+                com.example.reminder.data.ReminderEntity(
+                    id = reminderId,
+                    userId = userId,
+                    title = title,
+                    type = "INSTALLMENT",
+                    sourceType = "INSTALLMENT",
+                    sourceId = id,
+                    status = "ACTIVE",
+                    date = dueDate,
+                    time = "%02d:00".format(hour),
+                    notificationEnabled = true
+                )
+            )
+            val triggerMillis = PersianCalendarHelper.jalaliToEpochMillis(year, month, day, hour, 0)
+            val scheduleId = java.util.UUID.nameUUIDFromBytes(
+                "installment:$id:$paymentId:0:MINUTE".toByteArray(Charsets.UTF_8)
+            ).toString()
+            db.smartReminderDao().insertSchedule(
+                com.example.reminder.data.ReminderScheduleEntity(
+                    id = scheduleId,
+                    reminderId = reminderId,
+                    triggerType = "EXACT",
+                    offsetValue = 0,
+                    offsetUnit = "MINUTE",
+                    triggerDateTime = triggerMillis,
+                    enabled = true
+                )
+            )
+        }
+
+        addLoan("loan_9am", "تعهد ساعت ۹", "payment_9am", 9)
+        addLoan("loan_10am", "تعهد ساعت ۱۰", "payment_10am", 10)
+
+        val repository = HomeDashboardRepository(
+            context = context,
+            installmentRepository = installmentRepo
+        )
+        val first = repository.getUpcomingObligations()
+        assertEquals(1, first.size)
+        assertEquals("تعهد ساعت ۹", first.first().title)
+
+        val firstSchedule = db.smartReminderDao().getSchedulesForReminderSync(userId, "rem_inst_loan_9am").single()
+        db.smartReminderDao().updateSchedule(firstSchedule.copy(enabled = false))
+
+        val afterFirstTrigger = repository.getUpcomingObligations()
+        assertEquals(1, afterFirstTrigger.size)
+        assertEquals("تعهد ساعت ۱۰", afterFirstTrigger.first().title)
+    }
+
+    @Test
     fun `test UpcomingObligations empty state when all installments completed or paid`() = kotlinx.coroutines.runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val user = com.example.data.api.NetworkUserDto(
