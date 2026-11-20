@@ -1,5 +1,6 @@
 package com.example.ui.screens.settings.subviews
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,7 +23,11 @@ import com.example.ui.screens.settings.components.SettingsHeader
 fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
     var selectedTab by remember { mutableStateOf(0) }
     var requestAddBank by remember { mutableStateOf(0) }
-    Scaffold(
+    var showExamples by remember { mutableStateOf(false) }
+    BackHandler(enabled = showExamples) { showExamples = false }
+    if (showExamples) {
+        SmsPatternExamplesScreen(onBackClick = { showExamples = false })
+    } else Scaffold(
         modifier = Modifier.fillMaxSize(),
         floatingActionButton = {
             if (selectedTab == 0) {
@@ -46,7 +51,7 @@ fun SmsPatternManagementScreen(onBackClick: () -> Unit) {
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp)
         ) {
             item {
-                UserBankSmsRulesSection(selectedTab, { selectedTab = it }, requestAddBank)
+                UserBankSmsRulesSection(selectedTab, { selectedTab = it }, requestAddBank, onOpenExamples = { showExamples = true })
             }
         }
     }
