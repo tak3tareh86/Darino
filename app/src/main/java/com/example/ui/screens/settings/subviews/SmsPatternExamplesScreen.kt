@@ -200,11 +200,11 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
                                             withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("انتقال") }
                                             append(" ")
                                             withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("وجه") }
-                                            append(" کارتي\\nبرداشت ")
+                                            append(" کارتي\nبرداشت ")
                                             withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("از") }
                                             append(":1234567000")
                                             withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF087F5B))) { append("5670") }
-                                            append("\\nمبلغ:20,014,500ريال\\nموجودي:77,060,364 ريال\\n1405/08/29 15:57:42")
+                                            append("\nمبلغ:20,014,500ريال\nموجودي:77,060,364 ريال\n1405/08/29 15:57:42")
                                         },
                                         fixedTerms = listOf("انتقال", "از", "وجه", "5670"),
                                         variableTerms = "مبلغ، موجودی، تاریخ، ساعت و واحد پول",
