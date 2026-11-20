@@ -235,14 +235,14 @@ class HomeDashboardRepository(
             // Installment reminders have one stable schedule ID per payment and offset.
             // Resolve the selected payment by that ID; never associate a trigger with a
             // different installment payment merely because it is the nearest timestamp.
-            val installmentData = if (
+            val isInstallmentReminder =
                 rem.sourceType.equals("INSTALLMENT", ignoreCase = true) ||
-                rem.type.equals("INSTALLMENT", ignoreCase = true)
-            ) {
-                rem.sourceId?.let(installments::get)
+                    rem.type.equals("INSTALLMENT", ignoreCase = true)
+            val installmentData = if (isInstallmentReminder) {
+                rem.sourceId?.let { sourceId -> installments[sourceId] }
             } else null
 
-            val installmentSchedule = if (installmentData != null && !rem.sourceId.isNullOrBlank()) {
+            val installmentSchedule = if (isInstallmentReminder && installmentData != null && !rem.sourceId.isNullOrBlank()) {
                 val schedules = runCatching {
                     db.smartReminderDao().getSchedulesForReminderSync(userId, rem.id)
                 }.getOrDefault(emptyList())
@@ -271,18 +271,20 @@ class HomeDashboardRepository(
                     .minByOrNull { (_, schedule) -> schedule.triggerDateTime }
             } else null
 
-            val fallbackUnpaidPayment = installmentData?.paymentHistory
-                ?.asSequence()
-                ?.filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
-                ?.minByOrNull { payment ->
-                    calculateDaysDifference(payment.dueDate.ifBlank { installmentData.nextPaymentDate })
-                }
+            val fallbackUnpaidPayment = installmentData?.let { installment ->
+                installment.paymentHistory
+                    .asSequence()
+                    .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
+                    .minByOrNull { payment ->
+                        calculateDaysDifference(payment.dueDate.ifBlank { installment.nextPaymentDate })
+                    }
+            }
 
-            val installmentDueDate = if (installmentData != null) {
+            val installmentDueDate = if (isInstallmentReminder) {
                 (installmentSchedule?.first?.dueDate
                     ?.takeIf { it.isNotBlank() }
                     ?: fallbackUnpaidPayment?.dueDate?.takeIf { it.isNotBlank() }
-                    ?: installmentData.nextPaymentDate.takeIf { it.isNotBlank() }
+                    ?: installmentData?.nextPaymentDate?.takeIf { it.isNotBlank() }
                     ?: rem.date)
             } else null
 
@@ -327,7 +329,7 @@ class HomeDashboardRepository(
                     id = rem.id,
                     title = rem.title,
                     relativeDaysText = relativeText,
-                    timePersian = if (installmentData != null) actualReminderTime.orEmpty() else rem.time,
+                    timePersian = if (isInstallmentReminder) actualReminderTime.orEmpty() else rem.time,
                     typeTitle = typeTitle,
                     iconRes = iconRes,
                     accentColor = accentColor,
