@@ -134,7 +134,7 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
                                         message = buildAnnotatedString {
                                             append("10.9096543.1\n")
                                             withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF087F5B))) { append("+") }
-                                            append("30,000,000 \\n08/25_21:43\\nمانده: 30,000,000")
+                                            append("30,000,000 \n08/25_21:43\nمانده: 30,000,000")
                                         },
                                         fixedTerms = listOf("965", "+"),
                                         variableTerms = "مبلغ، تاریخ، ساعت و مانده حساب",
