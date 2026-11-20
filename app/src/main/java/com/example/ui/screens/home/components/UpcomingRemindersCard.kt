@@ -254,23 +254,41 @@ private fun ReminderFlatItem(
             overflow = TextOverflow.Ellipsis
         )
 
-        // 3. Date
-        if (item.datePersian.isNotBlank()) {
+        if (item.dueDatePersian != null) {
             Text(
-                text = "تاریخ: ${IranianPhoneUtils.convertDigitsToPersian(item.datePersian)}",
+                text = "تاریخ سررسید: ${IranianPhoneUtils.convertDigitsToPersian(item.dueDatePersian)}",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+            Text(
+                text = "تاریخ یادآور: ${item.reminderDatePersian?.takeIf { it.isNotBlank() }?.let(IranianPhoneUtils::convertDigitsToPersian) ?: "تنظیم نشده"}",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+            Text(
+                text = "ساعت یادآوری: ${item.timePersian.takeIf { it.isNotBlank() }?.let(IranianPhoneUtils::convertDigitsToPersian) ?: "تنظیم نشده"}",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        } else {
+            if (item.datePersian.isNotBlank()) {
+                Text(
+                    text = "تاریخ: ${IranianPhoneUtils.convertDigitsToPersian(item.datePersian)}",
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+            Text(
+                text = "ساعت: ${IranianPhoneUtils.convertDigitsToPersian(item.timePersian)}",
                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
             )
         }
-
-        // 4. Time
-        Text(
-            text = "ساعت: ${IranianPhoneUtils.convertDigitsToPersian(item.timePersian)}",
-            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1
-        )
 
     }
 }
