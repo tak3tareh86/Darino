@@ -111,11 +111,11 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
                     sender = "بانک شهر",
                     message = buildAnnotatedString {
                         withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF087F5B))) { append("خريد") }
-                        append(" با کارت\\n")
+                        append(" با کارت\n")
                         withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFFB45309))) { append("برداشت") }
                         append(" از:1234567000")
                         withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF2563EB))) { append("0987") }
-                        append("\\nمبلغ:400,000ريال\\nموجودي:97,124,864 ريال\\n1405/08/28 06:54:12")
+                        append("\nمبلغ:400,000ريال\nموجودي:97,124,864 ريال\n1405/08/28 06:54:12")
                     },
                     fixedTerms = listOf("خرید", "برداشت", "0987"),
                     variableTerms = "مبلغ، موجودی، تاریخ، ساعت و واحد پول",
