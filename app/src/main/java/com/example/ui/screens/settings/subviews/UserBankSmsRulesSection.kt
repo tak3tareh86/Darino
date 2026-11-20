@@ -73,6 +73,7 @@ import com.example.data.sms.UserBankSmsRule
 import com.example.data.sms.UserBankSmsRuleMatcher
 import com.example.data.sms.UserBankSmsRuleRepository
 import com.example.data.sms.SMS_PATTERN_LOOKBACK_OPTIONS
+import androidx.compose.ui.text.font.FontWeight
 
 private object BankLogoRepository {
     private val assetFiles = listOf("bank-logos-1.json", "bank-logos-2.json", "bank-logos-3.json", "bank-logos-4.json", "bank-logos-5.json", "bank-logos-6.json")
