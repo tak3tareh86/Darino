@@ -95,9 +95,17 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             .filter { it.enabled && it.triggerDateTime > now }
             .groupBy { it.reminderId }
             .mapValues { (_, schedules) -> schedules.minOf { it.triggerDateTime } }
+        val remindersWithScheduleHistory = allSchedules.mapTo(mutableSetOf()) { it.reminderId }
         fun displayTime(reminder: ReminderEntity): Long? =
-            nextTriggerByReminder[reminder.id]
-                ?: runCatching { ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time) }.getOrNull()
+            if (reminder.id in remindersWithScheduleHistory) {
+                // If this reminder has schedule records but none remain enabled in the
+                // future, do not misrepresent its base due date as a pending alert.
+                nextTriggerByReminder[reminder.id]
+            } else {
+                // Manual reminders without configured alert schedules keep their
+                // original date/time ordering.
+                runCatching { ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time) }.getOrNull()
+            }
         val upcomingReminders = activeList.mapNotNull { reminder ->
             val trigger = displayTime(reminder) ?: return@mapNotNull null
             if (trigger > now) reminder to trigger else null
