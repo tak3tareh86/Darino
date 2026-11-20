@@ -1,5 +1,6 @@
 name: Build Darino APK
 # Rebuild requested; assembleDebug intentionally skips unit tests
+# Rebuild after splash and launcher logo sizing fix
 
 on:
   workflow_dispatch:
