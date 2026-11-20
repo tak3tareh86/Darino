@@ -317,7 +317,7 @@ fun ReminderCard(
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
-                            text = scheduledTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedDate() } ?: reminder.date,
+                            text = "${if (scheduledTriggerAt != null) "تاریخ هشدار: " else "تاریخ یادآور: "}${scheduledTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedDate() } ?: reminder.date}",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -336,7 +336,7 @@ fun ReminderCard(
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
-                            text = scheduledTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedTime() } ?: reminder.time,
+                            text = "${if (scheduledTriggerAt != null) "ساعت هشدار: " else "ساعت یادآور: "}${scheduledTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedTime() } ?: reminder.time}",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
