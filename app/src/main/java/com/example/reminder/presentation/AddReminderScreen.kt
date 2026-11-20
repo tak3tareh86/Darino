@@ -225,7 +225,7 @@ fun AddReminderScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (editingReminder == null) "ثبت یادآوری و سررسید جدید" else "ویرایش یادآور",
+                        text = if (editingReminder == null) "ثبت یادآور" else "ویرایش یادآور",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
@@ -251,71 +251,6 @@ fun AddReminderScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Type Selector Grid
-            Text(
-                text = "دسته‌بندی یادآور",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-            )
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(
-                    ReminderType.GENERAL,
-                    ReminderType.PERSONAL,
-                    ReminderType.FINANCE,
-                    ReminderType.INSTALLMENT,
-                    ReminderType.VEHICLE,
-                    ReminderType.MAINTENANCE,
-                    ReminderType.INSURANCE,
-                    ReminderType.FUEL,
-                    ReminderType.CUSTOM
-                ).chunked(3).forEach { typeRow ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        typeRow.forEach { type ->
-                            val isSelected = selectedType == type
-                            Surface(
-                                shape = RoundedCornerShape(RadiusMD),
-                                color = if (isSelected) type.accentColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    if (isSelected) type.accentColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { selectedType = type }
-                                    .testTag("type_selector_${type.key}")
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Soft3DIcon(
-                                        imageRes = type.iconRes,
-                                        contentDescription = type.title,
-                                        size = 32.dp,
-                                        accentColor = type.accentColor
-                                    )
-                                    Text(
-                                        text = type.title,
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontSize = 11.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            color = if (isSelected) type.accentColor else MaterialTheme.colorScheme.onSurface
-                                        ),
-                                        maxLines = 1,
-                                        softWrap = false
-                                    )
-                                }
-                            }
-                        }
-                        repeat(3 - typeRow.size) { Spacer(Modifier.weight(1f)) }
-                    }
-                }
-            }
-
             // 2. Title & Description
             OutlinedTextField(
                 value = title,
