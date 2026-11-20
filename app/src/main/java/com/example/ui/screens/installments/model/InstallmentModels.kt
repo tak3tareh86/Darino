@@ -189,6 +189,8 @@ data class InstallmentItem(
 
 data class InstallmentSummaryData(
     val activeCount: Int = 0,
+    // Aggregate repayment schedule total for active loans, normalized to Rials.
+    val totalRepaymentAmount: Long = 0L,
     val paidAmount: Long = 0L,
     val remainingAmount: Long = 0L,
     val paidAmountFormatted: String = "۰ تومان",
@@ -198,6 +200,9 @@ data class InstallmentSummaryData(
     val amountUnit: AppCurrency = AppCurrency.RIAL
 ) {
     // Aggregate summary values are stored in canonical Rials; MoneyFormatter applies the active Settings currency.
+    val displayTotal: String
+        get() = MoneyFormatter.formatExact(MoneyAmount.of(totalRepaymentAmount, AppCurrency.RIAL))
+
     val displayPaid: String
         get() = MoneyFormatter.formatExact(MoneyAmount.of(paidAmount, AppCurrency.RIAL))
 
@@ -236,6 +241,7 @@ object InstallmentMockDataSource {
             val s = repository.summary.value
             return InstallmentSummaryData(
                 activeCount = s.activeCount,
+                totalRepaymentAmount = s.totalRepaymentAmount,
                 paidAmount = s.paidAmount,
                 remainingAmount = s.remainingAmount,
                 paidAmountFormatted = s.paidAmountFormatted,
