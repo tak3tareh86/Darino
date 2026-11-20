@@ -589,7 +589,7 @@ class HomeDashboardTest {
     }
 
     @Test
-    fun `test UpcomingObligations prioritizes overdue installment over upcoming`() = kotlinx.coroutines.runBlocking {
+    fun `test UpcomingObligations excludes overdue installment and selects upcoming one`() = kotlinx.coroutines.runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val user = com.example.data.api.NetworkUserDto(
             id = "test_user_overdue_priority",
@@ -676,10 +676,10 @@ class HomeDashboardTest {
 
         val obligations = repo.getUpcomingObligations()
         assertEquals(1, obligations.size)
-        // Overdue must take priority!
-        assertEquals("وام مسکن", obligations.first().title)
-        assertEquals("بانک مسکن", obligations.first().bankName)
-        assertTrue(obligations.first().isOverdue)
+        // Past-due commitments are excluded; the nearest future commitment is shown.
+        assertEquals("وام فوری", obligations.first().title)
+        assertEquals("بانک صادرات", obligations.first().bankName)
+        assertFalse(obligations.first().isOverdue)
     }
 
     @Test
