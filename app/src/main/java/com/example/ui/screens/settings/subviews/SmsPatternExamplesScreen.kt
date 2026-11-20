@@ -132,7 +132,7 @@ fun SmsPatternExamplesScreen(onBackClick: () -> Unit) {
                                         title = "پیامک واریز وجه بانک قرض‌الحسنه رسالت",
                                         sender = "بانک قرض‌الحسنه رسالت",
                                         message = buildAnnotatedString {
-                                            append("10.9096543.1\\n")
+                                            append("10.9096543.1\n")
                                             withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF087F5B))) { append("+") }
                                             append("30,000,000 \\n08/25_21:43\\nمانده: 30,000,000")
                                         },
