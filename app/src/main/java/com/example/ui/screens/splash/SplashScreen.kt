@@ -171,25 +171,13 @@ fun SplashScreen(
             ) {
                 // 3D Emerald App Logo
                 Box(
-                    modifier = Modifier
-                        .scale(logoScale.value)
-                        .drawBehind {
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        Color(0xFF10B981).copy(alpha = pulseAlpha * 0.45f),
-                                        Color(0xFF0284C7).copy(alpha = pulseAlpha * 0.15f),
-                                        Color.Transparent
-                                    ),
-                                    radius = 80.dp.toPx()
-                                )
-                            )
-                        },
+                    modifier = Modifier.scale(logoScale.value),
                     contentAlignment = Alignment.Center
                 ) {
+                    // Show the original mark on its own: no circular frame, backing, or shadow.
                     DarinoLogoMark(
-                        size = 190.dp,
-                        showShadow = true
+                        size = 150.dp,
+                        showShadow = false
                     )
                 }
 
