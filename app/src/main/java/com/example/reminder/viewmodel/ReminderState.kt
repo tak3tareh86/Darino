@@ -40,6 +40,7 @@ data class ReminderState(
     val tomorrowCount: Int = 0,
     val nearestReminder: ReminderEntity? = null,
     val nearestReminderTriggerAt: Long? = null,
+    val reminderDisplayTimes: Map<String, Long> = emptyMap(),
     val smartSuggestions: List<SmartSuggestion> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
