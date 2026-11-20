@@ -78,15 +78,9 @@ class CalendarManager(private val context: Context) {
                 .mapNotNull { it.sourceId }
                 .toSet()
 
-            // Installment reminders are the canonical per-loan calendar entry.
-            // Do not also emit the synthetic contract-level monthly event for the
-            // same installment, otherwise the calendar shows a second, averaged
-            // amount (contract principal / installment count) beside the real
-            // next-payment reminder.
-            val linkedInstallmentSourceIds = reminders
-                .filter { it.sourceType.equals("INSTALLMENT", ignoreCase = true) }
-                .mapNotNull { it.sourceId }
-                .toSet()
+            // Installment calendar entries are always generated from the user's
+            // persisted paymentHistory rows below. They must not depend on whether
+            // Smart Reminders are configured.
 
             // 1. Add DB events that have not yet been adopted into the reminder store.
             for (ev in dbEvents) {
@@ -97,6 +91,10 @@ class CalendarManager(private val context: Context) {
 
             // 2. Cross-integrate Smart Reminders
             reminders.forEach { rem ->
+                // Installment schedule rows above are the calendar source of truth.
+                // A Smart Reminder only controls notification timing, not whether
+                // the installment exists; suppress its duplicate calendar card.
+                if (rem.sourceType.equals("INSTALLMENT", ignoreCase = true)) return@forEach
                 val eventId = "auto_rem_${rem.id}"
                 if (seenIds.add(eventId)) {
                     val normDate = CalendarDateUtils.normalizeDate(rem.date)
@@ -133,57 +131,39 @@ class CalendarManager(private val context: Context) {
                 }
             }
 
-            // 3. Cross-integrate Installments / Loans
+            // 3. Cross-integrate the actual user-entered installment schedule.
+            // Never synthesize an installment by dividing contract principal or
+            // by using the contract's nextDueDate. Each calendar item corresponds
+            // to one persisted paymentHistory row and keeps its entered amount/date.
             installments.forEach { inst ->
-                val eventId = "auto_inst_${inst.id}"
-                // ReminderManager links installment reminders to the public/server
-                // ID when available, falling back to the local Room ID. Match the
-                // same identity here so only one calendar event represents a loan.
-                val installmentSourceId = inst.serverId ?: inst.id.toString()
-                if (installmentSourceId !in linkedInstallmentSourceIds && seenIds.add(eventId)) {
-                    val formattedDate = if (inst.nextDueDate > 0) {
-                        CalendarDateUtils.normalizeDate(
-                            PersianCalendarHelper.fromEpochMillis(inst.nextDueDate).toFormattedDate()
-                        )
-                    } else {
-                        CalendarDateUtils.normalizeDate(
-                            PersianCalendarHelper.fromEpochMillis(System.currentTimeMillis()).toFormattedDate()
+                val providerSuffix = if (inst.providerName.isNotBlank()) " (${inst.providerName})" else ""
+                val title = "${inst.title}$providerSuffix"
+                val installmentAmountUnit = parseCalendarCurrencyUnit(inst.amountUnit)
+                inst.paymentHistory.forEach { payment ->
+                    val eventId = "auto_inst_${inst.id}_${payment.id}"
+                    if (seenIds.add(eventId)) {
+                        val status = when (payment.status.name) {
+                            "PAID", "COMPLETED" -> FinancialEventStatus.PAID
+                            "OVERDUE" -> FinancialEventStatus.OVERDUE
+                            else -> FinancialEventStatus.PENDING
+                        }
+                        allEvents.add(
+                            FinancialEvent(
+                                id = eventId,
+                                title = title,
+                                description = "قسط ${payment.installmentNumber} از ${inst.totalInstallments}",
+                                type = FinancialEventType.INSTALLMENT,
+                                amount = payment.amount.takeIf { installmentAmountUnit != null },
+                                amountUnit = installmentAmountUnit ?: AppCurrency.TOMAN,
+                                date = CalendarDateUtils.normalizeDate(payment.dueDate),
+                                time = "09:00",
+                                repeatType = "NONE",
+                                reminderBefore = ReminderBeforeOption.NONE,
+                                sourceId = payment.id,
+                                status = status
+                            )
                         )
                     }
-
-                    val providerSuffix = if (inst.providerName.isNotBlank()) " (${inst.providerName})" else ""
-                    val title = "${inst.title}$providerSuffix"
-                    val desc = "اقساط ${inst.title} - پرداخت شده: ${inst.paidInstallments} از ${inst.totalInstallments}"
-
-                    val installmentAmountUnit = parseCalendarCurrencyUnit(inst.amountUnit)
-                    val monthlyAmount = if (inst.totalInstallments > 0) {
-                        inst.amount / inst.totalInstallments
-                    } else {
-                        inst.amount
-                    }
-
-                    val status = when (inst.status) {
-                        "PAID", "COMPLETED" -> FinancialEventStatus.PAID
-                        "OVERDUE" -> FinancialEventStatus.OVERDUE
-                        else -> FinancialEventStatus.PENDING
-                    }
-
-                    allEvents.add(
-                        FinancialEvent(
-                            id = eventId,
-                            title = title,
-                            description = desc,
-                            type = FinancialEventType.INSTALLMENT,
-                            amount = monthlyAmount.takeIf { installmentAmountUnit != null },
-                            amountUnit = installmentAmountUnit ?: AppCurrency.TOMAN,
-                            date = formattedDate,
-                            time = "09:00",
-                            repeatType = "MONTHLY",
-                            reminderBefore = ReminderBeforeOption.NONE,
-                            sourceId = inst.id.toString(),
-                            status = status
-                        )
-                    )
                 }
             }
 
