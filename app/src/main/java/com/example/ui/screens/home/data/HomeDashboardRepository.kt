@@ -122,7 +122,7 @@ class HomeDashboardRepository(
         )
         val userId = SessionManager.userId
         val reminderDao = if (context != null && !userId.isNullOrBlank()) {
-            runCatching { AppDatabase.getDatabase(context).smartReminderDao() }.getOrNull()
+            runCatching { context?.let { AppDatabase.getDatabase(it).smartReminderDao() } }.getOrNull()
         } else null
 
         fun parsePersianDate(date: String): Triple<Int, Int, Int>? = runCatching {
