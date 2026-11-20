@@ -709,7 +709,7 @@ private fun SmsRulesGuide(onOpenExamples: () -> Unit) {
         ) {
             Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text("راهنمای قوانین و قواعد ورود اطلاعات", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                Text("برای مشاهده جزئیات، یکی از مجموعه قوانین زیر را انتخاب کنید.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text("برای مشاهده قوانین یا مثال‌های عملی، یکی از بخش‌های زیر را انتخاب کنید.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
         }
 
