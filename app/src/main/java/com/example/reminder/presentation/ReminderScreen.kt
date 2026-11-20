@@ -425,7 +425,7 @@ fun ReminderScreen(
                                     )
                                     uiState.nearestReminder?.let { reminder ->
                                         Text(
-                                            text = reminder.date,
+                                            text = uiState.nearestReminderTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedDate() } ?: reminder.date,
                                             maxLines = 1,
                                             softWrap = false,
                                             style = MaterialTheme.typography.labelSmall.copy(
@@ -435,7 +435,7 @@ fun ReminderScreen(
                                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                         )
                                         Text(
-                                            text = reminder.time,
+                                            text = uiState.nearestReminderTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedTime() } ?: reminder.time,
                                             maxLines = 1,
                                             softWrap = false,
                                             style = MaterialTheme.typography.labelSmall.copy(
