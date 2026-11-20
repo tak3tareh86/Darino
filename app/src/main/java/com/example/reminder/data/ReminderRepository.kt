@@ -24,6 +24,7 @@ import com.example.reminder.domain.RepeatType
 
 interface ReminderRepository {
     fun getAllReminders(): Flow<List<ReminderEntity>>
+    fun getAllSchedules(): Flow<List<ReminderScheduleEntity>>
     fun getActiveReminders(): Flow<List<ReminderEntity>>
     fun getTodayReminders(): Flow<List<ReminderEntity>>
     fun getUpcomingReminders(): Flow<List<ReminderEntity>>
@@ -195,6 +196,9 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
 
     override fun getAllReminders(): Flow<List<ReminderEntity>> =
         SessionManager.sessionState.flatMapLatest { state -> state.userIdOrNull()?.let { dao.getAllReminders(it) } ?: flowOf(emptyList()) }
+
+    override fun getAllSchedules(): Flow<List<ReminderScheduleEntity>> =
+        SessionManager.sessionState.flatMapLatest { state -> state.userIdOrNull()?.let { dao.getAllSchedules(it) } ?: flowOf(emptyList()) }
 
     override fun getActiveReminders(): Flow<List<ReminderEntity>> =
         SessionManager.sessionState.flatMapLatest { state -> state.userIdOrNull()?.let { dao.getActiveReminders(it) } ?: flowOf(emptyList()) }
