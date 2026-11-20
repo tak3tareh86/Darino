@@ -15,8 +15,12 @@ import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import java.util.concurrent.ConcurrentHashMap
 import java.util.Calendar
 import java.util.UUID
+
+private val reminderSnoozeLocks = ConcurrentHashMap<String, Mutex>()
 
 class ReminderManager(
     private val context: Context,
@@ -26,6 +30,23 @@ class ReminderManager(
 
     private fun defaultReminderTime(): String =
         AppPreferencesRepository.getInstance(context).defaultReminderTime()
+
+    /**
+     * Cancels temporary snooze PendingIntents before removing their database rows.
+     * The original reminder schedules are returned unchanged.
+     */
+    private suspend fun removeSnoozeSchedules(
+        reminder: ReminderEntity,
+        schedules: List<ReminderScheduleEntity>
+    ): List<ReminderScheduleEntity> {
+        val snoozeSchedules = schedules.filter { it.id.startsWith("snooze_") }
+        if (snoozeSchedules.isEmpty()) return schedules
+
+        snoozeSchedules.forEach { scheduler.cancelSchedule(it.id) }
+        val baseSchedules = schedules.filterNot { it.id.startsWith("snooze_") }
+        repository.updateReminderWithSchedules(reminder, baseSchedules)
+        return baseSchedules
+    }
 
     /**
      * Calculates installment offsets as calendar units in the device timezone.
@@ -298,10 +319,7 @@ class ReminderManager(
         val reminder = repository.getReminderById(reminderId)
             ?: throw NoSuchElementException("یادآور با شناسه $reminderId یافت نشد.")
         val storedSchedules = repository.getSchedulesSync(reminderId)
-        val baseSchedules = storedSchedules.filterNot { it.id.startsWith("snooze_") }
-        if (baseSchedules.size != storedSchedules.size) {
-            repository.updateReminderWithSchedules(reminder, baseSchedules)
-        }
+        val baseSchedules = removeSnoozeSchedules(reminder, storedSchedules)
         if (baseSchedules.isEmpty()) {
             val reminderHasExplicitDelivery = reminder.notificationEnabled || reminder.fullScreenAlarmEnabled
             val isVehicleReminder = reminder.sourceType.equals("VEHICLE", ignoreCase = true)
@@ -387,11 +405,8 @@ class ReminderManager(
         val reminder = repository.getReminderById(reminderId)
             ?: throw NoSuchElementException("یادآور با شناسه $reminderId یافت نشد.")
         val storedSchedules = repository.getSchedulesSync(reminderId)
-        // Snooze rows are one-shot and must never be revived by restoring the base reminder.
-        val baseSchedules = storedSchedules.filterNot { it.id.startsWith("snooze_") }
-        if (baseSchedules.size != storedSchedules.size) {
-            repository.updateReminderWithSchedules(reminder, baseSchedules)
-        }
+        // Cancel temporary alarms before restoring only the original schedule series.
+        val baseSchedules = removeSnoozeSchedules(reminder, storedSchedules)
         val reminderRequiresDelivery = reminder.notificationEnabled ||
             reminder.fullScreenAlarmEnabled ||
             reminder.sourceType.equals("VEHICLE", ignoreCase = true)
@@ -477,26 +492,52 @@ class ReminderManager(
             createdAt = now
         )
 
-        // 1. SAFE ORDERING: Insert schedule in Room database FIRST so it is guaranteed available to receiver
-        repository.insertSchedule(snoozeSchedule)
-
-        // 2. Register alarm with AlarmManager SECOND; perform compensation rollback if scheduling fails
+        // Serialize replacement per reminder so repeated taps cannot leave multiple
+        // active temporary alarms for the same reminder.
+        val snoozeLock = reminderSnoozeLocks.computeIfAbsent(reminder.id) { Mutex() }
+        snoozeLock.lock()
         try {
-            scheduler.scheduleSingle(reminder, snoozeSchedule)
-        } catch (e: Exception) {
-            Log.e("ReminderManager", "Failed to schedule alarm in AlarmManager for snooze. Rolling back Room schedule.", e)
-            try {
-                repository.deleteSchedule(snoozeSchedule)
-            } catch (rollbackEx: Exception) {
-                Log.e("ReminderManager", "Failed to delete schedule during rollback", rollbackEx)
-            }
-            return@withContext Result.failure(
-                IllegalStateException("خطا در زمان‌بندی هشدار در سیستم: ${e.message ?: "عدم امکان ثبت هشدار"}", e)
-            )
-        }
+            val previousSnoozes = repository.getSchedulesSync(reminder.id)
+                .filter { it.id.startsWith("snooze_") }
 
-        Log.i("ReminderManager", "Snoozed reminder ${reminder.title} to $triggerMillis ($snoozeMinutes min).")
-        Result.success(triggerMillis)
+            // Cancel the exact PendingIntents before deleting their persisted rows.
+            previousSnoozes.forEach { scheduler.cancelSchedule(it.id) }
+            previousSnoozes.forEach { repository.deleteSchedule(it) }
+
+            // Persist the replacement first so its receiver can resolve the schedule.
+            try {
+                repository.insertSchedule(snoozeSchedule)
+                scheduler.scheduleSingle(reminder, snoozeSchedule)
+            } catch (e: Exception) {
+                Log.e("ReminderManager", "Failed to replace snooze alarm. Rolling back.", e)
+                runCatching { scheduler.cancelSchedule(snoozeSchedule.id) }
+                runCatching { repository.deleteSchedule(snoozeSchedule) }
+
+                // If replacement fails, restore the previous snooze and its future alarm.
+                previousSnoozes.forEach { oldSchedule ->
+                    runCatching { repository.insertSchedule(oldSchedule) }
+                        .onFailure { e.addSuppressed(it) }
+                    if (oldSchedule.enabled &&
+                        oldSchedule.triggerDateTime > System.currentTimeMillis() &&
+                        reminder.status.equals("ACTIVE", ignoreCase = true)
+                    ) {
+                        runCatching { scheduler.scheduleSingle(reminder, oldSchedule) }
+                            .onFailure { e.addSuppressed(it) }
+                    }
+                }
+                return@withContext Result.failure(
+                    IllegalStateException("خطا در جایگزینی هشدار تعویقی: ${e.message ?: "عدم امکان ثبت هشدار"}", e)
+                )
+            }
+
+            Log.i(
+                "ReminderManager",
+                "Replaced ${previousSnoozes.size} previous snooze schedule(s) for ${reminder.title}; new trigger at $triggerMillis."
+            )
+            Result.success(triggerMillis)
+        } finally {
+            snoozeLock.unlock()
+        }
     }
 
     /**
