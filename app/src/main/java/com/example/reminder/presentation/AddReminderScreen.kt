@@ -101,9 +101,6 @@ fun AddReminderScreen(
     var time by remember(editingReminder?.id, defaultReminderTimeText) {
         mutableStateOf(editingReminder?.time ?: defaultReminderTimeText)
     }
-    var priority by remember(editingReminder?.id) {
-        mutableStateOf(editingReminder?.let { Priority.fromKey(it.priority) } ?: Priority.NORMAL)
-    }
     var repeatType by remember(editingReminder?.id, initialRepeatType) { mutableStateOf(initialRepeatType) }
     var repeatInterval by remember(editingReminder?.id, initialRepeatInterval) { mutableStateOf(initialRepeatInterval.toString()) }
     var amountText by remember(editingReminder?.id) {
@@ -181,7 +178,7 @@ fun AddReminderScreen(
             description = description.trim(),
             type = selectedType.key,
             sourceType = "MANUAL",
-            priority = priority.name,
+            priority = Priority.NORMAL.name,
             status = "ACTIVE",
             date = date.trim(),
             time = time.trim()
@@ -436,45 +433,6 @@ fun AddReminderScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
-            }
-
-            // 6. Priority Selector
-            Text(
-                text = "اولویت یادآوری",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf(Priority.LOW, Priority.NORMAL, Priority.HIGH).forEach { p ->
-                    val isSelected = priority == p
-                    Surface(
-                        shape = RoundedCornerShape(RadiusMD),
-                        color = if (isSelected) p.color.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isSelected) p.color else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { priority = p }
-                    ) {
-                        Box(
-                            modifier = Modifier.padding(vertical = 10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = p.title,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) p.color else MaterialTheme.colorScheme.onSurface
-                                )
-                            )
-                        }
-                    }
-                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
