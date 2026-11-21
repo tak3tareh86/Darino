@@ -139,15 +139,15 @@ class CalendarManager(private val context: Context) {
             // 3. Cross-integrate the actual user-entered installment schedule.
             // Never synthesize an installment by dividing contract principal or
             // by using the contract's nextDueDate. Each calendar item corresponds
-            // to one persisted paymentHistory row and keeps its entered amount/date.
+            // to one persisted installment payment row and keeps its entered amount/date.
             installmentData.first.forEach { inst ->
                 val providerSuffix = if (inst.providerName.isNotBlank()) " (${inst.providerName})" else ""
                 val title = "${inst.title}$providerSuffix"
                 installmentData.second.asSequence().filter { it.installmentId == inst.id }.forEach { payment ->
-                    val paymentAmountUnit = parseCalendarCurrencyUnit(payment.amountUnit.name)
+                    val paymentAmountUnit = parseCalendarCurrencyUnit(payment.amountUnit)
                     val eventId = "auto_inst_${inst.id}_${payment.id}"
                     if (seenIds.add(eventId)) {
-                        val status = when (payment.status.name) {
+                        val status = when (payment.status) {
                             "PAID", "COMPLETED" -> FinancialEventStatus.PAID
                             "OVERDUE" -> FinancialEventStatus.OVERDUE
                             else -> FinancialEventStatus.PENDING
