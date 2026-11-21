@@ -71,17 +71,15 @@ fun SubscriptionStatusCard(
 
     if (isActive) {
         // Compact active-subscription card. Never invent an expiry date that Market does not provide.
-        val activeGradient = if (isDark) {
-            Brush.horizontalGradient(
-                colors = listOf(Color(0xFF064E3B), Color(0xFF047857), Color(0xFF0F766E))
+        val activeGradient = Brush.linearGradient(
+            colors = listOf(
+                Color(0xFF0B132B),
+                Color(0xFF112240),
+                Color(0xFF0A2B28)
             )
-        } else {
-            Brush.horizontalGradient(
-                colors = listOf(Color(0xFFECFDF5), Color(0xFFD1FAE5), Color(0xFFCCFBF1))
-            )
-        }
-        val cardTextColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
-        val cardMutedTextColor = if (isDark) Color(0xFFE2E8F0) else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        val cardTextColor = Color(0xFFF8FAFC)
+        val cardMutedTextColor = Color(0xFFCBD5E1)
         val marketConfirmedActive = info.marketAccountState == "MARKET_ACTIVE"
 
         Card(
@@ -181,7 +179,7 @@ fun SubscriptionStatusCard(
                         contentDescription = "لوگوی دارینو",
                         contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                         modifier = Modifier
-                            .size(54.dp)
+                            .size(62.dp)
                     )
                 }
             }
