@@ -56,6 +56,7 @@ fun ReminderCard(
 
     val reminderType = ReminderType.fromKey(reminder.type)
     val isVehicleReminder = reminder.sourceType.equals("VEHICLE", ignoreCase = true)
+    val isInstallmentReminder = reminder.sourceType.equals("INSTALLMENT", ignoreCase = true)
 
     val statusColor = when {
         isCompleted -> Color(0xFF94A3B8)
@@ -354,7 +355,7 @@ fun ReminderCard(
                                 modifier = Modifier.size(13.dp)
                             )
                             Text(
-                                text = "${if (scheduledTriggerAt != null) "تاریخ هشدار: " else "تاریخ یادآور: "}${scheduledTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedDate() } ?: reminder.date}",
+                                text = "${if (scheduledTriggerAt != null || isInstallmentReminder) "تاریخ هشدار: " else "تاریخ یادآور: "}${scheduledTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedDate() } ?: if (isInstallmentReminder) "تنظیم نشده" else reminder.date}",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -376,7 +377,7 @@ fun ReminderCard(
                                 modifier = Modifier.size(13.dp)
                             )
                             Text(
-                                text = "${if (scheduledTriggerAt != null) "ساعت هشدار: " else "ساعت یادآور: "}${scheduledTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedTime() } ?: reminder.time}",
+                                text = "${if (scheduledTriggerAt != null || isInstallmentReminder) "ساعت هشدار: " else "ساعت یادآور: "}${scheduledTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedTime() } ?: if (isInstallmentReminder) "تنظیم نشده" else reminder.time}",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
