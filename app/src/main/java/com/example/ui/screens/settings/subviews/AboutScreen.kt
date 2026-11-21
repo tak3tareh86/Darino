@@ -111,7 +111,7 @@ fun AboutScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "سامانه مدیریت جامع مالی، اقساط و خودرو",
+                        text = "اپلیکیشن مدیریت جامع مالی، اقساط و خودرو",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
@@ -139,7 +139,7 @@ fun AboutScreen(
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "سامانه مدرن مدیریت هزینه‌ها، پس‌اندازها، اقساط، چک‌ها و سوابق سرویس‌های دوره‌ای خودرو با رابط کاربری نسل جدید و پشتیبانی کامل از زبان فارسی و تقویم شمسی.",
+                        text = "اپلیکیشن مدرن مدیریت هزینه‌ها، پس‌اندازها، اقساط، چک‌ها و سوابق سرویس‌های دوره‌ای خودرو با رابط کاربری نسل جدید و پشتیبانی کامل از زبان فارسی و تقویم شمسی.",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontSize = 11.5.sp,
                             lineHeight = 16.sp
