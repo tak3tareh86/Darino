@@ -23,7 +23,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reminder.data.ReminderEntity
-import com.example.reminder.domain.Priority
 import com.example.reminder.domain.ReminderStatus
 import com.example.reminder.domain.ReminderType
 import com.example.ui.components.Layered3DCard
@@ -57,7 +56,6 @@ fun ReminderCard(
 
     val reminderType = ReminderType.fromKey(reminder.type)
     val isVehicleReminder = reminder.sourceType.equals("VEHICLE", ignoreCase = true)
-    val priority = Priority.fromKey(reminder.priority)
 
     val statusColor = when {
         isCompleted -> Color(0xFF94A3B8)
@@ -101,7 +99,7 @@ fun ReminderCard(
                 .padding(horizontal = 10.dp, vertical = 7.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            // Row 1: 3D Icon + Title + Priority/Status + Actions
+            // Row 1: 3D Icon + Title + Status + Actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -153,23 +151,6 @@ fun ReminderCard(
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 )
-                            }
-
-                            if (priority == Priority.HIGH) {
-                                Surface(
-                                    shape = RoundedCornerShape(RadiusSM),
-                                    color = ExpenseRoseLight.copy(alpha = 0.15f)
-                                ) {
-                                    Text(
-                                        text = "فوری",
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontSize = 10.sp,
-                                            color = ExpenseRoseLight,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                }
                             }
 
                             Surface(
