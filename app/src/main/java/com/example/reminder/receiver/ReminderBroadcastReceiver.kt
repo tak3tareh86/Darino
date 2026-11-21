@@ -166,7 +166,6 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                 startMinute = quietStart % 60,
                 endHour = quietEnd / 60,
                 endMinute = quietEnd % 60,
-                allowHighPriority = notificationPreferences.allowHighPriorityInQuietHours.value
             )
         )
 
@@ -299,7 +298,6 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                     type = event.type.name,
                     sourceType = "CALENDAR",
                     sourceId = event.id,
-                    priority = "NORMAL",
                     status = "ACTIVE",
                     date = event.date,
                     time = event.time ?: "۰۹:۰۰",
