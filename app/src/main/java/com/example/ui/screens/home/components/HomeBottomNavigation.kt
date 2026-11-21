@@ -65,7 +65,7 @@ enum class BottomNavItem(
     HOME("home", "خانه", Icons.Rounded.Home, Icons.Outlined.Home, R.drawable.img_3d_home),
     FINANCE("finance", "مالی", Icons.Rounded.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet, R.drawable.img_3d_wallet),
     CALENDAR("calendar", "تقویم", Icons.Rounded.CalendarMonth, Icons.Outlined.CalendarMonth, R.drawable.img_3d_calendar),
-    INSTALLMENTS("installments", "اقساط", Icons.Rounded.AccountBalance, Icons.Outlined.AccountBalance, R.drawable.img_3d_installment),
+    INSTALLMENTS("installments", "وام", Icons.Rounded.AccountBalance, Icons.Outlined.AccountBalance, R.drawable.img_3d_installment),
     VEHICLE("vehicle", "خودرو", Icons.Rounded.DirectionsCar, Icons.Outlined.DirectionsCar, R.drawable.img_3d_car),
     REMINDERS("reminders", "یادآور", Icons.Rounded.Notifications, Icons.Outlined.Notifications, R.drawable.img_3d_bell_notification),
     CHECK("check", "چک", Icons.Rounded.Assignment, Icons.Outlined.Assignment, R.drawable.img_3d_check)
