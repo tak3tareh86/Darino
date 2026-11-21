@@ -210,7 +210,14 @@ fun AddInstallmentSheet(
                 false
             }
             isSubmitting = false
-            if (saved) onDismiss()
+            if (saved) {
+                onDismiss()
+            } else if (submitValidationError.isNullOrBlank()) {
+                // The parent may return false after a database/validation failure. Keep the
+                // form open and show feedback inside the sheet instead of relying only on
+                // a Snackbar rendered behind the modal.
+                submitValidationError = "ثبت و ذخیره انجام نشد. اطلاعات فرم حفظ شده است؛ لطفاً مقادیر را بررسی و دوباره تلاش کنید."
+            }
         }
     }
     var showCustomScheduleDialog by remember { mutableStateOf(false) }
