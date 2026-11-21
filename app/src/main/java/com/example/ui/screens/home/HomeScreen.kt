@@ -383,8 +383,11 @@ fun HomeScreen(
                                 onReminderClick = {
                                     onNavigateToTab(BottomNavItem.REMINDERS)
                                 },
-                                onMarkCompleted = { id ->
-                                    viewModel.markReminderCompleted(id) { success ->
+                                onMarkCompleted = { reminder ->
+                                    viewModel.markReminderCompleted(
+                                        id = reminder.id,
+                                        installmentPaymentId = reminder.installmentPaymentId
+                                    ) { success ->
                                         scope.launch {
                                             if (success) {
                                                 snackbarHostState.showSnackbar("یادآوری انجام شد.")
