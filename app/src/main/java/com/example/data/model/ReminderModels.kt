@@ -26,8 +26,3 @@ enum class SmsStatus {
     FAILED
 }
 
-enum class ReminderPriority {
-    LOW,
-    NORMAL,
-    HIGH
-}
