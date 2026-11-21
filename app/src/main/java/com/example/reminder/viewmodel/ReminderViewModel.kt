@@ -114,22 +114,27 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                 }.getOrNull() ?: return@mapNotNull null
                 val matchingTrigger = allSchedules.asSequence()
                     .filter { schedule ->
-                        schedule.reminderId == reminder.id &&
-                            !schedule.id.startsWith("snooze_") &&
-                            runCatching {
-                                val expected = java.util.Calendar.getInstance().apply {
-                                    timeInMillis = dueAt
-                                    when (schedule.offsetUnit.uppercase()) {
-                                        "MINUTE" -> add(java.util.Calendar.MINUTE, -schedule.offsetValue)
-                                        "HOUR" -> add(java.util.Calendar.HOUR_OF_DAY, -schedule.offsetValue)
-                                        "DAY" -> add(java.util.Calendar.DAY_OF_MONTH, -schedule.offsetValue)
-                                        "WEEK" -> add(java.util.Calendar.DAY_OF_MONTH, -7 * schedule.offsetValue)
-                                        "MONTH" -> add(java.util.Calendar.MONTH, -schedule.offsetValue)
-                                        else -> return@runCatching Long.MIN_VALUE
-                                    }
-                                }.timeInMillis
-                                schedule.triggerDateTime == expected
-                            }.getOrDefault(false)
+                        if (schedule.reminderId != reminder.id || schedule.id.startsWith("snooze_")) {
+                            false
+                        } else {
+                            val expectedTrigger = when (schedule.offsetUnit.uppercase()) {
+                                "MINUTE", "HOUR", "DAY", "WEEK", "MONTH" ->
+                                    runCatching {
+                                        java.util.Calendar.getInstance().apply {
+                                            timeInMillis = dueAt
+                                            when (schedule.offsetUnit.uppercase()) {
+                                                "MINUTE" -> add(java.util.Calendar.MINUTE, -schedule.offsetValue)
+                                                "HOUR" -> add(java.util.Calendar.HOUR_OF_DAY, -schedule.offsetValue)
+                                                "DAY" -> add(java.util.Calendar.DAY_OF_MONTH, -schedule.offsetValue)
+                                                "WEEK" -> add(java.util.Calendar.DAY_OF_MONTH, -7 * schedule.offsetValue)
+                                                "MONTH" -> add(java.util.Calendar.MONTH, -schedule.offsetValue)
+                                            }
+                                        }.timeInMillis
+                                    }.getOrNull()
+                                else -> null
+                            }
+                            expectedTrigger != null && schedule.triggerDateTime == expectedTrigger
+                        }
                     }
                     .map { it.triggerDateTime }
                     .maxOrNull()
