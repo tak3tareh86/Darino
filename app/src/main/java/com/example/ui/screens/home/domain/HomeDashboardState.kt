@@ -42,7 +42,8 @@ data class UpcomingReminderItem(
     val accentColor: Color,
     val datePersian: String = "",
     val dueDatePersian: String? = null,
-    val reminderDatePersian: String? = null
+    val reminderDatePersian: String? = null,
+    val installmentPaymentId: String? = null
 )
 
 data class HomeDashboardState(
