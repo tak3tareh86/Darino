@@ -768,9 +768,17 @@ class LocalInstallmentRepository private constructor() {
         val unpaidPayments = item.paymentHistory.filter {
             it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
         }
-        val nextPayment = unpaidPayments.minByOrNull {
-            parseJalaliStringToMillis(it.dueDate) ?: Long.MAX_VALUE
-        }
+        val now = System.currentTimeMillis()
+        val nextPayment = unpaidPayments
+            .mapNotNull { payment ->
+                val dueAt = parseJalaliStringToMillis(payment.dueDate) ?: return@mapNotNull null
+                if (dueAt > now) payment to dueAt else null
+            }
+            .minByOrNull { it.second }
+            ?.first
+            ?: unpaidPayments.minByOrNull {
+                parseJalaliStringToMillis(it.dueDate) ?: Long.MAX_VALUE
+            }
         val reminderAmount = nextPayment?.amount ?: item.totalAmount
         runCatching {
             com.example.reminder.domain.ReminderManager(context).refreshInstallmentReminder(
