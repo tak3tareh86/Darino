@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -83,12 +84,13 @@ fun MiscInstallmentsScreen(
                         .fillMaxWidth()
                         .statusBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
+                        modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         IconButton(
                             onClick = onBackClick,
@@ -111,20 +113,29 @@ fun MiscInstallmentsScreen(
 
                         Text(
                             text = "وام‌های متفرقه و شخصی",
-                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
-                            color = MaterialTheme.colorScheme.onSurface
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2
                         )
                     }
 
                     Button(
                         onClick = onAddClick,
                         shape = RoundedCornerShape(RadiusMD),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = ExpenseRoseLight),
                         modifier = Modifier.testTag("add_misc_installment_btn")
                     ) {
-                        Icon(imageVector = Icons.Rounded.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                        Text("افزودن قسط", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp))
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "افزودن وام",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                            maxLines = 1
+                        )
                     }
                 }
             }
