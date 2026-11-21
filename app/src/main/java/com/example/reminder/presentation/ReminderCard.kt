@@ -57,8 +57,10 @@ fun ReminderCard(
 
     val reminderType = ReminderType.fromKey(reminder.type)
     val isVehicleReminder = reminder.sourceType.equals("VEHICLE", ignoreCase = true)
-    val isInstallmentReminder = reminder.sourceType.equals("INSTALLMENT", ignoreCase = true) ||
+    val isCompletedInstallmentOccurrence =
         reminder.sourceType.equals("INSTALLMENT_OCCURRENCE", ignoreCase = true)
+    val isInstallmentReminder = reminder.sourceType.equals("INSTALLMENT", ignoreCase = true) ||
+        isCompletedInstallmentOccurrence
 
     val statusColor = when {
         isCompleted -> Color(0xFF94A3B8)
@@ -357,7 +359,12 @@ fun ReminderCard(
                                 modifier = Modifier.size(13.dp)
                             )
                             Text(
-                                text = "${if (scheduledTriggerAt != null || isInstallmentReminder) "تاریخ هشدار: " else "تاریخ یادآور: "}${scheduledTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedDate() } ?: if (isInstallmentReminder) "تنظیم نشده" else reminder.date}",
+                                text = when {
+                                    isCompletedInstallmentOccurrence -> "تاریخ قسط: ${reminder.date}"
+                                    scheduledTriggerAt != null -> "تاریخ هشدار: ${com.example.util.PersianCalendarHelper.fromEpochMillis(scheduledTriggerAt).toFormattedDate()}"
+                                    isInstallmentReminder -> "تاریخ هشدار: تنظیم نشده"
+                                    else -> "تاریخ یادآور: ${reminder.date}"
+                                },
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -379,7 +386,12 @@ fun ReminderCard(
                                 modifier = Modifier.size(13.dp)
                             )
                             Text(
-                                text = "${if (scheduledTriggerAt != null || isInstallmentReminder) "ساعت هشدار: " else "ساعت یادآور: "}${scheduledTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedTime() } ?: if (isInstallmentReminder) "تنظیم نشده" else reminder.time}",
+                                text = when {
+                                    isCompletedInstallmentOccurrence -> "ساعت یادآور: ${reminder.time}"
+                                    scheduledTriggerAt != null -> "ساعت هشدار: ${com.example.util.PersianCalendarHelper.fromEpochMillis(scheduledTriggerAt).toFormattedTime()}"
+                                    isInstallmentReminder -> "ساعت هشدار: تنظیم نشده"
+                                    else -> "ساعت یادآور: ${reminder.time}"
+                                },
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
