@@ -147,50 +147,15 @@ class ReminderEngineTest {
     }
 
     @Test
-    fun testReminderPolicyEngineQuietHoursAllowedForHighPriority() {
-        val tz = TimeZone.getTimeZone("Asia/Tehran")
-        val nightCal = Calendar.getInstance(tz).apply {
-            set(Calendar.HOUR_OF_DAY, 23)
-            set(Calendar.MINUTE, 30)
-        }
-
-        val highPriorityReminder = ReminderEntity(
-            title = "سررسید فوری قسط",
-            priority = "HIGH",
-            date = "۱۴۰۵/۰۷/۳۰",
-            time = "۲۳:۳۰"
-        )
-
-        val quietHours = QuietHoursConfig(
-            enabled = true,
-            startHour = 23,
-            startMinute = 0,
-            endHour = 7,
-            endMinute = 0,
-            allowHighPriority = true
-        )
-
-        val decision = ReminderPolicyEngine.evaluateDispatch(
-            highPriorityReminder,
-            quietHours,
-            nightCal.timeInMillis
-        )
-
-        assertEquals("High priority reminder during quiet hours should deliver immediately when allowed",
-            DispatchDecision.DeliverNow, decision)
-    }
-
-    @Test
-    fun testReminderPolicyEngineQuietHoursPostponedForNormalPriority() {
+    fun testReminderPolicyEnginePostponesRemindersDuringQuietHours() {
         val tz = TimeZone.getTimeZone("Asia/Tehran")
         val nightCal = Calendar.getInstance(tz).apply {
             set(Calendar.HOUR_OF_DAY, 1)
             set(Calendar.MINUTE, 15)
         }
 
-        val normalReminder = ReminderEntity(
-            title = "سرویس دوره‌ای",
-            priority = "NORMAL",
+        val reminder = ReminderEntity(
+            title = "یادآور",
             date = "۱۴۰۵/۰۷/۳۰",
             time = "۰۱:۱۵"
         )
@@ -200,18 +165,16 @@ class ReminderEngineTest {
             startHour = 23,
             startMinute = 0,
             endHour = 7,
-            endMinute = 0,
-            allowHighPriority = true
+            endMinute = 0
         )
 
         val decision = ReminderPolicyEngine.evaluateDispatch(
-            normalReminder,
+            reminder,
             quietHours,
             nightCal.timeInMillis
         )
 
-        assertTrue("Normal reminder during quiet hours should be postponed", decision is DispatchDecision.PostponeTo)
+        assertTrue("Reminders during quiet hours should be postponed", decision is DispatchDecision.PostponeTo)
     }
-
 
 }
