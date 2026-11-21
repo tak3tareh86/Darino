@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 
@@ -56,8 +58,16 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         FilterParams(tab, chip, query)
     }
 
-    private val reminderData = combine(repository.getAllReminders(), repository.getAllSchedules()) { reminders, schedules ->
-        reminders to schedules
+    // Refresh time-sensitive due-date filtering even when the database does not emit.
+    private val clock = flow {
+        while (true) {
+            emit(System.currentTimeMillis())
+            delay(1_000L)
+        }
+    }
+
+    private val reminderData = combine(repository.getAllReminders(), repository.getAllSchedules(), clock) { reminders, schedules, now ->
+        Triple(reminders, schedules, now)
     }
 
     val uiState: StateFlow<ReminderState> = combine(
@@ -68,14 +78,13 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         combine(_errorMessage, _userMessage, notificationRepository.getUnreadCount()) { error, userMsg, unreadCount ->
             Triple(error, userMsg, unreadCount)
         }
-    ) { reminderData: Pair<List<ReminderEntity>, List<ReminderScheduleEntity>>, filters: FilterParams, suggestions: List<SmartSuggestion>, isLoading: Boolean, triple: Triple<String?, String?, Int> ->
+    ) { reminderData: Triple<List<ReminderEntity>, List<ReminderScheduleEntity>, Long>, filters: FilterParams, suggestions: List<SmartSuggestion>, isLoading: Boolean, triple: Triple<String?, String?, Int> ->
         val allReminders = reminderData.first
         val allSchedules = reminderData.second
+        val now = reminderData.third
         val error = triple.first
         val userMsg = triple.second
         val unreadCount = triple.third
-
-        val now = System.currentTimeMillis()
         val todayCalendar = java.util.Calendar.getInstance().apply { timeInMillis = now }
         val todayPersian = PersianCalendarHelper.fromEpochMillis(now).toFormattedDate()
         val tomorrowCalendar = (todayCalendar.clone() as java.util.Calendar).apply {
