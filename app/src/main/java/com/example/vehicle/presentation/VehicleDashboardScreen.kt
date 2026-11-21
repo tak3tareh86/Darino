@@ -1,5 +1,8 @@
 package com.example.vehicle.presentation
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -82,6 +85,7 @@ fun DarinoVehicleMainDashboard(
     }
 
     var showVehicleHealthDetails by rememberSaveable { mutableStateOf(false) }
+    var showPeriodicServicesScreen by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = showVehicleHealthDetails) {
         showVehicleHealthDetails = false
     }
@@ -201,6 +205,10 @@ fun DarinoVehicleMainDashboard(
         )
     }
 
+    BackHandler(enabled = showPeriodicServicesScreen && !state.showProfileScreen) {
+        showPeriodicServicesScreen = false
+    }
+
     BackHandler(enabled = state.showProfileScreen && state.selectedVehicle != null) {
         viewModel.closeProfile()
     }
@@ -216,7 +224,17 @@ fun DarinoVehicleMainDashboard(
         return
     }
 
-    if (showVehicleHealthDetails && state.healthReport != null) {
+    if (showPeriodicServicesScreen && state.selectedVehicle != null) {
+        VehiclePeriodicServicesScreen(
+            vehicle = state.selectedVehicle!!,
+            services = state.services,
+            onBack = { showPeriodicServicesScreen = false },
+            onAddService = { viewModel.openAddService() },
+            onDeleteService = { serviceToDeleteDashboard = it },
+            onRetryReminder = { service -> viewModel.retryServiceReminder(service.id, service.title) },
+            bottomBar = bottomBar
+        )
+    } else if (showVehicleHealthDetails && state.healthReport != null) {
         VehicleHealthDetailsScreen(
             report = state.healthReport!!,
             onBack = { showVehicleHealthDetails = false },
@@ -411,6 +429,14 @@ fun DarinoVehicleMainDashboard(
                                 healthReport = state.healthReport,
                                 services = state.services,
                                 onEditProfile = { viewModel.openProfile() },
+                                onOpenPeriodicServices = { showPeriodicServicesScreen = true },
+                                onOpenOnlineService = { url ->
+                                    runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                    }.onFailure {
+                                        Toast.makeText(context, "مرورگر مناسبی برای باز کردن لینک پیدا نشد.", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
                                 onMileageClick = { viewModel.openMileageDialog() },
                                 onAddService = { viewModel.openAddService() },
                                 onOpenHealthDetails = { showVehicleHealthDetails = true },
@@ -637,6 +663,8 @@ private fun VehicleServicesTabContent(
     healthReport: com.example.vehicle.domain.VehicleHealthReport?,
     services: List<VehicleServiceEntity>,
     onEditProfile: () -> Unit,
+    onOpenPeriodicServices: () -> Unit,
+    onOpenOnlineService: (String) -> Unit,
     onMileageClick: () -> Unit,
     onAddService: () -> Unit,
     onOpenHealthDetails: () -> Unit,
@@ -647,8 +675,6 @@ private fun VehicleServicesTabContent(
     onDeleteVehicle: (() -> Unit)? = null,
     onRetryReminder: ((VehicleServiceEntity) -> Unit)? = null
 ) {
-    var isServicesExpanded by remember { mutableStateOf(true) }
-
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp),
@@ -692,10 +718,10 @@ private fun VehicleServicesTabContent(
                     modifier = Modifier.weight(1f)
                 )
                 QuickActionButton(
-                    title = "پرونده فنی",
-                    icon = Icons.Rounded.Assignment,
+                    title = "سرویس‌های دوره‌ای",
+                    icon = Icons.Rounded.MiscellaneousServices,
                     color = Color(0xFF8B5CF6),
-                    onClick = onEditProfile,
+                    onClick = onOpenPeriodicServices,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -756,61 +782,231 @@ private fun VehicleServicesTabContent(
             }
         }
 
-        // 4. Collapsible Services List Header
+        // 4. Online vehicle services launcher replaces the duplicated inline service history.
         item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { isServicesExpanded = !isServicesExpanded }
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.MiscellaneousServices,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "سرویس‌های دوره‌ای",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+            OnlineVehicleServicesCard(onOpenService = onOpenOnlineService)
+        }
+    }
+}
+
+
+@Composable
+private fun VehiclePeriodicServicesScreen(
+    vehicle: VehicleEntity,
+    services: List<VehicleServiceEntity>,
+    onBack: () -> Unit,
+    onAddService: () -> Unit,
+    onDeleteService: (VehicleServiceEntity) -> Unit,
+    onRetryReminder: (VehicleServiceEntity) -> Unit,
+    bottomBar: @Composable () -> Unit
+) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize().testTag("vehicle_periodic_services_screen"),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "سرویس‌های دوره‌ای",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            text = "${vehicle.brand} ${vehicle.model}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowBack,
+                            contentDescription = "بازگشت"
+                        )
+                    }
                 }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+            )
+        },
+        bottomBar = bottomBar,
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
                 ) {
-                    Text(
-                        text = "${IranianPhoneUtils.convertDigitsToPersian(services.size.toString())} سرویس",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Icon(
-                        imageVector = if (isServicesExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                text = "سوابق سرویس این خودرو",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "${IranianPhoneUtils.convertDigitsToPersian(services.size.toString())} سرویس ثبت‌شده",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Rounded.Build,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
+            }
+            item {
+                Button(
+                    onClick = onAddService,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Rounded.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("ثبت سرویس جدید")
+                }
+            }
+            if (services.isEmpty()) {
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Build,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(34.dp)
+                            )
+                            Text(
+                                text = "هنوز سرویسی برای این خودرو ثبت نشده است.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(services, key = { it.id }) { service ->
+                    ServiceRecordCard(
+                        service = service,
+                        onDeleteService = onDeleteService,
+                        onRetryReminder = onRetryReminder
                     )
                 }
             }
         }
+    }
+}
 
-        // 5. Service Records List
-        if (isServicesExpanded) {
-            items(services, key = { it.id }) { service ->
-                ServiceRecordCard(
-                    service = service,
-                    onDeleteService = onDeleteService,
-                    onRetryReminder = onRetryReminder
+@Composable
+private fun OnlineVehicleServicesCard(
+    onOpenService: (String) -> Unit
+) {
+    Layered3DCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        backgroundColor = MaterialTheme.colorScheme.surface,
+        elevation = 2.dp,
+        contentPadding = PaddingValues(14.dp),
+        testTag = "online_vehicle_services_card"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Soft3DIcon(
+                    imageRes = R.drawable.img_3d_analytics,
+                    contentDescription = null,
+                    size = 34.dp,
+                    accentColor = MaterialTheme.colorScheme.primary
                 )
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = "خدمات آنلاین خودرو",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "ورود به سامانه‌های بیرونی",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
+            OnlineVehicleServiceRow(
+                title = "استعلام خلافی خودرو",
+                subtitle = "سامانه پلیس راهور",
+                icon = Icons.Rounded.Gavel,
+                accent = Color(0xFF3976C8),
+                onClick = { onOpenService("https://rahvar120.ir") }
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+            OnlineVehicleServiceRow(
+                title = "استعلام عوارض آزادراهی",
+                subtitle = "سامانه آنی‌رو",
+                icon = Icons.Rounded.Toll,
+                accent = Color(0xFF219477),
+                onClick = { onOpenService("https://www.aaniro.com") }
+            )
+            Text(
+                text = "استعلام و پرداخت در سایت ارائه‌دهنده خدمت و خارج از دارینو انجام می‌شود.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun OnlineVehicleServiceRow(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    accent: Color,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick),
+        color = accent.copy(alpha = 0.07f),
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.18f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
+                Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(Icons.Rounded.OpenInNew, contentDescription = "باز کردن در مرورگر", tint = accent, modifier = Modifier.size(18.dp))
         }
     }
 }
