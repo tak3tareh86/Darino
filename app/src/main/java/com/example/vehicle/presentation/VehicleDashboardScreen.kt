@@ -961,7 +961,7 @@ private fun OnlineVehicleServicesCard(
             }
             OnlineVehicleServiceRow(
                 title = "استعلام خلافی خودرو",
-                subtitle = "سامانه پلیس راهور",
+                subtitle = "ورود به سامانه رسمی خدمات پلیس راهور",
                 icon = Icons.Rounded.Gavel,
                 accent = Color(0xFF3976C8),
                 onClick = { onOpenService("https://rahvar120.ir") }
@@ -969,7 +969,7 @@ private fun OnlineVehicleServicesCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
             OnlineVehicleServiceRow(
                 title = "استعلام عوارض آزادراهی",
-                subtitle = "سامانه آنی‌رو",
+                subtitle = "ورود به سامانه آنی‌رو",
                 icon = Icons.Rounded.Toll,
                 accent = Color(0xFF219477),
                 onClick = { onOpenService("https://aaniro.ir") }
