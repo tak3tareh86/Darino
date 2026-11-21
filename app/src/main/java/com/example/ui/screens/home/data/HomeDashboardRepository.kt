@@ -222,12 +222,20 @@ class HomeDashboardRepository(
         // This card is a list of unpaid loan installments, not a reminder list.
         // Sort by the actual due date, then by installment number for same-day items.
         return candidates
-            .sortedWith(
-                compareBy<ObligationCandidate> { it.dueEpochDay }
-                    .thenBy { it.installmentNumber }
-                    .thenBy { it.item.rawId }
-                    .thenBy { it.item.id }
-            )
+            .sortedWith { first, second ->
+                val firstOverdue = first.dueEpochDay < todayEpochDay
+                val secondOverdue = second.dueEpochDay < todayEpochDay
+                when {
+                    firstOverdue && !secondOverdue -> -1
+                    !firstOverdue && secondOverdue -> 1
+                    firstOverdue && secondOverdue ->
+                        compareValues(second.dueEpochDay, first.dueEpochDay)
+                    else -> compareValues(first.dueEpochDay, second.dueEpochDay)
+                }.takeIf { it != 0 }
+                    ?: compareValues(first.installmentNumber, second.installmentNumber).takeIf { it != 0 }
+                    ?: compareValues(first.item.rawId, second.item.rawId).takeIf { it != 0 }
+                    ?: compareValues(first.item.id, second.item.id)
+            }
             .map { it.item }
     }
 
