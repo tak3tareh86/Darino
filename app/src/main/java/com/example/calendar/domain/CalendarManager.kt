@@ -202,7 +202,8 @@ class CalendarManager(private val context: Context) {
                             amount = svc.cost,
                             amountUnit = svc.costUnit,
                             date = normDate,
-                            time = "09:00",
+                            // Vehicle service records store a date only; no service time is entered.
+                            time = null,
                             repeatType = "NONE",
                             reminderBefore = ReminderBeforeOption.NONE,
                             reminderLabel = if (svc.isReminderEnabled && !svc.nextReminderDate.isNullOrBlank()) {
