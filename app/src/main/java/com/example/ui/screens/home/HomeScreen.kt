@@ -315,6 +315,14 @@ fun HomeScreen(
                                         onClick = { applyDebugState(SubscriptionStatus.ACTIVE, 365L) },
                                         modifier = Modifier.fillMaxWidth()
                                     ) { androidx.compose.material3.Text("نمایش اشتراک فعال") }
+                                    androidx.compose.material3.TextButton(
+                                        onClick = {
+                                            debugSubscriptionState = null
+                                            showSubscriptionDebugPanel = false
+                                            showDebugExpiredScreen = true
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { androidx.compose.material3.Text("نمایش صفحه پایان اشتراک سالانه") }
                                 }
                             },
                             confirmButton = {
