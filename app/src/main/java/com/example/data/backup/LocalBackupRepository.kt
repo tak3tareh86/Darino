@@ -306,7 +306,6 @@ class LocalBackupRepository(
                 quietHoursEnabled = generalPrefs.getBoolean("pref_quiet_hours_enabled", false),
                 quietHoursStartMinute = generalPrefs.getInt("pref_quiet_hours_start_minute", 23 * 60),
                 quietHoursEndMinute = generalPrefs.getInt("pref_quiet_hours_end_minute", 7 * 60),
-                allowHighPriorityInQuietHours = generalPrefs.getBoolean("pref_allow_high_priority_quiet_hours", false),
                 defaultReminderTimeMinute = generalPrefs.getInt("pref_default_reminder_time_minute", 9 * 60),
                 installmentReminderDays = generalPrefs.getInt("pref_installment_reminder_days", 0),
                 vehicleReminderKilometers = generalPrefs.getInt("pref_vehicle_reminder_kilometers", 0),
@@ -562,7 +561,6 @@ class LocalBackupRepository(
                     putBooleanOrRemove("pref_quiet_hours_enabled", settings.quietHoursEnabled)
                     putIntOrRemove("pref_quiet_hours_start_minute", settings.quietHoursStartMinute)
                     putIntOrRemove("pref_quiet_hours_end_minute", settings.quietHoursEndMinute)
-                    putBooleanOrRemove("pref_allow_high_priority_quiet_hours", settings.allowHighPriorityInQuietHours)
                     putIntOrRemove("pref_default_reminder_time_minute", settings.defaultReminderTimeMinute)
                     putIntOrRemove("pref_installment_reminder_days", settings.installmentReminderDays)
                     putIntOrRemove("pref_vehicle_reminder_kilometers", settings.vehicleReminderKilometers)
@@ -595,7 +593,6 @@ class LocalBackupRepository(
                             .putBoolean("pref_quiet_hours_enabled", false)
                             .putInt("pref_quiet_hours_start_minute", 23 * 60)
                             .putInt("pref_quiet_hours_end_minute", 7 * 60)
-                            .putBoolean("pref_allow_high_priority_quiet_hours", false)
                             .putInt("pref_default_reminder_time_minute", 9 * 60)
                             .putInt("pref_installment_reminder_days", 0)
                             .putInt("pref_vehicle_reminder_kilometers", 0)
@@ -1044,7 +1041,6 @@ class LocalBackupRepository(
                 if (settings.quietHoursStartMinute != null && settings.quietHoursEndMinute != null) {
                     appPreferences.setQuietHours(settings.quietHoursStartMinute, settings.quietHoursEndMinute)
                 }
-                settings.allowHighPriorityInQuietHours?.let(appPreferences::setAllowHighPriorityInQuietHours)
                 settings.defaultReminderTimeMinute?.let(appPreferences::setDefaultReminderTimeMinute)
                 settings.installmentReminderDays?.let(appPreferences::setInstallmentReminderDays)
                 settings.vehicleReminderKilometers?.let(appPreferences::setVehicleReminderKilometers)
@@ -1065,7 +1061,6 @@ class LocalBackupRepository(
                 appPreferences.setNotificationVibrationEnabled(false)
                 appPreferences.setQuietHoursEnabled(false)
                 appPreferences.setQuietHours(23 * 60, 7 * 60)
-                appPreferences.setAllowHighPriorityInQuietHours(false)
                 appPreferences.setDefaultReminderTimeMinute(9 * 60)
                 appPreferences.setInstallmentReminderDays(0)
                 appPreferences.setVehicleReminderKilometers(0)
