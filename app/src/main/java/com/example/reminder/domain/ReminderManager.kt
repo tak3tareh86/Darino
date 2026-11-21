@@ -282,11 +282,12 @@ class ReminderManager(
 
         if (completedScheduleIds.isEmpty()) return@withContext false
 
+        val completedAt = System.currentTimeMillis()
         val updatedSchedules = oldSchedules.map { schedule ->
             if (schedule.id in completedScheduleIds) {
-                // COMPLETED is a durable per-payment marker. It survives later
-                // syncInstallmentReminder calls without disabling other payments.
-                schedule.copy(enabled = false, triggerType = "COMPLETED")
+                // COMPLETED is a durable per-payment marker and its timestamp is
+                // retained when the loan's remaining schedules are synchronized.
+                schedule.copy(enabled = false, triggerType = "COMPLETED", createdAt = completedAt)
             } else schedule
         }
         val updatedReminder = reminder.copy(updatedAt = System.currentTimeMillis())
@@ -731,7 +732,7 @@ class ReminderManager(
         // When there are no unpaid payments, keep disabled preference rows.
         // These rows are never armed; they only preserve selected offsets so a
         // payment reopened later can regain its original reminder configuration.
-        val schedules = if (payments.isEmpty()) {
+        val generatedSchedules = if (payments.isEmpty()) {
             val retainedSchedules = oldSchedules.filterNot { it.id.startsWith("snooze_") }
             if (retainedSchedules.isNotEmpty()) {
                 retainedSchedules.map { it.copy(enabled = false, createdAt = now) }
@@ -773,9 +774,10 @@ class ReminderManager(
                 ).toString()
                 // Keep a user's explicit completion for this payment occurrence
                 // across routine installment refreshes and date recalculations.
-                val wasCompletedByUser = oldSchedules.any {
+                val completedMarker = oldSchedules.firstOrNull {
                     it.id == stableId && it.triggerType == "COMPLETED"
                 }
+                val wasCompletedByUser = completedMarker != null
                 ReminderScheduleEntity(
                     id = stableId,
                     reminderId = reminder.id,
@@ -787,10 +789,18 @@ class ReminderManager(
                     repeatType = "NONE",
                     repeatInterval = 1,
                     enabled = shouldArm && !wasCompletedByUser,
-                    createdAt = now
+                    createdAt = completedMarker?.createdAt ?: now
                 )
             }
         }
+
+        // Keep completed occurrences even after their payment leaves the unpaid
+        // schedule. Otherwise a later loan refresh would erase completion history.
+        val generatedScheduleIds = generatedSchedules.mapTo(mutableSetOf()) { it.id }
+        val retainedCompletedSchedules = oldSchedules.filter {
+            it.triggerType == "COMPLETED" && it.id !in generatedScheduleIds
+        }
+        val schedules = generatedSchedules + retainedCompletedSchedules
 
         // Cancel old PendingIntents before replacing Room rows. Each payment/offset pair
         // has its own stable ID, so paying or editing one payment cannot collide with others.
