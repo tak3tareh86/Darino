@@ -105,6 +105,11 @@ fun AboutScreen(
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    com.example.ui.components.DarinoLogoMark(
+                        size = 116.dp,
+                        showShadow = false
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = "سامانه مدیریت جامع مالی، اقساط و خودرو",
                         style = MaterialTheme.typography.bodySmall.copy(
@@ -142,11 +147,7 @@ fun AboutScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    com.example.ui.components.DarinoLogoMark(
-                        size = 78.dp,
-                        showShadow = false
-                    )
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
             }
 
