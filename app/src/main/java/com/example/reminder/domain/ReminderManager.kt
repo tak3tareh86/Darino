@@ -782,20 +782,9 @@ class ReminderManager(
         val existing = repository.getReminderBySource("INSTALLMENT", installmentId)
             ?: return@withContext 0
 
-        // A completed status can be stale when a previously paid payment is
-        // reopened. Restore only this linked reminder; never override DISABLED
-        // or CANCELLED user choices.
-        if (paymentDueDates.isNotEmpty() && existing.status.equals("COMPLETED", ignoreCase = true)) {
-            val storedSchedules = repository.getSchedulesSync(existing.id)
-            repository.updateReminderWithSchedules(
-                existing.copy(
-                    status = "ACTIVE",
-                    completedAt = null,
-                    updatedAt = System.currentTimeMillis()
-                ),
-                storedSchedules
-            )
-        }
+        // Completing an installment reminder from its notification is an explicit
+        // user action. Routine installment refreshes must preserve that decision;
+        // an unpaid payment alone is not evidence that the user wants alerts re-enabled.
         syncInstallmentReminder(
             installmentId = installmentId,
             title = title,
