@@ -11,10 +11,14 @@ import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
 import com.example.util.MoneyFormatter
 import com.example.util.MoneyAmount
+import com.example.ui.screens.installments.data.LocalInstallmentRepository
+import com.example.ui.screens.installments.model.InstallmentStatus
 import com.example.ui.screens.settings.model.AppCurrency
 import com.example.util.PersianCalendarHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import java.util.concurrent.ConcurrentHashMap
 import java.util.Calendar
@@ -290,15 +294,50 @@ class ReminderManager(
                 schedule.copy(enabled = false, triggerType = "COMPLETED", createdAt = completedAt)
             } else schedule
         }
-        val updatedReminder = reminder.copy(updatedAt = System.currentTimeMillis())
+        // Disable the loan-level reminder only when no unpaid payment still has
+        // an unfinished reminder occurrence. Payment status itself is never changed.
+        val installmentRepository = LocalInstallmentRepository.instance
+        installmentRepository.init(context)
+        val installmentDataReady = withTimeoutOrNull(5_000L) {
+            installmentRepository.installmentDataAvailable.first { it }
+        } ?: false
+        val installment = if (installmentDataReady) {
+            installmentRepository.installments.value.firstOrNull { it.id == reminder.sourceId }
+        } else null
+        val hasUnfinishedPaymentReminder = installment?.paymentHistory
+            ?.filter {
+                it.status != InstallmentStatus.PAID &&
+                    it.status != InstallmentStatus.COMPLETED
+            }
+            ?.any { payment ->
+                val paymentSchedules = updatedSchedules.filter { schedule ->
+                    val expectedId = UUID.nameUUIDFromBytes(
+                        "installment:\${reminder.sourceId}:\${payment.id}:\${schedule.offsetValue}:\${schedule.offsetUnit.uppercase()}"
+                            .toByteArray(Charsets.UTF_8)
+                    ).toString()
+                    schedule.id == expectedId
+                }
+                paymentSchedules.any { !it.triggerType.equals("COMPLETED", ignoreCase = true) }
+            } ?: true
 
-        // Cancel old PendingIntents before replacing the rows, then re-arm all
-        // remaining future payment schedules without changing the parent status.
+        val allPaymentRemindersFinished = installment != null && !hasUnfinishedPaymentReminder
+        val updatedReminder = reminder.copy(
+            status = if (allPaymentRemindersFinished) "DISABLED" else reminder.status,
+            updatedAt = System.currentTimeMillis()
+        )
+        val schedulesToPersist = if (allPaymentRemindersFinished) {
+            updatedSchedules.map { it.copy(enabled = false) }
+        } else {
+            updatedSchedules
+        }
+
+        // Cancel old PendingIntents before replacing the rows, then re-arm only
+        // remaining future payment schedules while any unfinished occurrence remains.
         scheduler.cancel(reminder.id, oldSchedules)
         NotificationDispatcher(context).cancelReminderNotifications(reminder.id, oldSchedules)
         try {
-            repository.updateReminderWithSchedules(updatedReminder, updatedSchedules)
-            val remainingFutureSchedules = updatedSchedules.filter {
+            repository.updateReminderWithSchedules(updatedReminder, schedulesToPersist)
+            val remainingFutureSchedules = schedulesToPersist.filter {
                 it.enabled && it.triggerDateTime > System.currentTimeMillis()
             }
             if (remainingFutureSchedules.isNotEmpty()) {
@@ -715,8 +754,8 @@ class ReminderManager(
         // per-payment trigger generation for loans that still have unpaid payments.
         val reminderToPersist = if (payments.isEmpty()) {
             reminder.copy(
-                status = "COMPLETED",
-                completedAt = existing?.completedAt ?: now,
+                status = "DISABLED",
+                completedAt = null,
                 updatedAt = now
             )
         } else {
