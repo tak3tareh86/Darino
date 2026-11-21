@@ -429,7 +429,7 @@ class NotificationDispatcher(private val context: Context) {
             val channelEnabled = Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
                 notificationManager.getNotificationChannel(channelId)?.importance != NotificationManager.IMPORTANCE_NONE
             if (useFullScreenAlarm && !fullScreenAccessGranted) {
-                Log.w("NotificationDispatcher", "Full-screen intent access is not granted. Android will show the high-priority notification fallback for reminderId=${reminder.id}.")
+                Log.w("NotificationDispatcher", "Full-screen intent access is not granted. Android will show the standard notification fallback for reminderId=${reminder.id}.")
             }
 
             when {
