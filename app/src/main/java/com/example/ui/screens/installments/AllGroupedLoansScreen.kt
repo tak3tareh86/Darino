@@ -8,6 +8,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -31,13 +35,16 @@ fun AllGroupedLoansScreen(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
-    // Group items by category
-    val grouped = allItems.groupBy { it.category }
+    val categories = InstallmentCategory.values().toList()
+    var selectedCategoryIndex by remember { mutableStateOf(0) }
+    val selectedCategory = categories[selectedCategoryIndex]
+    val itemsInCategory = allItems.filter { it.category == selectedCategory }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            Surface(
+            Column {
+                Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .shadow(
@@ -73,6 +80,30 @@ fun AllGroupedLoansScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
+                TabRow(selectedTabIndex = selectedCategoryIndex) {
+                    categories.forEachIndexed { index, category ->
+                        Tab(
+                            selected = selectedCategoryIndex == index,
+                            onClick = { selectedCategoryIndex = index },
+                            text = {
+                                Text(
+                                    text = when (category) {
+                                        InstallmentCategory.BANK_LOANS -> "وام‌های بانکی"
+                                        InstallmentCategory.HOME_LOANS -> "وام‌های خانگی"
+                                        InstallmentCategory.CAR_INSURANCE -> "وام‌های بیمه خودرو"
+                                        InstallmentCategory.MISC -> "وام‌های متفرقه"
+                                    },
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
+                        )
+                    }
+                }
             }
         }
     ) { innerPadding ->
@@ -84,40 +115,34 @@ fun AllGroupedLoansScreen(
             contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            val categories = InstallmentCategory.values()
-            
-            categories.forEach { category ->
-                val itemsInCategory = grouped[category] ?: emptyList()
-                
+            item {
+                CategoryHeaderRow(category = selectedCategory, count = itemsInCategory.size)
+            }
+
+            if (itemsInCategory.isEmpty()) {
                 item {
-                    CategoryHeaderRow(category = category, count = itemsInCategory.size)
-                }
-                
-                if (itemsInCategory.isEmpty()) {
-                    item {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "در حال حاضر هیچ تعهد یا وامی در این دسته‌بندی ثبت نشده است.",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                            )
-                        }
-                    }
-                } else {
-                    items(itemsInCategory, key = { it.id }) { loan ->
-                        InstallmentCard(
-                            item = loan,
-                            onClick = { onLoanClick(loan) }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "در حال حاضر هیچ تعهد یا وامی در این دسته‌بندی ثبت نشده است.",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                         )
                     }
                 }
+            } else {
+                items(itemsInCategory, key = { it.id }) { loan ->
+                    InstallmentCard(
+                        item = loan,
+                        onClick = { onLoanClick(loan) }
+                    )
+                }
             }
-            
+
             item {
                 Spacer(modifier = Modifier.height(24.dp))
             }
