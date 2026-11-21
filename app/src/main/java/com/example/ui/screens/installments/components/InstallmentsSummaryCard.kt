@@ -101,7 +101,7 @@ fun InstallmentsSummaryCard(
                                 .background(accentGreen)
                         )
                         Text(
-                            text = "اقساط فعال",
+                            text = "وام‌های فعال",
                             style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
                             color = cardTextColor
                         )
