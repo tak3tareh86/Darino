@@ -143,7 +143,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                     schedule.reminderId == reminder.id &&
                         !schedule.id.startsWith("snooze_") &&
                         schedule.id == java.util.UUID.nameUUIDFromBytes(
-                            "installment:$installmentId:\${nextPayment.id}:\${schedule.offsetValue}:\${schedule.offsetUnit}"
+                            "installment:$installmentId:${nextPayment.id}:${schedule.offsetValue}:${schedule.offsetUnit}"
                                 .toByteArray(Charsets.UTF_8)
                         ).toString()
                 }
