@@ -46,6 +46,10 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
     private val notificationRepository = NotificationRepository(application)
     private val manager: ReminderManager = ReminderManager(application, repository)
 
+    init {
+        LocalInstallmentRepository.instance.init(application)
+    }
+
     private val _selectedTab = MutableStateFlow(ReminderTab.ALL)
     private val _selectedFilterChip = MutableStateFlow(ReminderFilterChip.ALL)
     private val _searchQuery = MutableStateFlow("")
