@@ -48,7 +48,7 @@ fun UpcomingRemindersCard(
     reminders: List<UpcomingReminderItem>,
     onViewAllClick: () -> Unit,
     onReminderClick: (UpcomingReminderItem) -> Unit = {},
-    onMarkCompleted: (String) -> Unit = {},
+    onMarkCompleted: (UpcomingReminderItem) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val nearestReminder = reminders.firstOrNull()
@@ -159,7 +159,7 @@ fun UpcomingRemindersCard(
                 }
                 if (nearestReminder != null) {
                     Button(
-                        onClick = { onMarkCompleted(nearestReminder.id) },
+                        onClick = { onMarkCompleted(nearestReminder) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(32.dp)
