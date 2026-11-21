@@ -40,6 +40,11 @@ class AppPreferencesRepository private constructor(context: Context) {
         Context.MODE_PRIVATE
     )
 
+    init {
+        // Remove the retired reminder-priority preference from existing installations.
+        prefs.edit().remove("pref_allow_high_priority_quiet_hours").apply()
+    }
+
     private val userPreferenceDao: UserPreferenceDao by lazy {
         AppDatabase.getDatabase(context).userPreferenceDao()
     }
@@ -79,8 +84,6 @@ class AppPreferencesRepository private constructor(context: Context) {
     val quietHoursStartMinute: StateFlow<Int> = _quietHoursStartMinute.asStateFlow()
     private val _quietHoursEndMinute = MutableStateFlow(prefs.getInt(KEY_QUIET_HOURS_END_MINUTE, 7 * 60))
     val quietHoursEndMinute: StateFlow<Int> = _quietHoursEndMinute.asStateFlow()
-    private val _allowHighPriorityInQuietHours = MutableStateFlow(prefs.getBoolean(KEY_ALLOW_HIGH_PRIORITY_QUIET_HOURS, false))
-    val allowHighPriorityInQuietHours: StateFlow<Boolean> = _allowHighPriorityInQuietHours.asStateFlow()
 
     private val _defaultReminderTimeMinute = MutableStateFlow(prefs.getInt(KEY_DEFAULT_REMINDER_TIME_MINUTE, 9 * 60))
     val defaultReminderTimeMinute: StateFlow<Int> = _defaultReminderTimeMinute.asStateFlow()
@@ -241,11 +244,6 @@ class AppPreferencesRepository private constructor(context: Context) {
         _quietHoursEndMinute.value = safeEnd
     }
 
-    fun setAllowHighPriorityInQuietHours(allowed: Boolean) {
-        prefs.edit().putBoolean(KEY_ALLOW_HIGH_PRIORITY_QUIET_HOURS, allowed).apply()
-        _allowHighPriorityInQuietHours.value = allowed
-    }
-
     fun setDefaultReminderTimeMinute(minutes: Int) {
         val safe = minutes.coerceIn(0, 1439)
         prefs.edit().putInt(KEY_DEFAULT_REMINDER_TIME_MINUTE, safe).apply()
@@ -383,7 +381,6 @@ class AppPreferencesRepository private constructor(context: Context) {
         private const val KEY_QUIET_HOURS_ENABLED = "pref_quiet_hours_enabled"
         private const val KEY_QUIET_HOURS_START_MINUTE = "pref_quiet_hours_start_minute"
         private const val KEY_QUIET_HOURS_END_MINUTE = "pref_quiet_hours_end_minute"
-        private const val KEY_ALLOW_HIGH_PRIORITY_QUIET_HOURS = "pref_allow_high_priority_quiet_hours"
         private const val KEY_DEFAULT_REMINDER_TIME_MINUTE = "pref_default_reminder_time_minute"
         private const val KEY_INSTALLMENT_REMINDER_DAYS = "pref_installment_reminder_days"
         private const val KEY_VEHICLE_REMINDER_KILOMETERS = "pref_vehicle_reminder_kilometers"
