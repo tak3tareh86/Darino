@@ -118,17 +118,17 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
 
         val installmentRepository = LocalInstallmentRepository.instance
         val installmentItems = installmentRepository.installments.value
-        val installmentReminderDisplayTimes = installmentReminders.mapNotNull { reminder ->
-            val installmentId = reminder.sourceId ?: return@mapNotNull null
+        val installmentReminderDisplayTimes = installmentReminders.mapNotNull reminderEntry@{ reminder ->
+            val installmentId = reminder.sourceId ?: return@reminderEntry null
             val installment = installmentItems.firstOrNull { it.id == installmentId }
-                ?: return@mapNotNull null
+                ?: return@reminderEntry null
             val unpaidPayments = installment.paymentHistory.filter {
                 it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
             }
-            val paymentCandidates = unpaidPayments.mapNotNull { payment ->
+            val paymentCandidates = unpaidPayments.mapNotNull paymentEntry@{ payment ->
                 val dueAt = runCatching {
                     ReminderManager.parsePersianDateTimeToMillis(payment.dueDate, reminder.time)
-                }.getOrNull() ?: return@mapNotNull null
+                }.getOrNull() ?: return@paymentEntry null
                 payment to dueAt
             }
             val nextPayment = paymentCandidates
@@ -136,7 +136,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                 .minByOrNull { it.second }
                 ?.first
                 ?: paymentCandidates.minByOrNull { it.second }?.first
-                ?: return@mapNotNull null
+                ?: return@reminderEntry null
 
             val matchingTrigger = allSchedules.asSequence()
                 .filter { schedule ->
