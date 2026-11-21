@@ -490,22 +490,29 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                             payment.status != InstallmentStatus.COMPLETED &&
                             payment.id !in completedPaymentIds
                     }
-                    val nextPayment = unpaidPayments
-                        .mapNotNull { payment ->
-                            val dueAt = runCatching {
-                                ReminderManager.parsePersianDateTimeToMillis(payment.dueDate, reminder.time)
-                            }.getOrNull() ?: return@mapNotNull null
-                            payment to dueAt
+                    // Match the Home dashboard exactly: the selected occurrence is
+                    // the earliest enabled future schedule across all unpaid payments.
+                    val now = System.currentTimeMillis()
+                    val nextPayment = unpaidPayments.asSequence()
+                        .flatMap { payment ->
+                            schedules.asSequence()
+                                .filter { schedule ->
+                                    if (!schedule.enabled || schedule.triggerDateTime <= now ||
+                                        schedule.triggerType.equals("COMPLETED", ignoreCase = true)
+                                    ) {
+                                        false
+                                    } else {
+                                        schedule.id == java.util.UUID.nameUUIDFromBytes(
+                                            "installment:${installmentId}:${payment.id}:${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
+                                                .toByteArray(Charsets.UTF_8)
+                                        ).toString()
+                                    }
+                                }
+                                .map { schedule -> payment to schedule.triggerDateTime }
                         }
-                        .filter { it.second > System.currentTimeMillis() }
                         .minByOrNull { it.second }
                         ?.first
-                        ?: unpaidPayments.minByOrNull { payment ->
-                            runCatching {
-                                ReminderManager.parsePersianDateTimeToMillis(payment.dueDate, reminder.time)
-                            }.getOrNull() ?: Long.MAX_VALUE
-                        }
-                        ?: throw IllegalStateException("یادآور قسط تکمیل‌نشده‌ای برای این وام باقی نمانده است.")
+                        ?: throw IllegalStateException("یادآور فعال و آینده‌ای برای اقساط این وام باقی نمانده است.")
 
                     val completed = manager.completeReminderAction(
                         reminderId = reminder.id,
