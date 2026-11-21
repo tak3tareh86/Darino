@@ -18,7 +18,6 @@ data class ReminderEntity(
     val type: String = "GENERAL",
     val sourceType: String = "MANUAL",
     val sourceId: String? = null,
-    val priority: String = "NORMAL",
     val status: String = "ACTIVE",
     val date: String,
     val time: String = "۰۹:۰۰",
