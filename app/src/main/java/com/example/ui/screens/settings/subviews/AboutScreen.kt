@@ -105,6 +105,18 @@ fun AboutScreen(
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Text(
+                        text = "سامانه مدیریت جامع مالی، اقساط و خودرو",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = 16.8.sp
+                        ),
+                        color = EmeraldPrimaryLight,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.height(5.dp))
                     Box(
                         modifier = Modifier
                             .clip(CircleShape)
