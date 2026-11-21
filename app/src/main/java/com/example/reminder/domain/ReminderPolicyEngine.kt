@@ -10,7 +10,6 @@ data class QuietHoursConfig(
     val startMinute: Int = 0,
     val endHour: Int = 7,
     val endMinute: Int = 0,
-    val allowHighPriority: Boolean = true
 )
 
 sealed class DispatchDecision {
@@ -22,7 +21,7 @@ sealed class DispatchDecision {
 object ReminderPolicyEngine {
 
     /**
-     * Evaluates whether a reminder should be delivered now or postponed based on Quiet Hours and Priority.
+     * Evaluates whether a reminder should be delivered now or postponed based on Quiet Hours.
      */
     fun evaluateDispatch(
         reminder: ReminderEntity,
@@ -30,11 +29,6 @@ object ReminderPolicyEngine {
         currentTimestampMillis: Long = System.currentTimeMillis()
     ): DispatchDecision {
         if (!quietHours.enabled) {
-            return DispatchDecision.DeliverNow
-        }
-
-        val priority = Priority.fromKey(reminder.priority)
-        if (priority == Priority.HIGH && quietHours.allowHighPriority) {
             return DispatchDecision.DeliverNow
         }
 
