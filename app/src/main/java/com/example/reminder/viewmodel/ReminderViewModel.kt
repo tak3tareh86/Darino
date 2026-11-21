@@ -96,29 +96,41 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val completedList = allReminders.filter { it.status.equals("COMPLETED", ignoreCase = true) }
         val missedList = allReminders.filter { it.status.equals("MISSED", ignoreCase = true) }
 
-        // Display ordering follows the real, still-enabled future schedule first.
-        // A fired occurrence is already disabled by the receiver and therefore cannot
-        // remain the nearest item. Reminders without a future schedule retain their
-        // own due date/time as a display fallback; no reminder status is mutated.
+        // Alert schedules determine the alert timestamp shown on a card, not whether
+        // the underlying obligation belongs in the Upcoming tab.
         val nextTriggerByReminder = allSchedules.asSequence()
             .filter { it.enabled && it.triggerDateTime > now }
             .groupBy { it.reminderId }
             .mapValues { (_, schedules) -> schedules.minOf { it.triggerDateTime } }
-        val remindersWithScheduleHistory = allSchedules.mapTo(mutableSetOf()) { it.reminderId }
-        fun displayTime(reminder: ReminderEntity): Long? =
-            if (reminder.id in remindersWithScheduleHistory) {
-                // If this reminder has schedule records but none remain enabled in the
-                // future, do not misrepresent its base due date as a pending alert.
-                nextTriggerByReminder[reminder.id]
-            } else {
-                // Manual reminders without configured alert schedules keep their
-                // original date/time ordering.
-                runCatching { ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time) }.getOrNull()
-            }
+
+        // For installment reminders, retain the most recent scheduled trigger that
+        // belongs to the next due date. It may already have fired (for example, the
+        // alert was set for the day before), but it is still the correct reminder date
+        // to display beside the installment's actual due date.
+        val installmentReminderDisplayTimes = activeList
+            .filter { it.sourceType.equals("INSTALLMENT", ignoreCase = true) }
+            .mapNotNull { reminder ->
+                val dueAt = runCatching {
+                    ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
+                }.getOrNull() ?: return@mapNotNull null
+                val trigger = allSchedules.asSequence()
+                    .filter { it.reminderId == reminder.id && !it.id.startsWith("snooze_") && it.triggerDateTime <= dueAt }
+                    .map { it.triggerDateTime }
+                    .maxOrNull()
+                trigger?.let { reminder.id to it }
+            }.toMap()
+        val reminderDisplayTimes = nextTriggerByReminder + installmentReminderDisplayTimes
+
+        fun dueTime(reminder: ReminderEntity): Long? =
+            runCatching { ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time) }.getOrNull()
+
+        // Upcoming means the original due date/time is still in the future. It must
+        // not depend on whether a notification was configured or has already fired.
         val upcomingReminders = activeList.mapNotNull { reminder ->
-            val trigger = displayTime(reminder) ?: return@mapNotNull null
-            if (trigger > now) reminder to trigger else null
-        }.sortedBy { it.second }.map { it.first }
+            val dueAt = dueTime(reminder) ?: return@mapNotNull null
+            if (dueAt > now) reminder to dueAt else null
+        }.sortedWith(compareBy<Pair<ReminderEntity, Long>>({ it.second }, { it.first.id }))
+            .map { it.first }
         val todayReminders = activeList.filter { it.date == todayPersian }
         val tomorrowReminders = activeList.filter { it.date == tomorrowPersian }
 
@@ -186,7 +198,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             tomorrowCount = tomorrowReminders.size,
             nearestReminder = nearestDueReminder?.first,
             nearestReminderDueAt = nearestDueReminder?.second,
-            reminderDisplayTimes = nextTriggerByReminder,
+            reminderDisplayTimes = reminderDisplayTimes,
             smartSuggestions = suggestions,
             isLoading = isLoading,
             errorMessage = error,
@@ -295,7 +307,20 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                 val unpaidPayments = installment.paymentHistory.filter {
                     it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
                 }
-                val nextPayment = unpaidPayments.minByOrNull { it.dueDate }
+                val now = System.currentTimeMillis()
+                val nextPayment = unpaidPayments
+                    .mapNotNull { payment ->
+                        val dueAt = runCatching {
+                            ReminderManager.parsePersianDateTimeToMillis(payment.dueDate, dueTimePersian)
+                        }.getOrNull() ?: return@mapNotNull null
+                        if (dueAt > now) payment to dueAt else null
+                    }
+                    .minByOrNull { it.second }
+                    ?.first
+                    ?: unpaidPayments.minByOrNull { payment ->
+                        runCatching { ReminderManager.parsePersianDateTimeToMillis(payment.dueDate, dueTimePersian) }
+                            .getOrNull() ?: Long.MAX_VALUE
+                    }
                     ?: throw IllegalStateException("برای این وام قسط پرداخت‌نشده‌ای باقی نمانده است.")
                 val linkedReminder = repository.getReminderBySource("INSTALLMENT", installment.id)
                     ?: throw IllegalStateException("یادآور متصل به این وام پیدا نشد؛ برای جلوگیری از ایجاد یادآور تکراری، عملیات متوقف شد.")
