@@ -67,7 +67,9 @@ fun UpcomingObligationsCard(
     val obligationIds = obligations.map { it.id }
 
     LaunchedEffect(obligationIds) {
-        selectedIndex = selectedIndex.coerceIn(0, (obligations.size - 1).coerceAtLeast(0))
+        // When the underlying unpaid list changes (for example after payment),
+        // return to its newly calculated nearest installment.
+        selectedIndex = 0
     }
 
     val nearestItem = obligations.getOrNull(selectedIndex)
@@ -89,9 +91,9 @@ fun UpcomingObligationsCard(
                         },
                         onDragEnd = {
                             when {
-                                totalHorizontalDrag > 48f ->
+                                obligations.isNotEmpty() && totalHorizontalDrag > 48f ->
                                     selectedIndex = (selectedIndex + 1).coerceAtMost(obligations.lastIndex)
-                                totalHorizontalDrag < -48f ->
+                                obligations.isNotEmpty() && totalHorizontalDrag < -48f ->
                                     selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
                             }
                         },
