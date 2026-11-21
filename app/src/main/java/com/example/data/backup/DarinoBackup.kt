@@ -71,7 +71,6 @@ data class AppSettingsBackup(
     val quietHoursEnabled: Boolean? = null,
     val quietHoursStartMinute: Int? = null,
     val quietHoursEndMinute: Int? = null,
-    val allowHighPriorityInQuietHours: Boolean? = null,
     val defaultReminderTimeMinute: Int? = null,
     val installmentReminderDays: Int? = null,
     val vehicleReminderKilometers: Int? = null,
