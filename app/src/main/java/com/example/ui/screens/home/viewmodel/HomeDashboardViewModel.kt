@@ -9,6 +9,7 @@ import com.example.data.database.TransactionEntity
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
+import com.example.reminder.domain.ReminderManager
 import com.example.data.sms.BankSmsRepository
 import com.example.data.sms.BankSmsParser
 import com.example.data.sms.SmsPatternMatcher
@@ -66,6 +67,7 @@ sealed class SmsAcceptResult {
 class HomeDashboardViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = HomeDashboardRepository(application)
+    private val reminderManager = ReminderManager(application)
     private val aggregator = HomeDashboardAggregator(repository)
     private val smsRepository = BankSmsRepository.getInstance(application)
     private val smsPatternRepository = SmsPatternRepository(application)
@@ -737,25 +739,22 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
      * Updates the ReminderEntity status in Room database to 'COMPLETED'.
      * The reactive flow then updates Home automatically.
      */
-    fun markReminderCompleted(id: String, onResult: (Boolean) -> Unit = {}) {
+    fun markReminderCompleted(
+        id: String,
+        installmentPaymentId: String? = null,
+        onResult: (Boolean) -> Unit = {}
+    ) {
         viewModelScope.launch {
             try {
-                val userId = SessionManager.userId
-                var success = false
-                if (userId != null) {
-                    val db = AppDatabase.getDatabase(getApplication())
-                    val updatedRows = db.smartReminderDao().updateStatus(
-                        userId = userId,
-                        id = id,
-                        status = "COMPLETED",
-                        updatedAt = System.currentTimeMillis(),
-                        completedAt = System.currentTimeMillis()
-                    )
-                    success = updatedRows > 0
+                val success = if (!installmentPaymentId.isNullOrBlank()) {
+                    // Completing one loan-payment reminder must not complete the
+                    // parent reminder for the entire loan.
+                    reminderManager.completeInstallmentReminderOccurrence(id, installmentPaymentId)
+                } else {
+                    reminderManager.completeReminder(id)
+                    true
                 }
-                if (success) {
-                    loadDashboardData()
-                }
+                if (success) loadDashboardData()
                 onResult(success)
             } catch (e: Exception) {
                 e.printStackTrace()
