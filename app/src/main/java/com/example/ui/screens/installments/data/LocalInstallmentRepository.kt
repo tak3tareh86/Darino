@@ -392,24 +392,27 @@ class LocalInstallmentRepository private constructor() {
             try {
                 val userId = SessionManager.userId
                     ?: throw IllegalStateException("No authenticated user ID")
-                // Never build a replacement snapshot from the temporary empty state
-                // published while Room is loading or after a failed Room read.
-                ensureInstallmentDataAvailable(targetContext, userId)
-                val current = _installments.value.toMutableList()
-                current.add(0, item)
-                // A successful Room transaction is the authoritative save result.
-                saveToRoom(targetContext, current)
-                runCatching { reloadForUser(targetContext, userId) }
-                    .onFailure { error ->
-                        android.util.Log.e(
-                            "LocalInstallmentRepository",
-                            "Installment ${item.id} was saved, but refreshing its in-memory snapshot failed.",
-                            error
-                        )
+
+                // Serialize installment writes and persist only the new record. Replacing the
+                // entire in-memory snapshot here could race with a reload and clear valid rows.
+                saveMutex.withLock {
+                    ensureInstallmentDataAvailable(targetContext, userId)
+                    val db = AppDatabase.getDatabase(targetContext)
+                    db.withTransaction {
+                        persistInstallmentItemToRoom(db, userId, item)
                     }
+
+                    // The Room transaction is the source of truth; refresh the observable
+                    // category lists before reporting success to the form.
+                    reloadForUser(targetContext, userId)
+                }
                 true
             } catch (e: Exception) {
-                android.util.Log.e("LocalInstallmentRepository", "Failed to save installment ${item.id}.", e)
+                android.util.Log.e(
+                    "LocalInstallmentRepository",
+                    "Failed to save installment ${item.id}.",
+                    e
+                )
                 false
             }
         }
