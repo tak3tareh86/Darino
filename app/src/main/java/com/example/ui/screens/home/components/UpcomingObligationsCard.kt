@@ -44,7 +44,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.Layered3DCard
@@ -54,6 +53,7 @@ import com.example.ui.theme.ExpenseRoseLight
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.WarningAmberLight
 import com.example.util.IranianPhoneUtils
+import com.example.util.IranianDateUtils
 
 @Composable
 fun UpcomingObligationsCard(
@@ -63,16 +63,24 @@ fun UpcomingObligationsCard(
     onMarkDoneClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    // The card focuses on the nearest due date only. Swiping is limited to
+    // obligations that share that calendar date; other dates never enter its counter.
+    val nearestDateKey = obligations.firstOrNull()?.let(::obligationDateKey)
+    val sameDateObligations = if (nearestDateKey == null) {
+        emptyList()
+    } else {
+        obligations.filter { obligationDateKey(it) == nearestDateKey }
+    }
+
     var selectedIndex by remember { mutableIntStateOf(0) }
-    val obligationIds = obligations.map { it.id }
+    val obligationIds = sameDateObligations.map { it.id }
 
     LaunchedEffect(obligationIds) {
-        // When the underlying unpaid list changes (for example after payment),
-        // return to its newly calculated nearest installment.
+        // Reset selection when the nearest-date group changes (for example after payment).
         selectedIndex = 0
     }
 
-    val nearestItem = obligations.getOrNull(selectedIndex)
+    val nearestItem = sameDateObligations.getOrNull(selectedIndex)
 
     Column(
         modifier = modifier,
@@ -91,9 +99,9 @@ fun UpcomingObligationsCard(
                         },
                         onDragEnd = {
                             when {
-                                obligations.isNotEmpty() && totalHorizontalDrag > 48f ->
-                                    selectedIndex = (selectedIndex + 1).coerceAtMost(obligations.lastIndex)
-                                obligations.isNotEmpty() && totalHorizontalDrag < -48f ->
+                                sameDateObligations.size > 1 && totalHorizontalDrag > 48f ->
+                                    selectedIndex = (selectedIndex + 1).coerceAtMost(sameDateObligations.lastIndex)
+                                sameDateObligations.size > 1 && totalHorizontalDrag < -48f ->
                                     selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
                             }
                         },
@@ -132,62 +140,70 @@ fun UpcomingObligationsCard(
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                         }
-                        if (nearestItem != null) {
-                            Surface(
-                                shape = RoundedCornerShape(RadiusMD),
-                                color = (if (nearestItem.isOverdue || nearestItem.relativeDaysText.contains("گذشته") || nearestItem.relativeDaysText.contains("معوق") || nearestItem.relativeDaysText == "فردا" || nearestItem.relativeDaysText == "امروز") ExpenseRoseLight else WarningAmberLight).copy(alpha = 0.12f)
-                            ) {
-                                val isUrgent = nearestItem.isOverdue ||
-                                    nearestItem.relativeDaysText.contains("گذشته") ||
-                                    nearestItem.relativeDaysText.contains("معوق") ||
-                                    nearestItem.relativeDaysText == "فردا" ||
-                                    nearestItem.relativeDaysText == "امروز"
-                                val overdueParts = nearestItem.relativeDaysText.split(" (", limit = 2)
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                                    horizontalAlignment = Alignment.End,
-                                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (nearestItem != null && sameDateObligations.size > 1) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
                                 ) {
                                     Text(
-                                        text = overdueParts.first(),
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        overflow = TextOverflow.Clip,
+                                        text = "${selectedIndex + 1} از ${sameDateObligations.size}",
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isUrgent) ExpenseRoseLight else WarningAmberLight
-                                        )
+                                            fontSize = 8.5.sp,
+                                            fontWeight = FontWeight.Medium
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
                                     )
-                                    if (overdueParts.size > 1) {
+                                }
+                            }
+                            if (nearestItem != null) {
+                                Surface(
+                                    shape = RoundedCornerShape(RadiusMD),
+                                    color = (if (nearestItem.isOverdue || nearestItem.relativeDaysText.contains("گذشته") || nearestItem.relativeDaysText.contains("معوق") || nearestItem.relativeDaysText == "فردا" || nearestItem.relativeDaysText == "امروز") ExpenseRoseLight else WarningAmberLight).copy(alpha = 0.12f)
+                                ) {
+                                    val isUrgent = nearestItem.isOverdue ||
+                                        nearestItem.relativeDaysText.contains("گذشته") ||
+                                        nearestItem.relativeDaysText.contains("معوق") ||
+                                        nearestItem.relativeDaysText == "فردا" ||
+                                        nearestItem.relativeDaysText == "امروز"
+                                    val overdueParts = nearestItem.relativeDaysText.split(" (", limit = 2)
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                        horizontalAlignment = Alignment.End,
+                                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                                    ) {
                                         Text(
-                                            text = "(${overdueParts[1]}",
+                                            text = overdueParts.first(),
                                             maxLines = 1,
                                             softWrap = false,
+                                            overflow = TextOverflow.Clip,
                                             style = MaterialTheme.typography.labelSmall.copy(
-                                                fontSize = 8.sp,
+                                                fontSize = 9.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = ExpenseRoseLight
+                                                color = if (isUrgent) ExpenseRoseLight else WarningAmberLight
                                             )
                                         )
+                                        if (overdueParts.size > 1) {
+                                            Text(
+                                                text = "(${overdueParts[1]}",
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = ExpenseRoseLight
+                                                )
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-
-                    if (nearestItem != null && obligations.size > 1) {
-                        Text(
-                            text = "${selectedIndex + 1} از ${obligations.size}",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.Medium
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
                     }
 
                     if (nearestItem == null) {
@@ -376,4 +392,17 @@ private fun NearestObligationFlatItem(
         }
 
     }
+}
+
+
+/**
+ * Normalize Persian date formatting so equivalent dates group together even
+ * when their source strings use different separators or digit styles.
+ */
+private fun obligationDateKey(item: UpcomingObligationItem): String {
+    val parsed = runCatching {
+        IranianDateUtils.parsePersianDate(item.dueDatePersian)
+    }.getOrNull()
+    return parsed?.let { "${it.first}/${it.second}/${it.third}" }
+        ?: item.dueDatePersian.trim()
 }
