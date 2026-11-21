@@ -361,13 +361,13 @@ fun ReminderScreen(
                                 .shadow(
                                     elevation = 3.dp,
                                     shape = RoundedCornerShape(20.dp),
-                                    ambientColor = Color(0xFF064E3B).copy(alpha = 0.24f),
-                                    spotColor = Color(0xFF022C22).copy(alpha = 0.30f)
+                                    ambientColor = Color(0xFF0D9488).copy(alpha = 0.2f),
+                                    spotColor = Color(0xFF0F172A).copy(alpha = 0.35f)
                                 )
                                 .clip(RoundedCornerShape(20.dp))
                                 .background(
                                     Brush.linearGradient(
-                                        colors = listOf(Color(0xFF07543D), Color(0xFF032D22), Color(0xFF011B16))
+                                        colors = listOf(Color(0xFF0B132B), Color(0xFF112240), Color(0xFF0A2B28))
                                     )
                                 ),
                             shape = RoundedCornerShape(20.dp),
@@ -375,7 +375,7 @@ fun ReminderScreen(
                             tonalElevation = 0.dp,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                Color(0xFF4ADE80).copy(alpha = 0.28f)
+                                Color(0xFF2DD4BF).copy(alpha = 0.28f)
                             )
                         ) {
                             Row(
@@ -393,7 +393,7 @@ fun ReminderScreen(
                                         text = "امروز",
                                         maxLines = 1,
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color(0xFFD1FAE5),
+                                            color = Color(0xFFCBD5E1),
                                             fontSize = 10.sp
                                         )
                                     )
@@ -401,7 +401,7 @@ fun ReminderScreen(
                                         text = IranianPhoneUtils.convertDigitsToPersian(uiState.todayCount.toString()),
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF86EFAC)
+                                            color = Color(0xFFF8FAFC)
                                         )
                                     )
                                 }
@@ -436,7 +436,7 @@ fun ReminderScreen(
                                             maxLines = 1,
                                             softWrap = false,
                                             style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Color(0xFFDCFCE7),
+                                                color = Color(0xFFCBD5E1),
                                                 fontSize = 10.sp
                                             ),
                                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -471,7 +471,7 @@ fun ReminderScreen(
                                         text = IranianPhoneUtils.convertDigitsToPersian(uiState.tomorrowCount.toString()),
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.secondary
+                                            color = Color(0xFFF8FAFC)
                                         )
                                     )
                                 }
