@@ -37,7 +37,7 @@ fun InstallmentQuickActions(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         QuickActionButton(
-            title = "افزودن قسط",
+            title = "افزودن وام",
             icon = Icons.Rounded.Add,
             accentColor = EmeraldPrimaryLight,
             onClick = onAddInstallmentClick,
