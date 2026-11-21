@@ -68,49 +68,46 @@ fun FinancialSummaryCard(
     val isYearSelected = selectedSummaryPeriod == FinanceFilterPeriod.THIS_YEAR
     val gradientStart by animateColorAsState(
         targetValue = when {
-            isDark && isYearSelected -> Color(0xFF142B28)
-            isDark -> Color(0xFF111F38)
+            isYearSelected && isDark -> Color(0xFF142B28)
             isYearSelected -> Color(0xFFE1EEE9)
-            else -> Color(0xFFEAF4FF)
+            else -> Color(0xFF0B132B)
         },
         animationSpec = tween(durationMillis = 450),
         label = "summary_gradient_start"
     )
     val gradientMiddle by animateColorAsState(
         targetValue = when {
-            isDark && isYearSelected -> Color(0xFF1B3B35)
-            isDark -> Color(0xFF193B63)
+            isYearSelected && isDark -> Color(0xFF1B3B35)
             isYearSelected -> Color(0xFFD0E3DC)
-            else -> Color(0xFFD9EBFF)
+            else -> Color(0xFF112240)
         },
         animationSpec = tween(durationMillis = 450),
         label = "summary_gradient_middle"
     )
     val gradientEnd by animateColorAsState(
         targetValue = when {
-            isDark && isYearSelected -> Color(0xFF245044)
-            isDark -> Color(0xFF164B66)
+            isYearSelected && isDark -> Color(0xFF245044)
             isYearSelected -> Color(0xFFBDD7CC)
-            else -> Color(0xFFC7E3FA)
+            else -> Color(0xFF0A2B28)
         },
         animationSpec = tween(durationMillis = 450),
         label = "summary_gradient_end"
     )
     val periodAccent by animateColorAsState(
-        targetValue = if (isYearSelected) Color(0xFF287C68) else Color(0xFF2879B8),
+        targetValue = if (isYearSelected) Color(0xFF287C68) else Color(0xFF2DD4BF),
         animationSpec = tween(durationMillis = 450),
         label = "summary_period_accent"
     )
     val cardGradient = Brush.linearGradient(
         colors = listOf(gradientStart, gradientMiddle, gradientEnd)
     )
-    val primaryTextColor = if (isDark) Color.White else Color(0xFF0F172A)
-    val secondaryTextColor = if (isDark) Color(0xFFE2E8F0).copy(alpha = 0.85f) else Color(0xFF475569)
-    val mutedTextColor = if (isDark) Color(0xFFE2E8F0).copy(alpha = 0.8f) else Color(0xFF64748B)
-    val translucentSurfaceColor = if (isDark) Color.White.copy(alpha = 0.12f) else periodAccent.copy(alpha = 0.08f)
-    val iconBackgroundColor = if (isDark) Color.White.copy(alpha = 0.15f) else periodAccent.copy(alpha = 0.12f)
-    val selectedTabColor = if (isDark) periodAccent.copy(alpha = 0.82f) else periodAccent.copy(alpha = 0.16f)
-    val unselectedTabColor = if (isDark) Color.White.copy(alpha = 0.07f) else Color.Transparent
+    val primaryTextColor = if (isYearSelected && !isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC)
+    val secondaryTextColor = if (isYearSelected && !isDark) Color(0xFF475569) else Color(0xFFCBD5E1)
+    val mutedTextColor = if (isYearSelected && !isDark) Color(0xFF64748B) else Color(0xFFCBD5E1)
+    val translucentSurfaceColor = if (isYearSelected && !isDark) periodAccent.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.12f)
+    val iconBackgroundColor = if (isYearSelected && !isDark) periodAccent.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.15f)
+    val selectedTabColor = if (isYearSelected && !isDark) periodAccent.copy(alpha = 0.16f) else periodAccent.copy(alpha = 0.82f)
+    val unselectedTabColor = if (isYearSelected && !isDark) Color.Transparent else Color.White.copy(alpha = 0.07f)
 
     Layered3DCard(
         modifier = modifier.fillMaxWidth(),
