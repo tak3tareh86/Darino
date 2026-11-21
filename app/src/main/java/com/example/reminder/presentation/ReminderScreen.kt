@@ -414,7 +414,7 @@ fun ReminderScreen(
                                     Text(
                                         text = "نزدیک‌ترین",
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color(0xFFD1FAE5),
+                                            color = Color(0xFFCBD5E1),
                                             fontSize = 10.sp
                                         )
                                     )
@@ -446,7 +446,7 @@ fun ReminderScreen(
                                             maxLines = 1,
                                             softWrap = false,
                                             style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Color(0xFFDCFCE7),
+                                                color = Color(0xFFCBD5E1),
                                                 fontSize = 10.sp
                                             ),
                                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -463,7 +463,7 @@ fun ReminderScreen(
                                         text = "فردا",
                                         maxLines = 1,
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color(0xFFD1FAE5),
+                                            color = Color(0xFFCBD5E1),
                                             fontSize = 10.sp
                                         )
                                     )
