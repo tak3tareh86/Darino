@@ -49,7 +49,12 @@ class CalendarManager(private val context: Context) {
 
         val dbEventsFlow = repository.getAllEvents()
         val remindersFlow = database.smartReminderDao().getAllReminders(userId)
-        val installmentsFlow = database.installmentDao().getAllInstallments(userId)
+        val installmentDao = database.installmentDao()
+        val installmentsFlow = installmentDao.getAllInstallments(userId)
+        val installmentPaymentsFlow = installmentDao.getAllPayments(userId)
+        val installmentDataFlow = combine(installmentsFlow, installmentPaymentsFlow) { installments, payments ->
+            installments to payments
+        }
         val vehicleServicesFlow = VehicleRepository.instance.services
         val vehicleInsurancesFlow = VehicleRepository.instance.insurances
         val vehicleInspectionsFlow = VehicleRepository.instance.inspections
@@ -58,7 +63,7 @@ class CalendarManager(private val context: Context) {
         return combine(
             dbEventsFlow,
             remindersFlow,
-            installmentsFlow,
+            installmentDataFlow,
             combine(
                 vehicleServicesFlow,
                 vehicleInsurancesFlow,
@@ -67,7 +72,7 @@ class CalendarManager(private val context: Context) {
             ) { svcs, ins, insp, exp ->
                 Quadruple(svcs, ins, insp, exp)
             }
-        ) { dbEvents, reminders, installments, vehicleData ->
+        ) { dbEvents, reminders, installmentData, vehicleData ->
             val allEvents = mutableListOf<FinancialEvent>()
             val seenIds = mutableSetOf<String>()
 
@@ -135,10 +140,10 @@ class CalendarManager(private val context: Context) {
             // Never synthesize an installment by dividing contract principal or
             // by using the contract's nextDueDate. Each calendar item corresponds
             // to one persisted paymentHistory row and keeps its entered amount/date.
-            installments.forEach { inst ->
+            installmentData.first.forEach { inst ->
                 val providerSuffix = if (inst.providerName.isNotBlank()) " (${inst.providerName})" else ""
                 val title = "${inst.title}$providerSuffix"
-                inst.paymentHistory.forEach { payment ->
+                installmentData.second.asSequence().filter { it.installmentId == inst.id }.forEach { payment ->
                     val paymentAmountUnit = parseCalendarCurrencyUnit(payment.amountUnit.name)
                     val eventId = "auto_inst_${inst.id}_${payment.id}"
                     if (seenIds.add(eventId)) {
