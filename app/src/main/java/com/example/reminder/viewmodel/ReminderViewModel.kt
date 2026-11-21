@@ -34,6 +34,11 @@ data class ReminderEditConfiguration(
     val repeatInterval: Int
 )
 
+private data class InstallmentReminderOccurrence(
+    val dueAt: Long,
+    val triggerAt: Long?
+)
+
 private data class FilterParams(
     val tab: ReminderTab,
     val filterChip: ReminderFilterChip,
@@ -169,7 +174,10 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val completedList = allReminders.filter { it.status.equals("COMPLETED", ignoreCase = true) } +
             completedInstallmentOccurrences
 
-        val installmentReminderDisplayTimes = installmentReminders.mapNotNull reminderEntry@{ reminder ->
+        // Keep the due date and alert timestamp tied to the same unpaid payment.
+        // A loan-level ReminderEntity.date is only a cached/default date and can be
+        // stale when the next payment changes, so it must never drive the summary card.
+        val installmentOccurrencesByReminder = installmentReminders.mapNotNull reminderEntry@{ reminder ->
             val installmentId = reminder.sourceId ?: return@reminderEntry null
             val installment = installmentItems.firstOrNull { it.id == installmentId }
                 ?: return@reminderEntry null
@@ -183,28 +191,54 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                         ).toString()
                 }
             }.mapTo(mutableSetOf()) { it.id }
-            val unpaidPayments = installment.paymentHistory.filter { payment ->
-                payment.status != InstallmentStatus.PAID &&
-                    payment.status != InstallmentStatus.COMPLETED &&
-                    payment.id !in completedPaymentIds
-            }
-            val nextTrigger = unpaidPayments.asSequence()
-                .flatMap { payment ->
-                    schedules.asSequence()
+
+            val paymentOccurrences = installment.paymentHistory.asSequence()
+                .filter { payment ->
+                    payment.status != InstallmentStatus.PAID &&
+                        payment.status != InstallmentStatus.COMPLETED &&
+                        payment.id !in completedPaymentIds
+                }
+                .mapNotNull { payment ->
+                    val dueAt = runCatching {
+                        ReminderManager.parsePersianDateTimeToMillis(payment.dueDate, reminder.time)
+                    }.getOrNull() ?: return@mapNotNull null
+                    if (dueAt <= now) return@mapNotNull null
+
+                    val expectedPrefix = "installment:${installmentId}:${payment.id}:"
+                    val nextTriggerAt = schedules.asSequence()
                         .filter { schedule ->
                             schedule.enabled &&
                                 schedule.triggerDateTime > now &&
                                 !schedule.triggerType.equals("COMPLETED", ignoreCase = true) &&
                                 !schedule.id.startsWith("snooze_") &&
                                 schedule.id == java.util.UUID.nameUUIDFromBytes(
-                                    "installment:${installmentId}:${payment.id}:${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
+                                    "${expectedPrefix}${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
                                         .toByteArray(Charsets.UTF_8)
                                 ).toString()
                         }
-                        .map { it.triggerDateTime }
+                        .minOfOrNull { it.triggerDateTime }
+
+                    Triple(dueAt, nextTriggerAt, payment.id)
                 }
-                .minOrNull()
-            nextTrigger?.let { reminder.id to it }
+                .toList()
+
+            // Prefer the payment whose next real alert fires first. If alerts are
+            // disabled, retain the nearest unpaid payment so its due date is still
+            // shown accurately without inventing a reminder date/time.
+            val selectedOccurrence = paymentOccurrences
+                .filter { it.second != null }
+                .minWithOrNull(compareBy<Triple<Long, Long?, String>>({ it.second!! }, { it.first }))
+                ?: paymentOccurrences.minByOrNull { it.first }
+
+            selectedOccurrence?.let { occurrence ->
+                reminder.id to InstallmentReminderOccurrence(
+                    dueAt = occurrence.first,
+                    triggerAt = occurrence.second
+                )
+            }
+        }.toMap()
+        val installmentReminderDisplayTimes = installmentOccurrencesByReminder.mapNotNull { (reminderId, occurrence) ->
+            occurrence.triggerAt?.let { reminderId to it }
         }.toMap()
         val reminderDisplayTimes = nextTriggerByReminder + installmentReminderDisplayTimes
 
@@ -261,13 +295,17 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             chipFiltered
         }).sortedWith(compareBy<ReminderEntity>({ if (it.status.equals("ACTIVE", ignoreCase = true)) 0 else 1 }, { dueTime(it) ?: Long.MAX_VALUE }))
 
-        // The nearest summary card is based on the reminder's actual due date/time,
-        // never on notification schedule triggers. This keeps reminders visible after
-        // their alerts have fired or been disabled, while excluding already-due items.
+        // For installment reminders, use the due date of the exact payment paired
+        // with the selected alert occurrence above. For all other reminders, the
+        // reminder entity's own date/time remains the source of truth.
         val nearestDueReminder = activeList.mapNotNull { reminder ->
-            val dueAt = runCatching {
-                ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
-            }.getOrNull() ?: return@mapNotNull null
+            val dueAt = if (reminder.sourceType.equals("INSTALLMENT", ignoreCase = true)) {
+                installmentOccurrencesByReminder[reminder.id]?.dueAt
+            } else {
+                runCatching {
+                    ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
+                }.getOrNull()
+            } ?: return@mapNotNull null
             if (dueAt > now) reminder to dueAt else null
         }.sortedWith(
             compareBy<Pair<ReminderEntity, Long>>({ it.second }, { it.first.id })
