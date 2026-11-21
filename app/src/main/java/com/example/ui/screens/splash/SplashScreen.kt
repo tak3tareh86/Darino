@@ -14,7 +14,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -23,10 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -228,46 +224,6 @@ fun SplashScreen(
                 )
             }
 
-            // Bottom Footer: Subtle Brand Note and Security Badge
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 28.dp)
-                    .alpha(contentAlpha.value),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.VerifiedUser,
-                        contentDescription = null,
-                        tint = if (isDark) Color(0xFF34D399) else EmeraldPrimaryLight,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Text(
-                        text = "سامانه مدیریت یکپارچه دارایی‌ها",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Medium,
-                            letterSpacing = 0.sp
-                        ),
-                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
-                    )
-                }
-
-                Text(
-                    text = "رمزنگاری محلی • نسخه ۱.۰",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Light,
-                        letterSpacing = 0.sp
-                    ),
-                    color = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
-                )
-            }
         }
     }
 }
