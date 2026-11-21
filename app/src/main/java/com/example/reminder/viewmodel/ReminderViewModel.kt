@@ -93,8 +93,6 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val tomorrowPersian = PersianCalendarHelper.fromEpochMillis(tomorrowCalendar.timeInMillis).toFormattedDate()
 
         val activeList = allReminders.filter { it.status.equals("ACTIVE", ignoreCase = true) }
-        val completedList = allReminders.filter { it.status.equals("COMPLETED", ignoreCase = true) } +
-            completedInstallmentOccurrences
         val missedList = allReminders.filter { it.status.equals("MISSED", ignoreCase = true) }
 
         // Installment schedules are stored per payment with stable IDs. Resolve the
@@ -161,6 +159,9 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
                 }
             }
             .toList()
+
+        val completedList = allReminders.filter { it.status.equals("COMPLETED", ignoreCase = true) } +
+            completedInstallmentOccurrences
 
         val installmentReminderDisplayTimes = installmentReminders.mapNotNull reminderEntry@{ reminder ->
             val installmentId = reminder.sourceId ?: return@reminderEntry null
