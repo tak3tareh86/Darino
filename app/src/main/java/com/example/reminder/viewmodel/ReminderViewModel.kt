@@ -103,21 +103,37 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             .groupBy { it.reminderId }
             .mapValues { (_, schedules) -> schedules.minOf { it.triggerDateTime } }
 
-        // For installment reminders, retain the most recent scheduled trigger that
-        // belongs to the next due date. It may already have fired (for example, the
-        // alert was set for the day before), but it is still the correct reminder date
-        // to display beside the installment's actual due date.
+        // For installment reminders, match a schedule to the CURRENT due date
+        // using the exact offset stored on that schedule. Do not pick the latest
+        // trigger before the due date: that can belong to a previous installment.
         val installmentReminderDisplayTimes = activeList
             .filter { it.sourceType.equals("INSTALLMENT", ignoreCase = true) }
             .mapNotNull { reminder ->
                 val dueAt = runCatching {
                     ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
                 }.getOrNull() ?: return@mapNotNull null
-                val trigger = allSchedules.asSequence()
-                    .filter { it.reminderId == reminder.id && !it.id.startsWith("snooze_") && it.triggerDateTime <= dueAt }
+                val matchingTrigger = allSchedules.asSequence()
+                    .filter { schedule ->
+                        schedule.reminderId == reminder.id &&
+                            !schedule.id.startsWith("snooze_") &&
+                            runCatching {
+                                val expected = java.util.Calendar.getInstance().apply {
+                                    timeInMillis = dueAt
+                                    when (schedule.offsetUnit.uppercase()) {
+                                        "MINUTE" -> add(java.util.Calendar.MINUTE, -schedule.offsetValue)
+                                        "HOUR" -> add(java.util.Calendar.HOUR_OF_DAY, -schedule.offsetValue)
+                                        "DAY" -> add(java.util.Calendar.DAY_OF_MONTH, -schedule.offsetValue)
+                                        "WEEK" -> add(java.util.Calendar.DAY_OF_MONTH, -7 * schedule.offsetValue)
+                                        "MONTH" -> add(java.util.Calendar.MONTH, -schedule.offsetValue)
+                                        else -> return@runCatching Long.MIN_VALUE
+                                    }
+                                }.timeInMillis
+                                schedule.triggerDateTime == expected
+                            }.getOrDefault(false)
+                    }
                     .map { it.triggerDateTime }
                     .maxOrNull()
-                trigger?.let { reminder.id to it }
+                matchingTrigger?.let { reminder.id to it }
             }.toMap()
         val reminderDisplayTimes = nextTriggerByReminder + installmentReminderDisplayTimes
 
