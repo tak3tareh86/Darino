@@ -79,7 +79,7 @@ fun UserAccountCard(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
     val context = LocalContext.current
-    val sessionManager = remember(context) { AuthSessionManager(context) }
+    val sessionManager = remember(context) { AuthSessionManager.getInstance(context) }
     val currentUser = sessionManager.getActiveSession()
     // Keep each account's image in private app storage under a stable account-specific name.
     val profileKey = currentUser?.userId?.takeIf { it.isNotBlank() } ?: "local_profile"
