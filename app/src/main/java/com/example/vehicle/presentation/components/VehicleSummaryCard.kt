@@ -46,15 +46,33 @@ fun VehicleSummaryCard(
     )
     val estimatedValueFormatted = MoneyFormatter.formatExact(MoneyAmount.of(vehicle.estimatedValue, vehicle.estimatedValueUnit))
 
-    Layered3DCard(
+    val cardShape = RoundedCornerShape(20.dp)
+    Surface(
         modifier = modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = 3.dp,
+                shape = cardShape,
+                ambientColor = Color(0xFF0D9488).copy(alpha = 0.2f),
+                spotColor = Color(0xFF0F172A).copy(alpha = 0.35f)
+            )
+            .clip(cardShape)
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(Color(0xFF0B132B), Color(0xFF112240), Color(0xFF0A2B28))
+                )
+            )
             .testTag("vehicle_summary_card"),
-        elevation = 5.dp,
-        borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+        shape = cardShape,
+        color = Color.Transparent,
+        tonalElevation = 0.dp,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            Color(0xFF2DD4BF).copy(alpha = 0.28f)
+        )
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Header: Car Brand, Model, Year & Edit Icon
@@ -82,13 +100,13 @@ fun VehicleSummaryCard(
                                     fontWeight = FontWeight.ExtraBold,
                                     fontSize = 16.sp
                                 ),
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = Color(0xFFF8FAFC)
                             )
                         }
                         Text(
                             text = "مدل سال ${IranianPhoneUtils.convertDigitsToPersian(vehicle.year)} • رنگ ${vehicle.color}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color(0xFFCBD5E1)
                         )
                     }
                 }
@@ -107,7 +125,7 @@ fun VehicleSummaryCard(
                             modifier = Modifier
                                 .size(20.4.dp)
                                 .clip(RoundedCornerShape(5.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                                .background(Color.White.copy(alpha = 0.14f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -151,7 +169,7 @@ fun VehicleSummaryCard(
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.16f))
 
             // Mileage & Market Valuation row
             Row(
@@ -166,8 +184,8 @@ fun VehicleSummaryCard(
                         .clickable { onMileageClick() }
                         .testTag("mileage_card_btn"),
                     shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+                    color = Color.White.copy(alpha = 0.08f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.14f))
                 ) {
                     Row(
                         modifier = Modifier.padding(10.dp),
@@ -177,14 +195,14 @@ fun VehicleSummaryCard(
                         Icon(
                             imageVector = Icons.Rounded.Speed,
                             contentDescription = "کیلومتر فعلی",
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = Color(0xFF2DD4BF),
                             modifier = Modifier.size(20.dp)
                         )
                         Column {
                             Text(
                                 text = "کیلومتر فعلی",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = Color(0xFFCBD5E1)
                             )
                             Text(
                                 text = "$mileageFormatted کیلومتر",
@@ -192,7 +210,7 @@ fun VehicleSummaryCard(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp
                                 ),
-                                color = MaterialTheme.colorScheme.primary
+                                color = Color(0xFF2DD4BF)
                             )
                         }
                     }
@@ -202,8 +220,8 @@ fun VehicleSummaryCard(
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+                    color = Color.White.copy(alpha = 0.08f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.14f))
                 ) {
                     Column(
                         modifier = Modifier.padding(10.dp),
@@ -212,7 +230,7 @@ fun VehicleSummaryCard(
                         Text(
                             text = "ارزش تقریبی بازار",
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color(0xFFCBD5E1)
                         )
                         Text(
                             text = if (vehicle.estimatedValue > 0) estimatedValueFormatted else "ثبت نشده",
