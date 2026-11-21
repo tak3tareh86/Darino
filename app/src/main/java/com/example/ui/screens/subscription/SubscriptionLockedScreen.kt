@@ -106,10 +106,10 @@ fun SubscriptionLockedScreen(
 fun SubscriptionLockedScreenContent(
     uiState: SubscriptionState,
     requiresMarketReverification: Boolean,
-    annualSubscriptionExpiredForDebug: Boolean = false,
     onPurchaseClick: () -> Unit,
     onRestoreClick: () -> Unit,
-    actionsEnabled: Boolean
+    actionsEnabled: Boolean,
+    annualSubscriptionExpiredForDebug: Boolean = false
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         val compact = maxHeight < 760.dp
