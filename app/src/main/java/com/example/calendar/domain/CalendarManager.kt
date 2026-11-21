@@ -208,8 +208,11 @@ class CalendarManager(private val context: Context) {
                             time = null,
                             repeatType = "NONE",
                             reminderBefore = ReminderBeforeOption.NONE,
-                            // Reminder state is displayed by its own calendar reminder event.
-                            reminderLabel = null,
+                            reminderLabel = if (svc.isReminderEnabled && !svc.nextReminderDate.isNullOrBlank()) {
+                                "در تاریخ تعیین‌شده"
+                            } else {
+                                null
+                            },
                             sourceId = svc.id,
                             status = when (svc.status.uppercase()) {
                                 "COMPLETED" -> FinancialEventStatus.PAID
