@@ -160,7 +160,7 @@ class CalendarManager(private val context: Context) {
                                 type = FinancialEventType.INSTALLMENT,
                                 amount = payment.amount.takeIf { paymentAmountUnit != null },
                                 amountUnit = paymentAmountUnit ?: AppCurrency.TOMAN,
-                                date = CalendarDateUtils.normalizeDate(payment.dueDate),
+                                date = PersianCalendarHelper.fromEpochMillis(payment.dueDate).let {\n                                    CalendarDateUtils.formatJalali(it.year, it.month, it.day)\n                                },
                                 time = "09:00",
                                 repeatType = "NONE",
                                 reminderBefore = ReminderBeforeOption.NONE,
