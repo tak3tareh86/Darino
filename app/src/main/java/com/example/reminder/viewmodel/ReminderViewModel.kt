@@ -93,7 +93,8 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val tomorrowPersian = PersianCalendarHelper.fromEpochMillis(tomorrowCalendar.timeInMillis).toFormattedDate()
 
         val activeList = allReminders.filter { it.status.equals("ACTIVE", ignoreCase = true) }
-        val completedList = allReminders.filter { it.status.equals("COMPLETED", ignoreCase = true) }
+        val completedList = allReminders.filter { it.status.equals("COMPLETED", ignoreCase = true) } +
+            completedInstallmentOccurrences
         val missedList = allReminders.filter { it.status.equals("MISSED", ignoreCase = true) }
 
         // Installment schedules are stored per payment with stable IDs. Resolve the
@@ -118,6 +119,49 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
 
         val installmentRepository = LocalInstallmentRepository.instance
         val installmentItems = installmentRepository.installments.value
+
+        // Each completed installment reminder occurrence is presented as its own
+        // completed history row. The loan-level reminder remains ACTIVE for later
+        // installments; these rows are read-only UI projections of durable markers.
+        val completedInstallmentOccurrences = allReminders.asSequence()
+            .filter {
+                it.sourceType.equals("INSTALLMENT", ignoreCase = true) &&
+                    !it.status.equals("CANCELLED", ignoreCase = true)
+            }
+            .flatMap { reminder ->
+                val installment = installmentItems.firstOrNull { it.id == reminder.sourceId }
+                installment?.paymentHistory.orEmpty().asSequence().mapNotNull { payment ->
+                    val completedMarkers = allSchedules.filter { schedule ->
+                        if (schedule.reminderId != reminder.id ||
+                            !schedule.triggerType.equals("COMPLETED", ignoreCase = true)
+                        ) {
+                            false
+                        } else {
+                            val expectedId = java.util.UUID.nameUUIDFromBytes(
+                                "installment:${installment?.id}:${payment.id}:${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
+                                    .toByteArray(Charsets.UTF_8)
+                            ).toString()
+                            schedule.id == expectedId
+                        }
+                    }
+                    if (completedMarkers.isEmpty()) {
+                        null
+                    } else {
+                        reminder.copy(
+                            id = "completed_installment_occurrence_${reminder.id}_${payment.id}",
+                            title = "${reminder.title} - قسط ${payment.installmentNumber}",
+                            description = "یادآور این قسط تکمیل شده است",
+                            sourceType = "INSTALLMENT_OCCURRENCE",
+                            status = "COMPLETED",
+                            date = payment.dueDate,
+                            amount = payment.amount,
+                            completedAt = completedMarkers.maxOfOrNull { it.createdAt }
+                        )
+                    }
+                }
+            }
+            .toList()
+
         val installmentReminderDisplayTimes = installmentReminders.mapNotNull reminderEntry@{ reminder ->
             val installmentId = reminder.sourceId ?: return@reminderEntry null
             val installment = installmentItems.firstOrNull { it.id == installmentId }
@@ -166,7 +210,8 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val todayReminders = activeList.filter { it.date == todayPersian }
         val tomorrowReminders = activeList.filter { it.date == tomorrowPersian }
 
-        val visibleReminders = allReminders.filterNot { it.status.equals("CANCELLED", ignoreCase = true) }
+        val visibleReminders = allReminders.filterNot { it.status.equals("CANCELLED", ignoreCase = true) } +
+            completedInstallmentOccurrences
 
         // Filter by Tab. Cancelled reminders stay out of every normal list.
         val tabFiltered = when (filters.tab) {
