@@ -57,7 +57,6 @@ class CalendarEventReminderReceiver : BroadcastReceiver() {
                         type = event.type.name,
                         sourceType = "CALENDAR",
                         sourceId = event.id,
-                        priority = "NORMAL",
                         status = "ACTIVE",
                         date = event.date,
                         time = event.time ?: "۰۹:۰۰",
