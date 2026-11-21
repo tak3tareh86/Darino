@@ -28,7 +28,6 @@ import com.example.R
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.reminder.data.ReminderEntity
 import com.example.reminder.domain.PredefinedOffset
-import com.example.reminder.domain.Priority
 import com.example.reminder.domain.ReminderType
 import com.example.reminder.domain.RepeatType
 import com.example.ui.components.Layered3DCard
@@ -178,7 +177,6 @@ fun AddReminderScreen(
             description = description.trim(),
             type = selectedType.key,
             sourceType = "MANUAL",
-            priority = Priority.NORMAL.name,
             status = "ACTIVE",
             date = date.trim(),
             time = time.trim()
@@ -186,7 +184,6 @@ fun AddReminderScreen(
             title = title.trim(),
             description = description.trim(),
             type = selectedType.key,
-            priority = priority.name,
             date = date.trim(),
             time = time.trim(),
             amount = parsedReminderAmountRials,
