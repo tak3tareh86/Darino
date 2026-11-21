@@ -114,7 +114,9 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             .filter {
                 it.reminderId !in installmentReminderIds &&
                     it.enabled &&
-                    it.triggerDateTime > now
+                    it.triggerDateTime > now &&
+                    !it.triggerType.equals("COMPLETED", ignoreCase = true) &&
+                    !it.id.startsWith("snooze_")
             }
             .groupBy { it.reminderId }
             .mapValues { (_, schedules) -> schedules.minOf { it.triggerDateTime } }
@@ -171,59 +173,50 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             val installmentId = reminder.sourceId ?: return@reminderEntry null
             val installment = installmentItems.firstOrNull { it.id == installmentId }
                 ?: return@reminderEntry null
+            val schedules = allSchedules.filter { it.reminderId == reminder.id }
             val completedPaymentIds = installment.paymentHistory.filter { payment ->
-                allSchedules.any { schedule ->
-                    schedule.reminderId == reminder.id &&
-                        schedule.triggerType.equals("COMPLETED", ignoreCase = true) &&
+                schedules.any { schedule ->
+                    schedule.triggerType.equals("COMPLETED", ignoreCase = true) &&
                         schedule.id == java.util.UUID.nameUUIDFromBytes(
-                            "installment:$installmentId:${payment.id}:${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
+                            "installment:${installmentId}:${payment.id}:${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
                                 .toByteArray(Charsets.UTF_8)
                         ).toString()
                 }
             }.mapTo(mutableSetOf()) { it.id }
-            val unpaidPayments = installment.paymentHistory.filter {
-                it.status != InstallmentStatus.PAID &&
-                    it.status != InstallmentStatus.COMPLETED &&
-                    it.id !in completedPaymentIds
+            val unpaidPayments = installment.paymentHistory.filter { payment ->
+                payment.status != InstallmentStatus.PAID &&
+                    payment.status != InstallmentStatus.COMPLETED &&
+                    payment.id !in completedPaymentIds
             }
-            val paymentCandidates = unpaidPayments.mapNotNull paymentEntry@{ payment ->
-                val dueAt = runCatching {
-                    ReminderManager.parsePersianDateTimeToMillis(payment.dueDate, reminder.time)
-                }.getOrNull() ?: return@paymentEntry null
-                payment to dueAt
-            }
-            val nextPayment = paymentCandidates
-                .filter { it.second > now }
-                .minByOrNull { it.second }
-                ?.first
-                ?: paymentCandidates.minByOrNull { it.second }?.first
-                ?: return@reminderEntry null
-
-            val matchingTrigger = allSchedules.asSequence()
-                .filter { schedule ->
-                    schedule.reminderId == reminder.id &&
-                        schedule.enabled &&
-                        !schedule.triggerType.equals("COMPLETED", ignoreCase = true) &&
-                        !schedule.id.startsWith("snooze_") &&
-                        schedule.id == java.util.UUID.nameUUIDFromBytes(
-                            "installment:$installmentId:${nextPayment.id}:${schedule.offsetValue}:${schedule.offsetUnit}"
-                                .toByteArray(Charsets.UTF_8)
-                        ).toString()
+            val nextTrigger = unpaidPayments.asSequence()
+                .flatMap { payment ->
+                    schedules.asSequence()
+                        .filter { schedule ->
+                            schedule.enabled &&
+                                schedule.triggerDateTime > now &&
+                                !schedule.triggerType.equals("COMPLETED", ignoreCase = true) &&
+                                !schedule.id.startsWith("snooze_") &&
+                                schedule.id == java.util.UUID.nameUUIDFromBytes(
+                                    "installment:${installmentId}:${payment.id}:${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
+                                        .toByteArray(Charsets.UTF_8)
+                                ).toString()
+                        }
+                        .map { it.triggerDateTime }
                 }
-                .map { it.triggerDateTime }
-                .maxOrNull()
-            matchingTrigger?.let { reminder.id to it }
+                .minOrNull()
+            nextTrigger?.let { reminder.id to it }
         }.toMap()
         val reminderDisplayTimes = nextTriggerByReminder + installmentReminderDisplayTimes
 
         fun dueTime(reminder: ReminderEntity): Long? =
             runCatching { ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time) }.getOrNull()
 
-        // Upcoming means the original due date/time is still in the future. It must
-        // not depend on whether a notification was configured or has already fired.
+        // Upcoming contains only reminders with an explicitly configured, enabled
+        // future alert schedule. For installments, the timestamp belongs to an
+        // unpaid payment's own stable schedule ID, never the loan-level due date.
         val upcomingReminders = activeList.mapNotNull { reminder ->
-            val dueAt = dueTime(reminder) ?: return@mapNotNull null
-            if (dueAt > now) reminder to dueAt else null
+            val nextTriggerAt = reminderDisplayTimes[reminder.id] ?: return@mapNotNull null
+            if (nextTriggerAt > now) reminder to nextTriggerAt else null
         }.sortedWith(compareBy<Pair<ReminderEntity, Long>>({ it.second }, { it.first.id }))
             .map { it.first }
         val todayReminders = activeList.filter { it.date == todayPersian }
