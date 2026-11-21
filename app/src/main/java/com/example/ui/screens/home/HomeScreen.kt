@@ -58,7 +58,6 @@ import com.example.ui.screens.home.domain.ObligationType
 import com.example.ui.screens.home.viewmodel.HomeDashboardViewModel
 import com.example.ui.screens.home.viewmodel.SmsAcceptResult
 import com.example.BuildConfig
-import com.example.domain.subscription.SubscriptionStatus
 import com.example.ui.screens.subscription.SubscriptionStatusCard
 import com.example.ui.screens.subscription.SubscriptionLockedScreen
 import com.example.ui.screens.subscription.SubscriptionViewModel
