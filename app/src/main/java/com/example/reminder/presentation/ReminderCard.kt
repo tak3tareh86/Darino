@@ -47,7 +47,8 @@ fun ReminderCard(
     onSnoozeClick: () -> Unit,
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
-    showSnooze: Boolean = true
+    showSnooze: Boolean = true,
+    showActions: Boolean = true
 ) {
     var showDeleteConfirmDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val isCompleted = reminder.status.equals("COMPLETED", ignoreCase = true)
@@ -56,7 +57,8 @@ fun ReminderCard(
 
     val reminderType = ReminderType.fromKey(reminder.type)
     val isVehicleReminder = reminder.sourceType.equals("VEHICLE", ignoreCase = true)
-    val isInstallmentReminder = reminder.sourceType.equals("INSTALLMENT", ignoreCase = true)
+    val isInstallmentReminder = reminder.sourceType.equals("INSTALLMENT", ignoreCase = true) ||
+        reminder.sourceType.equals("INSTALLMENT_OCCURRENCE", ignoreCase = true)
 
     val statusColor = when {
         isCompleted -> Color(0xFF94A3B8)
@@ -418,6 +420,8 @@ fun ReminderCard(
             }
         }
 
+        // Read-only completed installment occurrences have no parent-level actions.
+        if (showActions) {
         // Actions are vertically stacked in this order: delete, complete, snooze.
         Column(
             modifier = Modifier
@@ -496,6 +500,7 @@ fun ReminderCard(
                     }
                 }
             }
+        }
         }
         }
     }
