@@ -45,41 +45,43 @@ fun AllGroupedLoansScreen(
         topBar = {
             Column {
                 Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(
-                        elevation = 3.dp,
-                        ambientColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color(0xFF0F172A).copy(alpha = 0.05f),
-                        spotColor = if (isDark) Color.Black.copy(alpha = 0.6f) else Color(0xFF0F172A).copy(alpha = 0.08f)
-                    ),
-                color = MaterialTheme.colorScheme.surface
-            ) {
-                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .shadow(
+                            elevation = 3.dp,
+                            ambientColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color(0xFF0F172A).copy(alpha = 0.05f),
+                            spotColor = if (isDark) Color.Black.copy(alpha = 0.6f) else Color(0xFF0F172A).copy(alpha = 0.08f)
+                        ),
+                    color = MaterialTheme.colorScheme.surface
                 ) {
-                    IconButton(
-                        onClick = onBackClick,
-                        modifier = Modifier.testTag("grouped_loans_back_btn")
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "بازگشت",
-                            tint = MaterialTheme.colorScheme.onSurface
+                        IconButton(
+                            onClick = onBackClick,
+                            modifier = Modifier.testTag("grouped_loans_back_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                contentDescription = "بازگشت",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            text = "برنامه پرداخت اقساط",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp),
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Text(
-                        text = "برنامه پرداخت اقساط",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
                 }
+
                 TabRow(selectedTabIndex = selectedCategoryIndex) {
                     categories.forEachIndexed { index, category ->
                         Tab(
