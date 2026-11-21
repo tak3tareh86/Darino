@@ -790,6 +790,7 @@ private fun VehicleServicesTabContent(
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun VehiclePeriodicServicesScreen(
     vehicle: VehicleEntity,
@@ -939,11 +940,11 @@ private fun OnlineVehicleServicesCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Soft3DIcon(
-                    imageRes = R.drawable.img_3d_analytics,
+                Icon(
+                    imageVector = Icons.Rounded.Language,
                     contentDescription = null,
-                    size = 34.dp,
-                    accentColor = MaterialTheme.colorScheme.primary
+                    modifier = Modifier.size(30.dp),
+                    tint = MaterialTheme.colorScheme.primary
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
