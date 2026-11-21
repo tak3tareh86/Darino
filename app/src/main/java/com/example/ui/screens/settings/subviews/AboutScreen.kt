@@ -105,18 +105,6 @@ fun AboutScreen(
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    com.example.ui.components.DarinoLogoMark(
-                        size = 54.dp,
-                        showShadow = false
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    com.example.ui.components.DarinoWordmark(
-                        showSubtitle = true,
-                        subtitleText = "سامانه مدیریت جامع مالی، اقساط و خودرو",
-                        fontSize = 20f,
-                        isDark = isDark
-                    )
-                    Spacer(modifier = Modifier.height(5.dp))
                     Box(
                         modifier = Modifier
                             .clip(CircleShape)
@@ -124,7 +112,7 @@ fun AboutScreen(
                             .padding(horizontal = 10.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = "نسخه ${com.example.util.IranianPhoneUtils.convertDigitsToPersian(BuildConfig.VERSION_NAME)} (ساخت رسمی)",
+                            text = "نسخه ${com.example.util.IranianPhoneUtils.convertDigitsToPersian(BuildConfig.VERSION_NAME)}",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 10.5.sp
@@ -141,6 +129,11 @@ fun AboutScreen(
                         ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    com.example.ui.components.DarinoLogoMark(
+                        size = 78.dp,
+                        showShadow = false
                     )
                 }
             }
