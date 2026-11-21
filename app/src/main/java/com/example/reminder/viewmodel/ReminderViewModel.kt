@@ -151,7 +151,17 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             chipFiltered
         }).sortedWith(compareBy<ReminderEntity>({ if (it.status.equals("ACTIVE", ignoreCase = true)) 0 else 1 }, { displayTime(it) ?: Long.MAX_VALUE }))
 
-        val nearest = upcomingReminders.firstOrNull()
+        // The nearest summary card is based on the reminder's actual due date/time,
+        // never on notification schedule triggers. This keeps reminders visible after
+        // their alerts have fired or been disabled, while excluding already-due items.
+        val nearestDueReminder = activeList.mapNotNull { reminder ->
+            val dueAt = runCatching {
+                ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
+            }.getOrNull() ?: return@mapNotNull null
+            if (dueAt > now) reminder to dueAt else null
+        }.sortedWith(
+            compareBy<Pair<ReminderEntity, Long>>({ it.second }, { it.first.id })
+        ).firstOrNull()
 
         ReminderState(
             reminders = finalFiltered,
@@ -165,8 +175,8 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             notificationCount = unreadCount,
             todayCount = todayReminders.size,
             tomorrowCount = tomorrowReminders.size,
-            nearestReminder = nearest,
-            nearestReminderTriggerAt = nearest?.let { nextTriggerByReminder[it.id] },
+            nearestReminder = nearestDueReminder?.first,
+            nearestReminderDueAt = nearestDueReminder?.second,
             reminderDisplayTimes = nextTriggerByReminder,
             smartSuggestions = suggestions,
             isLoading = isLoading,
