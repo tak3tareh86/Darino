@@ -429,7 +429,7 @@ fun ReminderScreen(
                                                         )
                                                         uiState.nearestReminder?.let { reminder ->
                                                             Text(
-                                                                text = "${if (uiState.nearestReminderTriggerAt != null) "تاریخ هشدار: " else "تاریخ یادآور: "}${uiState.nearestReminderTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedDate() } ?: reminder.date}",
+                                                                text = "تاریخ سررسید: ${uiState.nearestReminderDueAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedDate() } ?: reminder.date}",
                                                                 maxLines = 1,
                                                                 softWrap = false,
                                                                 style = MaterialTheme.typography.labelSmall.copy(
@@ -439,7 +439,7 @@ fun ReminderScreen(
                                                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                                             )
                                                             Text(
-                                                                text = "${if (uiState.nearestReminderTriggerAt != null) "ساعت هشدار: " else "ساعت یادآور: "}${uiState.nearestReminderTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedTime() } ?: reminder.time}",
+                                                                text = "ساعت سررسید: ${uiState.nearestReminderDueAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedTime() } ?: reminder.time}",
                                                                 maxLines = 1,
                                                                 softWrap = false,
                                                                 style = MaterialTheme.typography.labelSmall.copy(
