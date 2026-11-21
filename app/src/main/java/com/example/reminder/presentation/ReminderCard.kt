@@ -374,15 +374,19 @@ fun ReminderCard(
                 )
             }
 
-            // Row 3: Date/time move to the opposite side, beneath the card's main icon; amount stays centered.
+            // Row 3: Keep reminder date and time side by side; place the amount below them.
             if (!isVehicleReminder) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.align(Alignment.CenterStart),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Row(
+                            modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
@@ -397,11 +401,14 @@ fun ReminderCard(
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                ),
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
 
                         Row(
+                            modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
@@ -416,20 +423,25 @@ fun ReminderCard(
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                ),
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
 
-                        if (formattedReminderAmount != null) {
+                    if (formattedReminderAmount != null) {
                         Text(
                             text = formattedReminderAmount,
-                            modifier = Modifier.align(Alignment.Center),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 2.dp),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = EmeraldPrimaryLight
-                            )
+                            ),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
                 }
