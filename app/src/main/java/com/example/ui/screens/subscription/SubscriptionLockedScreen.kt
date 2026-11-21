@@ -59,7 +59,8 @@ private val PremiumText = Color(0xFFF6F7FF)
 @Composable
 fun SubscriptionLockedScreen(
     viewModel: SubscriptionViewModel = viewModel(),
-    forceLockedForDebug: Boolean = false
+    forceLockedForDebug: Boolean = false,
+    forceAnnualExpiryForDebug: Boolean = false
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -82,6 +83,7 @@ fun SubscriptionLockedScreen(
     SubscriptionLockedScreenContent(
         uiState = screenState,
         requiresMarketReverification = requiresMarketReverification,
+        annualSubscriptionExpiredForDebug = forceAnnualExpiryForDebug,
         onPurchaseClick = {
             // Poolakey opens the official Cafe Bazaar purchase sheet. Entitlement is
             // granted only after Poolakey returns a verified PURCHASED result.
@@ -104,6 +106,7 @@ fun SubscriptionLockedScreen(
 fun SubscriptionLockedScreenContent(
     uiState: SubscriptionState,
     requiresMarketReverification: Boolean,
+    annualSubscriptionExpiredForDebug: Boolean = false,
     onPurchaseClick: () -> Unit,
     onRestoreClick: () -> Unit,
     actionsEnabled: Boolean
@@ -145,6 +148,8 @@ fun SubscriptionLockedScreenContent(
             Text(
                 text = if (requiresMarketReverification) {
                     "برای تأیید دوباره اشتراک، لازم است وضعیت خرید شما از کافه‌بازار بازیابی شود."
+                } else if (annualSubscriptionExpiredForDebug) {
+                    "مدت اشتراک سالانه شما به پایان رسیده است."
                 } else {
                     "مدت استفاده رایگان ۷ روزه شما از برنامه به پایان رسیده است."
                 },
