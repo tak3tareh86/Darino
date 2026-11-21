@@ -972,7 +972,7 @@ private fun OnlineVehicleServicesCard(
                 subtitle = "ورود به سامانه آنی‌رو",
                 icon = Icons.Rounded.Toll,
                 accent = Color(0xFF219477),
-                onClick = { onOpenService("https://aaniro.ir") }
+                onClick = { onOpenService("https://aaniro.com/#/m/aaniro") }
             )
             Text(
                 text = "استعلام و پرداخت در سایت ارائه‌دهنده خدمت و خارج از دارینو انجام می‌شود.",
