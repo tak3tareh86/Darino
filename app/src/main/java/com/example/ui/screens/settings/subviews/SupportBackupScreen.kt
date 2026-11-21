@@ -772,25 +772,23 @@ fun SupportBackupScreen(
                     // Full-width backup history card; display only timestamps recorded after successful backups.
                     item {
                         Surface(
-                            modifier = Modifier.fillMaxWidth().height(148.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(148.dp)
+                                .clip(RoundedCornerShape(RadiusMD))
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(
+                                            Color(0xFF0B132B),
+                                            Color(0xFF112240),
+                                            Color(0xFF0A2B28)
+                                        )
+                                    )
+                                ),
                             shape = RoundedCornerShape(RadiusMD),
                             color = Color.Transparent,
                             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f))
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(RadiusMD))
-                                    .background(
-                                        Brush.linearGradient(
-                                            colors = listOf(
-                                                Color(0xFF0B132B),
-                                                Color(0xFF112240),
-                                                Color(0xFF0A2B28)
-                                            )
-                                        )
-                                    )
-                            ) {
                             Column(
                                 modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 9.dp),
                                 verticalArrangement = Arrangement.spacedBy(5.dp)
