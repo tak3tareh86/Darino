@@ -1036,8 +1036,10 @@ private fun QuickActionButton(
             Icon(imageVector = icon, contentDescription = title, tint = color, modifier = Modifier.size(20.dp))
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
-                color = color
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
+                color = color,
+                maxLines = 1,
+                softWrap = false
             )
         }
     }
