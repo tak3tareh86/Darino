@@ -448,6 +448,28 @@ fun ReminderScreen(
                                                                 ),
                                                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                                             )
+                                                            uiState.reminderDisplayTimes[reminder.id]?.let { reminderAt ->
+                                                                Text(
+                                                                    text = "تاریخ یادآور: ${com.example.util.PersianCalendarHelper.fromEpochMillis(reminderAt).toFormattedDate()}",
+                                                                    maxLines = 1,
+                                                                    softWrap = false,
+                                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                                        color = Color(0xFFCBD5E1),
+                                                                        fontSize = 10.sp
+                                                                    ),
+                                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                                )
+                                                                Text(
+                                                                    text = "ساعت یادآور: ${com.example.util.PersianCalendarHelper.fromEpochMillis(reminderAt).toFormattedTime()}",
+                                                                    maxLines = 1,
+                                                                    softWrap = false,
+                                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                                        color = Color(0xFFCBD5E1),
+                                                                        fontSize = 10.sp
+                                                                    ),
+                                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                                )
+                                                            }
                                                         }
                                                     }
                     
