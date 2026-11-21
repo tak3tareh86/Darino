@@ -1,7 +1,21 @@
-Vehicle brand vector marks in this directory are adapted from Simple Icons:
-https://github.com/simple-icons/simple-icons
-Simple Icons assets are released under CC0 1.0.
+Vehicle brand logo assets bundled for offline display and brand identification.
 
-Fallback text marks in VehicleBrandLogo.kt (including IKCO and CHERY) are
-identification placeholders for brands without bundled official vector artwork.
-They are not represented as official manufacturer logos.
+Iranian manufacturer marks:
+- Iran Khodro, Saipa, Kerman Motor, Bahman:
+  https://github.com/persianlabs/icons
+  Source artwork: packages/icons/assets/automobiles/color/
+  Repository license: MIT. Brand marks remain the property of their owners.
+- MVM, Fownix, Lamari:
+  https://github.com/Ardalan1380/gholamzadehPage
+  Source artwork: public/HomePage/logo/
+- International manufacturer marks (including Chery, JAC, BYD, Hyundai,
+  Kia, Toyota, Nissan, Mazda, Honda, Renault, Suzuki, Mitsubishi, Lexus,
+  Mercedes-Benz, BMW and Volkswagen):
+  https://github.com/vehiclespecs/brand-logos
+
+All manufacturer names and logos are trademarks of their respective owners.
+They are included only to identify the selected vehicle make. The upstream
+logo collections do not grant ownership of, or rights to, those trademarks.
+The Saipa emblem is orange; its blue SAIPA wordmark is rendered beneath it
+using the registered brand name because the bundled source artwork contains
+the emblem alone.
