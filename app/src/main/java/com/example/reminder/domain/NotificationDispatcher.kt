@@ -373,8 +373,7 @@ class NotificationDispatcher(private val context: Context) {
             .setContentText(bodyText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
             .setPriority(
-                if (useFullScreenAlarm || reminder.priority.equals("HIGH", ignoreCase = true))
-                    NotificationCompat.PRIORITY_MAX
+                if (useFullScreenAlarm) NotificationCompat.PRIORITY_MAX
                 else NotificationCompat.PRIORITY_HIGH
             )
             .setCategory(if (useFullScreenAlarm) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
