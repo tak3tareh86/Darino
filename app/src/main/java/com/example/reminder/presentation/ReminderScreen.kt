@@ -693,42 +693,56 @@ fun ReminderScreen(
 
                                 if (isCompletedExpanded) {
                                     items(completedReminders, key = { it.id }) { reminder ->
+                                        val isInstallmentOccurrence =
+                                            reminder.sourceType.equals("INSTALLMENT_OCCURRENCE", ignoreCase = true)
                                         ReminderCard(
                                             reminder = reminder,
                                             vehiclePlate = vehiclePlateForReminder(reminder),
                                             onClick = {
-                                                selectedReminderForDetail = reminder
-                                                currentSubScreen = ReminderSubScreen.DETAIL
+                                                if (!isInstallmentOccurrence) {
+                                                    selectedReminderForDetail = reminder
+                                                    currentSubScreen = ReminderSubScreen.DETAIL
+                                                }
                                             },
                                             onToggleCompleted = {
-                                                viewModel.restoreReminder(reminder.id)
+                                                if (!isInstallmentOccurrence) viewModel.restoreReminder(reminder.id)
                                             },
                                             showSnooze = false,
+                                            showActions = !isInstallmentOccurrence,
                                             onSnoozeClick = {
-                                                showSnoozeSheetForReminder = reminder
+                                                if (!isInstallmentOccurrence) showSnoozeSheetForReminder = reminder
                                             },
-                                            onDeleteClick = { viewModel.deleteReminder(reminder.id) }
+                                            onDeleteClick = {
+                                                if (!isInstallmentOccurrence) viewModel.deleteReminder(reminder.id)
+                                            }
                                         )
                                     }
                                 }
                             } else {
                                 // If viewing only completed reminders (e.g. Completed Tab)
                                 items(completedReminders, key = { it.id }) { reminder ->
+                                    val isInstallmentOccurrence =
+                                        reminder.sourceType.equals("INSTALLMENT_OCCURRENCE", ignoreCase = true)
                                     ReminderCard(
                                         reminder = reminder,
                                         vehiclePlate = vehiclePlateForReminder(reminder),
                                         onClick = {
-                                            selectedReminderForDetail = reminder
-                                            currentSubScreen = ReminderSubScreen.DETAIL
+                                            if (!isInstallmentOccurrence) {
+                                                selectedReminderForDetail = reminder
+                                                currentSubScreen = ReminderSubScreen.DETAIL
+                                            }
                                         },
                                         onToggleCompleted = {
-                                            viewModel.restoreReminder(reminder.id)
+                                            if (!isInstallmentOccurrence) viewModel.restoreReminder(reminder.id)
                                         },
                                         showSnooze = false,
+                                        showActions = !isInstallmentOccurrence,
                                         onSnoozeClick = {
-                                            showSnoozeSheetForReminder = reminder
+                                            if (!isInstallmentOccurrence) showSnoozeSheetForReminder = reminder
                                         },
-                                        onDeleteClick = { viewModel.deleteReminder(reminder.id) }
+                                        onDeleteClick = {
+                                            if (!isInstallmentOccurrence) viewModel.deleteReminder(reminder.id)
+                                        }
                                     )
                                 }
                             }
