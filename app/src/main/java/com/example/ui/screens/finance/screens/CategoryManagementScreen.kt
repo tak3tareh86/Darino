@@ -462,7 +462,6 @@ fun AddEditCategorySheet(
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
     var title by remember { mutableStateOf(initialCategory?.title ?: "") }
-    var emoji by remember { mutableStateOf(initialCategory?.iconEmoji ?: "🏷️") }
     var subCategoriesText by remember { mutableStateOf(initialCategory?.subCategories?.joinToString("، ") ?: "") }
     var selectedType by remember { mutableStateOf(initialCategory?.type ?: defaultType) }
     val availableColors = listOf(
@@ -512,40 +511,20 @@ fun AddEditCategorySheet(
                 }
             }
 
-            // Title & Emoji Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = "عنوان دسته‌بندی",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(RadiusMD)
-                    )
-                }
-
-                Column(modifier = Modifier.size(width = 80.dp, height = 80.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = "آیکون/ایموجی",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value = emoji,
-                        onValueChange = { emoji = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(RadiusMD)
-                    )
-                }
+            // Category title
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "عنوان دسته‌بندی",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(RadiusMD)
+                )
             }
 
             // Category accent color
@@ -611,7 +590,7 @@ fun AddEditCategorySheet(
                         id = initialCategory?.id ?: UUID.randomUUID().toString(),
                         title = title,
                         type = selectedType,
-                        iconEmoji = emoji.ifBlank { "🏷️" },
+                        iconEmoji = initialCategory?.iconEmoji ?: "🏷️",
                         accentColor = selectedColor,
                         subCategories = subs,
                         isCustom = true,
