@@ -69,11 +69,8 @@ class WeeklyBackupWorker(
 
             Log.i(TAG, "$frequency auto-backup file created successfully: $savedUri")
 
-            // Update last backup time
-            prefs.edit()
-                .putLong("last_backup_time", System.currentTimeMillis())
-                .putLong("last_backup_time_${userTag}", System.currentTimeMillis())
-                .apply()
+            // Automatic backup timestamps are recorded only in frequency-specific history.
+            // Keep the shared last_backup_time keys reserved for manual backups.
             recordExecution(frequency, "success")
 
             Result.success()
