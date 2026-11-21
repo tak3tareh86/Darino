@@ -5,11 +5,12 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DirectionsCar
@@ -88,26 +89,28 @@ fun VehicleBrandLogo(brand: String, modifier: Modifier = Modifier) {
             modifier = modifier
         )
     } else if (asset.saipaWordmark) {
-        Column(
-            modifier = modifier,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = null,
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                contentScale = ContentScale.Fit
-            )
-            Text(
-                text = "SAIPA",
-                color = Color(0xFF001278),
-                fontSize = 6.sp,
-                lineHeight = 7.sp,
-                letterSpacing = 0.7.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                softWrap = false
-            )
+        BoxWithConstraints(modifier = modifier) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxWidth().height((maxHeight - 8.dp).coerceAtLeast(12.dp)),
+                    contentScale = ContentScale.Fit
+                )
+                Text(
+                    text = "SAIPA",
+                    color = Color(0xFF001278),
+                    fontSize = 6.sp,
+                    lineHeight = 7.sp,
+                    letterSpacing = 0.7.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
         }
     } else if (asset.darkBackground) {
         Surface(
