@@ -90,7 +90,8 @@ fun VehicleBrandLogo(brand: String, modifier: Modifier = Modifier) {
         )
     } else if (asset.saipaWordmark) {
         BoxWithConstraints(modifier = modifier) {
-            val logoHeight = (this@BoxWithConstraints.maxHeight - 8.dp).coerceAtLeast(12.dp)
+            val constraintsScope = this@BoxWithConstraints
+            val logoHeight = (constraintsScope.maxHeight - 8.dp).coerceAtLeast(12.dp)
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
