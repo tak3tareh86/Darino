@@ -455,9 +455,74 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
     fun completeReminder(reminderId: String) {
         viewModelScope.launch {
             try {
-                manager.completeReminder(reminderId)
+                val reminder = repository.getReminderById(reminderId)
+                    ?: throw IllegalStateException("یادآور پیدا نشد.")
+                val isInstallmentReminder =
+                    reminder.sourceType.equals("INSTALLMENT", ignoreCase = true) ||
+                        reminder.type.equals("INSTALLMENT", ignoreCase = true)
+
+                if (isInstallmentReminder) {
+                    val installmentId = reminder.sourceId
+                        ?: throw IllegalStateException("شناسه وام متصل به یادآور موجود نیست.")
+                    val installmentRepository = LocalInstallmentRepository.instance
+                    installmentRepository.init(getApplication())
+                    withTimeout(15_000L) {
+                        installmentRepository.installmentDataAvailable.first { it }
+                    }
+                    val installment = installmentRepository.installments.value
+                        .firstOrNull { it.id == installmentId }
+                        ?: throw IllegalStateException("اطلاعات وام پیدا نشد.")
+                    val schedules = repository.getSchedulesSync(reminder.id)
+
+                    val completedPaymentIds = installment.paymentHistory.filter { payment ->
+                        schedules.any { schedule ->
+                            schedule.reminderId == reminder.id &&
+                                schedule.triggerType.equals("COMPLETED", ignoreCase = true) &&
+                                schedule.id == java.util.UUID.nameUUIDFromBytes(
+                                    "installment:${installmentId}:${payment.id}:${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
+                                        .toByteArray(Charsets.UTF_8)
+                                ).toString()
+                        }
+                    }.mapTo(mutableSetOf()) { it.id }
+
+                    val unpaidPayments = installment.paymentHistory.filter { payment ->
+                        payment.status != InstallmentStatus.PAID &&
+                            payment.status != InstallmentStatus.COMPLETED &&
+                            payment.id !in completedPaymentIds
+                    }
+                    val nextPayment = unpaidPayments
+                        .mapNotNull { payment ->
+                            val dueAt = runCatching {
+                                ReminderManager.parsePersianDateTimeToMillis(payment.dueDate, reminder.time)
+                            }.getOrNull() ?: return@mapNotNull null
+                            payment to dueAt
+                        }
+                        .filter { it.second > System.currentTimeMillis() }
+                        .minByOrNull { it.second }
+                        ?.first
+                        ?: unpaidPayments.minByOrNull { payment ->
+                            runCatching {
+                                ReminderManager.parsePersianDateTimeToMillis(payment.dueDate, reminder.time)
+                            }.getOrNull() ?: Long.MAX_VALUE
+                        }
+                        ?: throw IllegalStateException("یادآور قسط تکمیل‌نشده‌ای برای این وام باقی نمانده است.")
+
+                    val completed = manager.completeReminderAction(
+                        reminderId = reminder.id,
+                        installmentPaymentId = nextPayment.id
+                    )
+                    if (!completed) {
+                        throw IllegalStateException("یادآور این قسط در زمان‌بندی پیدا نشد؛ وضعیت یادآور تغییر نکرد.")
+                    }
+                } else {
+                    manager.completeReminderAction(
+                        reminderId = reminder.id,
+                        installmentPaymentId = null
+                    )
+                }
             } catch (e: Exception) {
-                _errorMessage.value = "خطا در تکمیل یادآور"
+                _errorMessage.value = e.localizedMessage?.let { "خطا در تکمیل یادآور: $it" }
+                    ?: "خطا در تکمیل یادآور"
             }
         }
     }
