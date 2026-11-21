@@ -49,7 +49,6 @@ fun NotificationSettingsScreen(
     val quietHoursEnabled by preferences.quietHoursEnabled.collectAsState()
     val quietStartMinute by preferences.quietHoursStartMinute.collectAsState()
     val quietEndMinute by preferences.quietHoursEndMinute.collectAsState()
-    val allowHighPriorityInQuiet by preferences.allowHighPriorityInQuietHours.collectAsState()
     val quietRangeOptions = listOf(22 * 60 to 6 * 60, 23 * 60 to 7 * 60, 0 to 8 * 60)
     fun formatQuietTime(minutes: Int): String {
         val hour = (minutes.coerceIn(0, 1439) / 60).toString().padStart(2, '0')
@@ -128,14 +127,6 @@ fun NotificationSettingsScreen(
                             }
                         )
 
-                        SettingsItem(
-                            title = "مجوز هشدارهای مهم و فوری",
-                            subtitle = "هشدارهای با اولویت HIGH (مثل سررسید اقساط سنگین) ارسال شوند",
-                            iconRes = R.drawable.img_3d_card,
-                            iconAccentColor = EmeraldPrimaryLight,
-                            checked = allowHighPriorityInQuiet,
-                            onCheckedChange = { preferences.setAllowHighPriorityInQuietHours(it) }
-                        )
                     }
                 }
             }
@@ -180,7 +171,6 @@ fun NotificationSettingsScreen(
                                             type = "GENERAL",
                                             date = "امروز",
                                             time = "هم‌اکنون",
-                                            priority = "HIGH",
                                             notificationEnabled = true
                                         )
                                         val notificationId = dispatcher.dispatchNotification(testReminder)
