@@ -170,7 +170,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             }
         } else {
             chipFiltered
-        }).sortedWith(compareBy<ReminderEntity>({ if (it.status.equals("ACTIVE", ignoreCase = true)) 0 else 1 }, { displayTime(it) ?: Long.MAX_VALUE }))
+        }).sortedWith(compareBy<ReminderEntity>({ if (it.status.equals("ACTIVE", ignoreCase = true)) 0 else 1 }, { dueTime(it) ?: Long.MAX_VALUE }))
 
         // The nearest summary card is based on the reminder's actual due date/time,
         // never on notification schedule triggers. This keeps reminders visible after
