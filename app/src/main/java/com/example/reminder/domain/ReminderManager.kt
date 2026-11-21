@@ -283,7 +283,11 @@ class ReminderManager(
         if (completedScheduleIds.isEmpty()) return@withContext false
 
         val updatedSchedules = oldSchedules.map { schedule ->
-            if (schedule.id in completedScheduleIds) schedule.copy(enabled = false) else schedule
+            if (schedule.id in completedScheduleIds) {
+                // COMPLETED is a durable per-payment marker. It survives later
+                // syncInstallmentReminder calls without disabling other payments.
+                schedule.copy(enabled = false, triggerType = "COMPLETED")
+            } else schedule
         }
         val updatedReminder = reminder.copy(updatedAt = System.currentTimeMillis())
 
@@ -745,16 +749,22 @@ class ReminderManager(
                 val stableId = UUID.nameUUIDFromBytes(
                     "installment:$installmentId:$paymentId:${offset.value}:${offset.unit.name}".toByteArray(Charsets.UTF_8)
                 ).toString()
+                // Keep a user's explicit completion for this payment occurrence
+                // across routine installment refreshes and date recalculations.
+                val wasCompletedByUser = oldSchedules.any {
+                    it.id == stableId && it.triggerType == "COMPLETED"
+                }
                 ReminderScheduleEntity(
                     id = stableId,
                     reminderId = reminder.id,
-                    triggerType = if (offset == PredefinedOffset.AT_TIME) "EXACT" else "BEFORE_EVENT",
+                    triggerType = if (wasCompletedByUser) "COMPLETED"
+                        else if (offset == PredefinedOffset.AT_TIME) "EXACT" else "BEFORE_EVENT",
                     offsetValue = offset.value,
                     offsetUnit = offset.unit.name,
                     triggerDateTime = triggerMillis,
                     repeatType = "NONE",
                     repeatInterval = 1,
-                    enabled = shouldArm,
+                    enabled = shouldArm && !wasCompletedByUser,
                     createdAt = now
                 )
             }
