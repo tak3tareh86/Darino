@@ -321,6 +321,28 @@ class ReminderManager(
     }
 
     /**
+     * Completes a single reminder action without allowing installment reminders
+     * to fall through to whole-loan completion when the payment ID is absent.
+     */
+    suspend fun completeReminderAction(
+        reminderId: String,
+        installmentPaymentId: String?
+    ): Boolean {
+        val reminder = repository.getReminderById(reminderId) ?: return false
+        val isInstallment = reminder.sourceType.equals("INSTALLMENT", ignoreCase = true) ||
+            reminder.type.equals("INSTALLMENT", ignoreCase = true)
+
+        return if (isInstallment) {
+            val paymentId = installmentPaymentId?.takeIf { it.isNotBlank() }
+                ?: return false
+            completeInstallmentReminderOccurrence(reminderId, paymentId)
+        } else {
+            completeReminder(reminderId)
+            true
+        }
+    }
+
+    /**
      * Marks a reminder as completed.
      */
     suspend fun completeReminder(reminderId: String) = withContext(Dispatchers.IO) {
