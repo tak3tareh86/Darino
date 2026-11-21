@@ -205,11 +205,9 @@ fun AddVehicleSheet(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.DirectionsCar,
-                            contentDescription = "برند خودرو",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                        VehicleBrandLogo(
+                            brand = brand,
+                            modifier = Modifier.size(28.dp)
                         )
                         Text(
                             text = if (brand == "سایر" && customBrand.isNotBlank()) "سایر ($customBrand)" else brand,
