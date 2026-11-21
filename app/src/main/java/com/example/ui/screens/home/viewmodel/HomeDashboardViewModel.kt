@@ -746,14 +746,13 @@ class HomeDashboardViewModel(application: Application) : AndroidViewModel(applic
     ) {
         viewModelScope.launch {
             try {
-                val success = if (!installmentPaymentId.isNullOrBlank()) {
-                    // Completing one loan-payment reminder must not complete the
-                    // parent reminder for the entire loan.
-                    reminderManager.completeInstallmentReminderOccurrence(id, installmentPaymentId)
-                } else {
-                    reminderManager.completeReminder(id)
-                    true
-                }
+                // Route completion through a source-aware guard. An installment
+                // reminder must never fall back to completing the whole loan when
+                // its payment occurrence ID is missing.
+                val success = reminderManager.completeReminderAction(
+                    reminderId = id,
+                    installmentPaymentId = installmentPaymentId
+                )
                 if (success) loadDashboardData()
                 onResult(success)
             } catch (e: Exception) {
