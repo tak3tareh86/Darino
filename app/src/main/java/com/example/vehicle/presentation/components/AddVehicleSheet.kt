@@ -295,7 +295,7 @@ fun AddVehicleSheet(
                                         Surface(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .heightIn(min = 56.dp)
+                                                .heightIn(min = 72.dp)
                                                 .clip(RoundedCornerShape(10.dp))
                                                 .clickable {
                                                     if (brand != b) {
@@ -332,10 +332,14 @@ fun AddVehicleSheet(
                                                         imageVector = Icons.Rounded.Check,
                                                         contentDescription = "انتخاب‌شده",
                                                         tint = MaterialTheme.colorScheme.primary,
-                                                        modifier = Modifier.size(16.dp)
+                                                        modifier = Modifier.size(14.dp)
                                                     )
-                                                    Spacer(modifier = Modifier.height(2.dp))
                                                 }
+                                                VehicleBrandLogo(
+                                                    brand = b,
+                                                    modifier = Modifier.size(28.dp)
+                                                )
+                                                Spacer(modifier = Modifier.height(3.dp))
                                                 Text(
                                                     text = b,
                                                     modifier = Modifier.fillMaxWidth(),

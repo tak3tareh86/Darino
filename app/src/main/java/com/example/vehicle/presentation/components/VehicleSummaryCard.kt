@@ -24,7 +24,6 @@ import com.example.R
 import com.example.vehicle.data.VehicleEntity
 import com.example.ui.components.IranianLicensePlate
 import com.example.ui.components.Layered3DCard
-import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
 import com.example.util.MoneyFormatter
 import com.example.util.MoneyAmount
@@ -68,11 +67,9 @@ fun VehicleSummaryCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Soft3DIcon(
-                        imageRes = R.drawable.img_3d_car,
-                        contentDescription = vehicle.model,
-                        size = 48.dp,
-                        accentColor = MaterialTheme.colorScheme.primary
+                    VehicleBrandLogo(
+                        brand = vehicle.brand,
+                        modifier = Modifier.size(48.dp)
                     )
                     Column {
                         Row(

@@ -1,0 +1,7 @@
+Vehicle brand vector marks in this directory are adapted from Simple Icons:
+https://github.com/simple-icons/simple-icons
+Simple Icons assets are released under CC0 1.0.
+
+Fallback text marks in VehicleBrandLogo.kt (including IKCO and CHERY) are
+identification placeholders for brands without bundled official vector artwork.
+They are not represented as official manufacturer logos.
