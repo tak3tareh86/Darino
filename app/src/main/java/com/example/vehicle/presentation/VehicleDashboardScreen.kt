@@ -964,7 +964,7 @@ private fun OnlineVehicleServicesCard(
                 subtitle = "ورود به سامانه رسمی خدمات پلیس راهور",
                 icon = Icons.Rounded.Gavel,
                 accent = Color(0xFF3976C8),
-                onClick = { onOpenService("https://rahvar120.ir") }
+                onClick = { onOpenService("https://shop.pep.co.ir/rahvar/complete") }
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
             OnlineVehicleServiceRow(
