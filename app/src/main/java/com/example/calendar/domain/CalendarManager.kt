@@ -190,7 +190,9 @@ class CalendarManager(private val context: Context) {
             vehicleData.first.forEach { svc ->
                 val eventId = "auto_veh_svc_${svc.id}"
                 if (seenIds.add(eventId)) {
-                    val targetDateStr = svc.nextReminderDate?.takeIf { it.isNotBlank() } ?: svc.date
+                    // Calendar service-history cards must stay on the actual service date.
+                    // The next reminder is represented by the reminder record below.
+                    val targetDateStr = svc.date
                     val normDate = CalendarDateUtils.normalizeDate(targetDateStr)
 
                     allEvents.add(
