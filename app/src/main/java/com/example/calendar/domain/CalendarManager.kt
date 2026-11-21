@@ -166,7 +166,7 @@ class CalendarManager(private val context: Context) {
                                 time = "09:00",
                                 repeatType = "NONE",
                                 reminderBefore = ReminderBeforeOption.NONE,
-                                sourceId = payment.id,
+                                sourceId = payment.id.toString(),
                                 status = status
                             )
                         )
