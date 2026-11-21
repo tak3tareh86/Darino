@@ -96,7 +96,7 @@ fun InstallmentsEmptyState(
                     modifier = Modifier.size(18.dp)
                 )
                 Text(
-                    text = "افزودن اولین قسط",
+                    text = "افزودن اولین وام",
                     style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
                     modifier = Modifier.padding(start = 6.dp)
                 )
