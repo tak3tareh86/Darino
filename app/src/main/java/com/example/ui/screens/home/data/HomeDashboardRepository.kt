@@ -329,10 +329,13 @@ class HomeDashboardRepository(
                 dueDate = nextOccurrence.first.dueDate
                 triggerMillis = nextOccurrence.third
             } else {
-                triggerMillis = runCatching {
+                val parsedTriggerMillis: Long? = try {
                     ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
-                }.getOrNull()
-                if (triggerMillis == null || triggerMillis!! <= now) return@mapNotNull null
+                } catch (exception: Exception) {
+                    null
+                }
+                triggerMillis = parsedTriggerMillis
+                if (parsedTriggerMillis == null || parsedTriggerMillis <= now) return@mapNotNull null
             }
 
             val actualTrigger = triggerMillis ?: return@mapNotNull null
