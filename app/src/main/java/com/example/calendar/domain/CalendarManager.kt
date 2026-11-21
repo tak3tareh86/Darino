@@ -143,6 +143,18 @@ class CalendarManager(private val context: Context) {
             installmentData.first.forEach { inst ->
                 val providerSuffix = if (inst.providerName.isNotBlank()) " (${inst.providerName})" else ""
                 val title = "${inst.title}$providerSuffix"
+                // The linked smart reminder is the source of truth for the user-selected
+                // installment reminder time. Match both local and server IDs because the
+                // reminder repository may persist either form as sourceId.
+                val installmentReminderTime = reminders.firstOrNull { reminder ->
+                    reminder.sourceType.equals("INSTALLMENT", ignoreCase = true) &&
+                        (reminder.sourceId == inst.id.toString() ||
+                            (!inst.serverId.isNullOrBlank() && reminder.sourceId == inst.serverId))
+                }?.time
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { IranianPhoneUtils.convertDigitsToEnglish(it) }
+                    ?: "09:00"
+
                 installmentData.second.asSequence().filter { it.installmentId == inst.id }.forEach { payment ->
                     val paymentAmountUnit = parseCalendarCurrencyUnit(payment.amountUnit)
                     val eventId = "auto_inst_${inst.id}_${payment.id}"
@@ -163,7 +175,7 @@ class CalendarManager(private val context: Context) {
                                 date = PersianCalendarHelper.fromEpochMillis(payment.dueDate).let {
                                     CalendarDateUtils.formatJalali(it.year, it.month, it.day)
                                 },
-                                time = "09:00",
+                                time = installmentReminderTime,
                                 repeatType = "NONE",
                                 reminderBefore = ReminderBeforeOption.NONE,
                                 sourceId = payment.id.toString(),
