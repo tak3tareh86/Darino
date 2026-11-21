@@ -276,38 +276,37 @@ class HomeDashboardRepository(
         } catch (e: Exception) {
             emptyList()
         }
-
-        if (realReminders.isEmpty()) {
-            return emptyList()
-        }
+        if (realReminders.isEmpty()) return emptyList()
 
         val now = System.currentTimeMillis()
         val installments = installmentRepository.installments.value.associateBy { it.id }
 
-        val itemsWithDiff = realReminders.mapNotNull { rem ->
-            if (rem.status == "COMPLETED" || rem.status == "CANCELLED") return@mapNotNull null
+        // Keep the exact timestamp used for sorting; date-only sorting can put a
+        // later alert ahead of an earlier alert when they fall on different days.
+        val itemsWithTrigger = realReminders.mapNotNull { reminder ->
+            if (!reminder.status.equals("ACTIVE", ignoreCase = true)) return@mapNotNull null
 
-            // Installment reminders have one stable schedule ID per payment and offset.
-            // Resolve the selected payment by that ID; never associate a trigger with a
-            // different installment payment merely because it is the nearest timestamp.
             val isInstallmentReminder =
-                rem.sourceType.equals("INSTALLMENT", ignoreCase = true) ||
-                    rem.type.equals("INSTALLMENT", ignoreCase = true)
-            val installmentData = if (isInstallmentReminder) {
-                rem.sourceId?.let { sourceId -> installments[sourceId] }
-            } else null
+                reminder.sourceType.equals("INSTALLMENT", ignoreCase = true) ||
+                    reminder.type.equals("INSTALLMENT", ignoreCase = true)
 
-            val installmentSchedule = if (isInstallmentReminder && installmentData != null && !rem.sourceId.isNullOrBlank()) {
+            var paymentId: String? = null
+            var dueDate: String? = null
+            var triggerMillis: Long? = null
+
+            if (isInstallmentReminder) {
+                val installment = reminder.sourceId?.let(installments::get)
+                    ?: return@mapNotNull null
                 val schedules = runCatching {
-                    db.smartReminderDao().getSchedulesForReminderSync(userId, rem.id)
+                    db.smartReminderDao().getSchedulesForReminderSync(userId, reminder.id)
                 }.getOrDefault(emptyList())
 
-                installmentData.paymentHistory
+                // An installment appears only when an actual, user-configured,
+                // enabled future trigger exists for one of its unpaid payments.
+                // Never substitute the payment due date for a missing/past alert.
+                val nextOccurrence = installment.paymentHistory
                     .asSequence()
-                    .filter { payment ->
-                        payment.status != InstallmentStatus.PAID &&
-                            payment.status != InstallmentStatus.COMPLETED
-                    }
+                    .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
                     .flatMap { payment ->
                         schedules.asSequence()
                             .filter { schedule ->
@@ -315,98 +314,78 @@ class HomeDashboardRepository(
                                     false
                                 } else {
                                     val expectedId = UUID.nameUUIDFromBytes(
-                                        "installment:${rem.sourceId}:${payment.id}:${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
+                                        "installment:${reminder.sourceId}:${payment.id}:${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
                                             .toByteArray(Charsets.UTF_8)
                                     ).toString()
                                     schedule.id == expectedId
                                 }
                             }
-                            .map { schedule -> payment to schedule }
+                            .map { schedule -> Triple(payment, schedule, schedule.triggerDateTime) }
                     }
-                    .minByOrNull { (_, schedule) -> schedule.triggerDateTime }
-            } else null
+                    .minByOrNull { it.third }
+                    ?: return@mapNotNull null
 
-            val fallbackUnpaidPayment = installmentData?.let { installment ->
-                installment.paymentHistory
-                    .asSequence()
-                    .filter { it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED }
-                    .minByOrNull { payment ->
-                        calculateDaysDifference(payment.dueDate.ifBlank { installment.nextPaymentDate })
-                    }
+                paymentId = nextOccurrence.first.id
+                dueDate = nextOccurrence.first.dueDate
+                triggerMillis = nextOccurrence.third
+            } else {
+                triggerMillis = runCatching {
+                    ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
+                }.getOrNull()
+                if (triggerMillis == null || triggerMillis!! <= now) return@mapNotNull null
             }
 
-            val installmentDueDate = if (isInstallmentReminder) {
-                (installmentSchedule?.first?.dueDate
-                    ?.takeIf { it.isNotBlank() }
-                    ?: fallbackUnpaidPayment?.dueDate?.takeIf { it.isNotBlank() }
-                    ?: installmentData?.nextPaymentDate?.takeIf { it.isNotBlank() }
-                    ?: rem.date)
-            } else null
+            val actualTrigger = triggerMillis ?: return@mapNotNull null
+            if (actualTrigger <= now) return@mapNotNull null
 
-            val actualTriggerMillis = installmentSchedule?.second?.triggerDateTime
-            val actualReminderDate = actualTriggerMillis?.let { trigger ->
-                PersianCalendarHelper.fromEpochMillis(trigger).toFormattedDate()
-            }
-            val actualReminderTime = actualTriggerMillis?.let { trigger ->
-                PersianCalendarHelper.fromEpochMillis(trigger).toFormattedTime()
-            }
-
-            val effectiveDateForUrgency = actualReminderDate ?: installmentDueDate ?: rem.date
-            val diff = calculateDaysDifference(effectiveDateForUrgency)
+            val triggerDate = PersianCalendarHelper.fromEpochMillis(actualTrigger)
+            val diff = calculateDaysDifference(triggerDate.toFormattedDate())
             val relativeText = when {
                 diff < 0 -> "سررسید گذشته"
                 diff == 0 -> "امروز"
                 diff == 1 -> "فردا"
                 else -> "${IranianPhoneUtils.convertDigitsToPersian(diff.toString())} روز دیگر"
             }
-            val typeTitle = when (rem.type) {
+            val typeTitle = when (reminder.type) {
                 "INSTALLMENT" -> "قسط و وام"
                 "VEHICLE", "SERVICE" -> "سرویس خودرو"
                 "INSURANCE" -> "بیمه"
                 "CHECK" -> "چک صیادی"
                 else -> "یادآوری شخصی"
             }
-            val iconRes = when (rem.type) {
+            val iconRes = when (reminder.type) {
                 "INSTALLMENT" -> R.drawable.img_3d_bank
                 "VEHICLE", "SERVICE" -> R.drawable.img_3d_oil
                 "INSURANCE" -> R.drawable.img_3d_insurance
                 else -> R.drawable.img_3d_bell_notification
             }
-            val accentColor = when (rem.type) {
+            val accentColor = when (reminder.type) {
                 "INSTALLMENT" -> ColorUtils.blueAccent
                 "VEHICLE", "SERVICE" -> ExpenseRoseLight
                 "INSURANCE" -> Color(0xFFF59E0B)
                 else -> Color(0xFF6366F1)
             }
 
-            Pair(
-                UpcomingReminderItem(
-                    id = rem.id,
-                    title = rem.title,
-                    relativeDaysText = relativeText,
-                    timePersian = if (isInstallmentReminder) actualReminderTime.orEmpty() else rem.time,
-                    typeTitle = typeTitle,
-                    iconRes = iconRes,
-                    accentColor = accentColor,
-                    datePersian = installmentDueDate ?: rem.date,
-                    dueDatePersian = installmentDueDate,
-                    reminderDatePersian = actualReminderDate
-                ),
-                diff
+            val item = UpcomingReminderItem(
+                id = reminder.id,
+                title = reminder.title,
+                relativeDaysText = relativeText,
+                timePersian = if (isInstallmentReminder) triggerDate.toFormattedTime() else reminder.time,
+                typeTitle = typeTitle,
+                iconRes = iconRes,
+                accentColor = accentColor,
+                datePersian = dueDate ?: reminder.date,
+                dueDatePersian = dueDate,
+                reminderDatePersian = if (isInstallmentReminder) triggerDate.toFormattedDate() else null,
+                installmentPaymentId = paymentId
             )
+            item to actualTrigger
         }
 
-        // Keep the existing overdue-first ordering, now using the actual next
-        // installment trigger date when one is available.
-        return itemsWithDiff.sortedWith(
-            compareBy<Pair<UpcomingReminderItem, Int>> { (_, diff) ->
-                if (diff < 0) 0 else 1
-            }.thenBy { (_, diff) ->
-                diff
-            }.thenBy { (item, _) ->
-                item.timePersian
-            }
-        ).map { it.first }.take(3)
+        return itemsWithTrigger
+            .sortedBy { it.second }
+            .map { it.first }
+            .take(3)
     }
 
     suspend fun getUnreadNotificationCount(): Int {
