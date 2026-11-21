@@ -69,18 +69,6 @@ enum class ReminderStatus(
     }
 }
 
-enum class Priority(val title: String, val level: Int, val color: Color) {
-    LOW("کم", 1, Color(0xFF10B981)),
-    NORMAL("عادی", 2, Color(0xFF3B82F6)),
-    HIGH("مهم و فوری", 3, Color(0xFFEF4444));
-
-    companion object {
-        fun fromKey(key: String?): Priority {
-            return entries.find { it.name.equals(key, ignoreCase = true) } ?: NORMAL
-        }
-    }
-}
-
 enum class TriggerType {
     EXACT,
     BEFORE_EVENT
