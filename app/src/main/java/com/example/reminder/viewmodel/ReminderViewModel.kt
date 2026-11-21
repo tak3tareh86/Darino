@@ -96,50 +96,61 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val completedList = allReminders.filter { it.status.equals("COMPLETED", ignoreCase = true) }
         val missedList = allReminders.filter { it.status.equals("MISSED", ignoreCase = true) }
 
+        // Installment schedules are stored per payment with stable IDs. Resolve the
+        // next unpaid payment first, then read only that payment's saved trigger rows.
+        // Never fall back to the loan reminder's date: that field is the due date.
+        val installmentReminders = activeList.filter {
+            it.sourceType.equals("INSTALLMENT", ignoreCase = true)
+        }
+        val installmentReminderIds = installmentReminders.map { it.id }.toSet()
+
         // Alert schedules determine the alert timestamp shown on a card, not whether
-        // the underlying obligation belongs in the Upcoming tab.
+        // the underlying obligation belongs in the Upcoming tab. Installment rows are
+        // excluded here because their schedules belong to individual payments.
         val nextTriggerByReminder = allSchedules.asSequence()
-            .filter { it.enabled && it.triggerDateTime > now }
+            .filter {
+                it.reminderId !in installmentReminderIds &&
+                    it.enabled &&
+                    it.triggerDateTime > now
+            }
             .groupBy { it.reminderId }
             .mapValues { (_, schedules) -> schedules.minOf { it.triggerDateTime } }
 
-        // For installment reminders, match a schedule to the CURRENT due date
-        // using the exact offset stored on that schedule. Do not pick the latest
-        // trigger before the due date: that can belong to a previous installment.
-        val installmentReminderDisplayTimes = activeList
-            .filter { it.sourceType.equals("INSTALLMENT", ignoreCase = true) }
-            .mapNotNull { reminder ->
+        val installmentRepository = LocalInstallmentRepository.instance
+        val installmentItems = installmentRepository.installments.value
+        val installmentReminderDisplayTimes = installmentReminders.mapNotNull { reminder ->
+            val installmentId = reminder.sourceId ?: return@mapNotNull null
+            val installment = installmentItems.firstOrNull { it.id == installmentId }
+                ?: return@mapNotNull null
+            val unpaidPayments = installment.paymentHistory.filter {
+                it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
+            }
+            val paymentCandidates = unpaidPayments.mapNotNull { payment ->
                 val dueAt = runCatching {
-                    ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
+                    ReminderManager.parsePersianDateTimeToMillis(payment.dueDate, reminder.time)
                 }.getOrNull() ?: return@mapNotNull null
-                val matchingTrigger = allSchedules.asSequence()
-                    .filter { schedule ->
-                        if (schedule.reminderId != reminder.id || schedule.id.startsWith("snooze_")) {
-                            false
-                        } else {
-                            val expectedTrigger = when (schedule.offsetUnit.uppercase()) {
-                                "MINUTE", "HOUR", "DAY", "WEEK", "MONTH" ->
-                                    runCatching {
-                                        java.util.Calendar.getInstance().apply {
-                                            timeInMillis = dueAt
-                                            when (schedule.offsetUnit.uppercase()) {
-                                                "MINUTE" -> add(java.util.Calendar.MINUTE, -schedule.offsetValue)
-                                                "HOUR" -> add(java.util.Calendar.HOUR_OF_DAY, -schedule.offsetValue)
-                                                "DAY" -> add(java.util.Calendar.DAY_OF_MONTH, -schedule.offsetValue)
-                                                "WEEK" -> add(java.util.Calendar.DAY_OF_MONTH, -7 * schedule.offsetValue)
-                                                "MONTH" -> add(java.util.Calendar.MONTH, -schedule.offsetValue)
-                                            }
-                                        }.timeInMillis
-                                    }.getOrNull()
-                                else -> null
-                            }
-                            expectedTrigger != null && schedule.triggerDateTime == expectedTrigger
-                        }
-                    }
-                    .map { it.triggerDateTime }
-                    .maxOrNull()
-                matchingTrigger?.let { reminder.id to it }
-            }.toMap()
+                payment to dueAt
+            }
+            val nextPayment = paymentCandidates
+                .filter { it.second > now }
+                .minByOrNull { it.second }
+                ?.first
+                ?: paymentCandidates.minByOrNull { it.second }?.first
+                ?: return@mapNotNull null
+
+            val matchingTrigger = allSchedules.asSequence()
+                .filter { schedule ->
+                    schedule.reminderId == reminder.id &&
+                        !schedule.id.startsWith("snooze_") &&
+                        schedule.id == java.util.UUID.nameUUIDFromBytes(
+                            "installment:$installmentId:\${nextPayment.id}:\${schedule.offsetValue}:\${schedule.offsetUnit}"
+                                .toByteArray(Charsets.UTF_8)
+                        ).toString()
+                }
+                .map { it.triggerDateTime }
+                .maxOrNull()
+            matchingTrigger?.let { reminder.id to it }
+        }.toMap()
         val reminderDisplayTimes = nextTriggerByReminder + installmentReminderDisplayTimes
 
         fun dueTime(reminder: ReminderEntity): Long? =
