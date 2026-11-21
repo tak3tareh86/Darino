@@ -56,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -773,9 +774,23 @@ fun SupportBackupScreen(
                         Surface(
                             modifier = Modifier.fillMaxWidth().height(148.dp),
                             shape = RoundedCornerShape(RadiusMD),
-                            color = MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            color = Color.Transparent,
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f))
                         ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(RadiusMD))
+                                    .background(
+                                        Brush.linearGradient(
+                                            colors = listOf(
+                                                Color(0xFF0B132B),
+                                                Color(0xFF112240),
+                                                Color(0xFF0A2B28)
+                                            )
+                                        )
+                                    )
+                            ) {
                             Column(
                                 modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 9.dp),
                                 verticalArrangement = Arrangement.spacedBy(5.dp)
@@ -794,6 +809,7 @@ fun SupportBackupScreen(
                                     Text(
                                         "آخرین وضعیت بکاپ",
                                         style = MaterialTheme.typography.bodyMedium,
+                                        color = Color(0xFFF8FAFC),
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
@@ -809,6 +825,7 @@ fun SupportBackupScreen(
                                             text = label,
                                             modifier = Modifier.width(112.dp),
                                             style = MaterialTheme.typography.labelMedium,
+                                            color = Color(0xFFF8FAFC),
                                             fontWeight = FontWeight.Medium,
                                             maxLines = 1
                                         )
@@ -816,13 +833,13 @@ fun SupportBackupScreen(
                                             text = formatBackupHistoryDate(timestamp),
                                             modifier = Modifier.weight(1f),
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = Color(0xFFCBD5E1),
                                             maxLines = 1
                                         )
                                         Text(
                                             text = formatBackupHistoryTime(timestamp),
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = Color(0xFFCBD5E1),
                                             maxLines = 1
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
