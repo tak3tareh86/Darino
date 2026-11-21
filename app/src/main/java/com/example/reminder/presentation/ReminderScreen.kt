@@ -344,183 +344,187 @@ fun ReminderScreen(
                     }
                 }
             ) { paddingValues ->
-                LazyColumn(
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
+                        .padding(paddingValues)
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-
-                    // Compact reminder summary: today / nearest / tomorrow
-                    item {
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 112.dp)
-                                .shadow(
-                                    elevation = 3.dp,
-                                    shape = RoundedCornerShape(20.dp),
-                                    ambientColor = Color(0xFF0D9488).copy(alpha = 0.2f),
-                                    spotColor = Color(0xFF0F172A).copy(alpha = 0.35f)
-                                )
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(
-                                    Brush.linearGradient(
-                                        colors = listOf(Color(0xFF0B132B), Color(0xFF112240), Color(0xFF0A2B28))
-                                    )
-                                ),
-                            shape = RoundedCornerShape(20.dp),
-                            color = Color.Transparent,
-                            tonalElevation = 0.dp,
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                Color(0xFF2DD4BF).copy(alpha = 0.28f)
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                // In RTL the first item is displayed on the right.
-                                Column(
-                                    modifier = Modifier.width(54.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                                ) {
-                                    Text(
-                                        text = "امروز",
-                                        maxLines = 1,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color(0xFFCBD5E1),
-                                            fontSize = 10.sp
-                                        )
-                                    )
-                                    Text(
-                                        text = IranianPhoneUtils.convertDigitsToPersian(uiState.todayCount.toString()),
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFFF8FAFC)
-                                        )
-                                    )
-                                }
-
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                                ) {
-                                    Text(
-                                        text = "نزدیک‌ترین",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color(0xFFCBD5E1),
-                                            fontSize = 10.sp
-                                        )
-                                    )
-                                    Text(
-                                        text = uiState.nearestReminder?.title ?: "بدون سررسید",
-                                        modifier = Modifier.fillMaxWidth(),
-                                        maxLines = 2,
-                                        softWrap = true,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        ),
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
-                                    uiState.nearestReminder?.let { reminder ->
-                                        Text(
-                                            text = "${if (uiState.nearestReminderTriggerAt != null) "تاریخ هشدار: " else "تاریخ یادآور: "}${uiState.nearestReminderTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedDate() } ?: reminder.date}",
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Color(0xFFCBD5E1),
-                                                fontSize = 10.sp
-                                            ),
-                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                        )
-                                        Text(
-                                            text = "${if (uiState.nearestReminderTriggerAt != null) "ساعت هشدار: " else "ساعت یادآور: "}${uiState.nearestReminderTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedTime() } ?: reminder.time}",
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Color(0xFFCBD5E1),
-                                                fontSize = 10.sp
-                                            ),
-                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                        )
-                                    }
-                                }
-
-                                Column(
-                                    modifier = Modifier.width(54.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                                ) {
-                                    Text(
-                                        text = "فردا",
-                                        maxLines = 1,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Color(0xFFCBD5E1),
-                                            fontSize = 10.sp
-                                        )
-                                    )
-                                    Text(
-                                        text = IranianPhoneUtils.convertDigitsToPersian(uiState.tomorrowCount.toString()),
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFFF8FAFC)
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    item {
-                        val primaryTabs = listOf(ReminderTab.ALL, ReminderTab.TODAY, ReminderTab.UPCOMING, ReminderTab.COMPLETED)
-                        TabRow(
-                            selectedTabIndex = primaryTabs.indexOf(uiState.selectedTab).coerceAtLeast(0),
-                            modifier = Modifier.fillMaxWidth(),
-                            containerColor = Color.Transparent,
-                            divider = {},
-                            indicator = {}
-                        ) {
-                            primaryTabs.forEach { tab ->
-                                val selected = uiState.selectedTab == tab
-                                Tab(
-                                    selected = selected,
-                                    onClick = { viewModel.selectTab(tab) },
-                                    modifier = Modifier.padding(horizontal = 1.dp),
-                                    text = {
-                                        Surface(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(18.dp),
-                                            color = if (selected) EmeraldPrimaryLight else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    text = tab.title,
-                                                    modifier = Modifier.padding(horizontal = 3.dp, vertical = 9.dp),
-                                                    maxLines = 1,
-                                                    softWrap = false,
-                                                    style = MaterialTheme.typography.labelLarge.copy(
-                                                        fontSize = 11.sp,
-                                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                                                        color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                    Surface(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .heightIn(min = 112.dp)
+                                                    .shadow(
+                                                        elevation = 3.dp,
+                                                        shape = RoundedCornerShape(20.dp),
+                                                        ambientColor = Color(0xFF0D9488).copy(alpha = 0.2f),
+                                                        spotColor = Color(0xFF0F172A).copy(alpha = 0.35f)
                                                     )
+                                                    .clip(RoundedCornerShape(20.dp))
+                                                    .background(
+                                                        Brush.linearGradient(
+                                                            colors = listOf(Color(0xFF0B132B), Color(0xFF112240), Color(0xFF0A2B28))
+                                                        )
+                                                    ),
+                                                shape = RoundedCornerShape(20.dp),
+                                                color = Color.Transparent,
+                                                tonalElevation = 0.dp,
+                                                border = androidx.compose.foundation.BorderStroke(
+                                                    1.dp,
+                                                    Color(0xFF2DD4BF).copy(alpha = 0.28f)
                                                 )
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    // In RTL the first item is displayed on the right.
+                                                    Column(
+                                                        modifier = Modifier.width(54.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "امروز",
+                                                            maxLines = 1,
+                                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                                color = Color(0xFFCBD5E1),
+                                                                fontSize = 10.sp
+                                                            )
+                                                        )
+                                                        Text(
+                                                            text = IranianPhoneUtils.convertDigitsToPersian(uiState.todayCount.toString()),
+                                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = Color(0xFFF8FAFC)
+                                                            )
+                                                        )
+                                                    }
+                    
+                                                    Column(
+                                                        modifier = Modifier.weight(1f),
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "نزدیک‌ترین",
+                                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                                color = Color(0xFFCBD5E1),
+                                                                fontSize = 10.sp
+                                                            )
+                                                        )
+                                                        Text(
+                                                            text = uiState.nearestReminder?.title ?: "بدون سررسید",
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            maxLines = 2,
+                                                            softWrap = true,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = Color.White
+                                                            ),
+                                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                        )
+                                                        uiState.nearestReminder?.let { reminder ->
+                                                            Text(
+                                                                text = "${if (uiState.nearestReminderTriggerAt != null) "تاریخ هشدار: " else "تاریخ یادآور: "}${uiState.nearestReminderTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedDate() } ?: reminder.date}",
+                                                                maxLines = 1,
+                                                                softWrap = false,
+                                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                                    color = Color(0xFFCBD5E1),
+                                                                    fontSize = 10.sp
+                                                                ),
+                                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                            )
+                                                            Text(
+                                                                text = "${if (uiState.nearestReminderTriggerAt != null) "ساعت هشدار: " else "ساعت یادآور: "}${uiState.nearestReminderTriggerAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedTime() } ?: reminder.time}",
+                                                                maxLines = 1,
+                                                                softWrap = false,
+                                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                                    color = Color(0xFFCBD5E1),
+                                                                    fontSize = 10.sp
+                                                                ),
+                                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                            )
+                                                        }
+                                                    }
+                    
+                                                    Column(
+                                                        modifier = Modifier.width(54.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "فردا",
+                                                            maxLines = 1,
+                                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                                color = Color(0xFFCBD5E1),
+                                                                fontSize = 10.sp
+                                                            )
+                                                        )
+                                                        Text(
+                                                            text = IranianPhoneUtils.convertDigitsToPersian(uiState.tomorrowCount.toString()),
+                                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = Color(0xFFF8FAFC)
+                                                            )
+                                                        )
+                                                    }
+                                                }
                                             }
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                    }
+
+                    val primaryTabs = listOf(ReminderTab.ALL, ReminderTab.TODAY, ReminderTab.UPCOMING, ReminderTab.COMPLETED)
+                                            TabRow(
+                                                selectedTabIndex = primaryTabs.indexOf(uiState.selectedTab).coerceAtLeast(0),
+                                                modifier = Modifier.fillMaxWidth(),
+                                                containerColor = Color.Transparent,
+                                                divider = {},
+                                                indicator = {}
+                                            ) {
+                                                primaryTabs.forEach { tab ->
+                                                    val selected = uiState.selectedTab == tab
+                                                    Tab(
+                                                        selected = selected,
+                                                        onClick = { viewModel.selectTab(tab) },
+                                                        modifier = Modifier.padding(horizontal = 1.dp),
+                                                        text = {
+                                                            Surface(
+                                                                modifier = Modifier.fillMaxWidth(),
+                                                                shape = RoundedCornerShape(18.dp),
+                                                                color = if (selected) EmeraldPrimaryLight else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                                                            ) {
+                                                                Box(
+                                                                    modifier = Modifier.fillMaxWidth(),
+                                                                    contentAlignment = Alignment.Center
+                                                                ) {
+                                                                    Text(
+                                                                        text = tab.title,
+                                                                        modifier = Modifier.padding(horizontal = 3.dp, vertical = 9.dp),
+                                                                        maxLines = 1,
+                                                                        softWrap = false,
+                                                                        style = MaterialTheme.typography.labelLarge.copy(
+                                                                            fontSize = 11.sp,
+                                                                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                                                            color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                                                        )
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
+                                                    )
+                                                }
+                                            }
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentPadding = PaddingValues(bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+
 
                     if (uiState.selectedTab == ReminderTab.COMPLETED && uiState.completedReminders.isNotEmpty()) {
                         item {
