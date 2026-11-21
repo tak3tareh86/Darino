@@ -235,7 +235,6 @@ fun TransactionDetailScreen(
                             DetailRow(label = "دریافت‌کننده", value = recipient)
                         }
                     } else {
-                        DetailRow(label = "حساب ثبت‌شده", value = transaction.accountName)
                         DetailRow(
                             label = "روش پرداخت",
                             value = "${transaction.paymentMethod.iconEmoji} ${transaction.paymentMethod.title}"
