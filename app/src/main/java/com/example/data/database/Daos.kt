@@ -109,6 +109,9 @@ interface InstallmentDao {
     @Query("SELECT p.* FROM installment_payments p INNER JOIN installments i ON i.id = p.installmentId WHERE i.userId = :userId")
     suspend fun getAllPaymentsList(userId: String): List<InstallmentPaymentEntity>
 
+    @Query("SELECT p.* FROM installment_payments p INNER JOIN installments i ON i.id = p.installmentId WHERE i.userId = :userId AND i.deletedAt IS NULL ORDER BY p.dueDate ASC")
+    fun getAllPayments(userId: String): Flow<List<InstallmentPaymentEntity>>
+
     @Query("DELETE FROM installment_payments WHERE installmentId IN (SELECT id FROM installments WHERE userId = :userId)")
     suspend fun clearAllPayments(userId: String)
 
