@@ -167,8 +167,20 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             val installmentId = reminder.sourceId ?: return@reminderEntry null
             val installment = installmentItems.firstOrNull { it.id == installmentId }
                 ?: return@reminderEntry null
+            val completedPaymentIds = installment.paymentHistory.filter { payment ->
+                allSchedules.any { schedule ->
+                    schedule.reminderId == reminder.id &&
+                        schedule.triggerType.equals("COMPLETED", ignoreCase = true) &&
+                        schedule.id == java.util.UUID.nameUUIDFromBytes(
+                            "installment:$installmentId:${payment.id}:${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
+                                .toByteArray(Charsets.UTF_8)
+                        ).toString()
+                }
+            }.mapTo(mutableSetOf()) { it.id }
             val unpaidPayments = installment.paymentHistory.filter {
-                it.status != InstallmentStatus.PAID && it.status != InstallmentStatus.COMPLETED
+                it.status != InstallmentStatus.PAID &&
+                    it.status != InstallmentStatus.COMPLETED &&
+                    it.id !in completedPaymentIds
             }
             val paymentCandidates = unpaidPayments.mapNotNull paymentEntry@{ payment ->
                 val dueAt = runCatching {
@@ -186,6 +198,8 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             val matchingTrigger = allSchedules.asSequence()
                 .filter { schedule ->
                     schedule.reminderId == reminder.id &&
+                        schedule.enabled &&
+                        !schedule.triggerType.equals("COMPLETED", ignoreCase = true) &&
                         !schedule.id.startsWith("snooze_") &&
                         schedule.id == java.util.UUID.nameUUIDFromBytes(
                             "installment:$installmentId:${nextPayment.id}:${schedule.offsetValue}:${schedule.offsetUnit}"
