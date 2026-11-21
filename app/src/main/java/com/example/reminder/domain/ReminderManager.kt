@@ -312,7 +312,7 @@ class ReminderManager(
             ?.any { payment ->
                 val paymentSchedules = updatedSchedules.filter { schedule ->
                     val expectedId = UUID.nameUUIDFromBytes(
-                        "installment:\${reminder.sourceId}:\${payment.id}:\${schedule.offsetValue}:\${schedule.offsetUnit.uppercase()}"
+                        "installment:${reminder.sourceId}:${payment.id}:${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
                             .toByteArray(Charsets.UTF_8)
                     ).toString()
                     schedule.id == expectedId
