@@ -3,6 +3,7 @@ package com.example.ui.screens.home.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,14 +30,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.example.util.MoneyFormatter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.Layered3DCard
@@ -55,7 +63,14 @@ fun UpcomingObligationsCard(
     onMarkDoneClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val nearestItem = obligations.firstOrNull()
+    var selectedIndex by remember { mutableIntStateOf(0) }
+    val obligationIds = obligations.map { it.id }
+
+    LaunchedEffect(obligationIds) {
+        selectedIndex = selectedIndex.coerceIn(0, (obligations.size - 1).coerceAtLeast(0))
+    }
+
+    val nearestItem = obligations.getOrNull(selectedIndex)
 
     Column(
         modifier = modifier,
@@ -64,7 +79,25 @@ fun UpcomingObligationsCard(
         Layered3DCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(210.dp),
+                .height(210.dp)
+                .pointerInput(obligationIds, selectedIndex) {
+                    var totalHorizontalDrag = 0f
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { change, dragAmount ->
+                            totalHorizontalDrag += dragAmount
+                            change.consume()
+                        },
+                        onDragEnd = {
+                            when {
+                                totalHorizontalDrag > 48f ->
+                                    selectedIndex = (selectedIndex + 1).coerceAtMost(obligations.lastIndex)
+                                totalHorizontalDrag < -48f ->
+                                    selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
+                            }
+                        },
+                        onDragCancel = { totalHorizontalDrag = 0f }
+                    )
+                },
             elevation = 2.dp,
             contentPadding = PaddingValues(12.dp)
         ) {
@@ -139,6 +172,20 @@ fun UpcomingObligationsCard(
                                 }
                             }
                         }
+                    }
+
+                    if (nearestItem != null && obligations.size > 1) {
+                        Text(
+                            text = "${selectedIndex + 1} از ${obligations.size}",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
                     }
 
                     if (nearestItem == null) {
