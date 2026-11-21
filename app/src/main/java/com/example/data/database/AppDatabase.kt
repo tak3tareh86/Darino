@@ -32,7 +32,7 @@ import androidx.room.RoomDatabase
         CheckEntity::class,
         VehicleReminderCleanupQueueEntity::class
     ],
-    version = 49,
+    version = 50,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -843,6 +843,114 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_49_50 = object : androidx.room.migration.Migration(49, 50) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Rebuild reminders without the retired priority column. Rebuild schedules
+                // as well so their rows and cascading foreign key survive the parent swap.
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `smart_reminders_new` (
+                        `id` TEXT NOT NULL,
+                        `userId` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `description` TEXT NOT NULL,
+                        `type` TEXT NOT NULL,
+                        `sourceType` TEXT NOT NULL,
+                        `sourceId` TEXT,
+                        `status` TEXT NOT NULL,
+                        `date` TEXT NOT NULL,
+                        `time` TEXT NOT NULL,
+                        `timezone` TEXT NOT NULL,
+                        `notificationEnabled` INTEGER NOT NULL,
+                        `fullScreenAlarmEnabled` INTEGER NOT NULL,
+                        `smsEnabled` INTEGER NOT NULL,
+                        `phoneNumber` TEXT,
+                        `amount` INTEGER,
+                        `amountUnit` TEXT NOT NULL DEFAULT 'TOMAN',
+                        `targetKilometer` INTEGER,
+                        `currentKilometer` INTEGER,
+                        `createdAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        `completedAt` INTEGER,
+                        `cancelledAt` INTEGER,
+                        PRIMARY KEY(`id`)
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT INTO `smart_reminders_new` (
+                        `id`, `userId`, `title`, `description`, `type`, `sourceType`,
+                        `sourceId`, `status`, `date`, `time`, `timezone`,
+                        `notificationEnabled`, `fullScreenAlarmEnabled`, `smsEnabled`,
+                        `phoneNumber`, `amount`, `amountUnit`, `targetKilometer`,
+                        `currentKilometer`, `createdAt`, `updatedAt`, `completedAt`, `cancelledAt`
+                    )
+                    SELECT
+                        `id`, `userId`, `title`, `description`, `type`, `sourceType`,
+                        `sourceId`, `status`, `date`, `time`, `timezone`,
+                        `notificationEnabled`, `fullScreenAlarmEnabled`, `smsEnabled`,
+                        `phoneNumber`, `amount`, `amountUnit`, `targetKilometer`,
+                        `currentKilometer`, `createdAt`, `updatedAt`, `completedAt`, `cancelledAt`
+                    FROM `smart_reminders`
+                """.trimIndent())
+
+                // Temporarily copy schedules without a foreign key so dropping the old
+                // parent table cannot cascade-delete the user's existing schedule rows.
+                db.execSQL("""
+                    CREATE TABLE `smart_reminder_schedules_backup` (
+                        `id` TEXT NOT NULL,
+                        `reminderId` TEXT NOT NULL,
+                        `triggerType` TEXT NOT NULL,
+                        `offsetValue` INTEGER NOT NULL,
+                        `offsetUnit` TEXT NOT NULL,
+                        `triggerDateTime` INTEGER NOT NULL,
+                        `repeatType` TEXT NOT NULL,
+                        `repeatInterval` INTEGER NOT NULL,
+                        `enabled` INTEGER NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT INTO `smart_reminder_schedules_backup`
+                    SELECT `id`, `reminderId`, `triggerType`, `offsetValue`, `offsetUnit`,
+                           `triggerDateTime`, `repeatType`, `repeatInterval`, `enabled`, `createdAt`
+                    FROM `smart_reminder_schedules`
+                """.trimIndent())
+
+                db.execSQL("DROP TABLE `smart_reminder_schedules`")
+                db.execSQL("DROP TABLE `smart_reminders`")
+                db.execSQL("ALTER TABLE `smart_reminders_new` RENAME TO `smart_reminders`")
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `smart_reminder_schedules` (
+                        `id` TEXT NOT NULL,
+                        `reminderId` TEXT NOT NULL,
+                        `triggerType` TEXT NOT NULL,
+                        `offsetValue` INTEGER NOT NULL,
+                        `offsetUnit` TEXT NOT NULL,
+                        `triggerDateTime` INTEGER NOT NULL,
+                        `repeatType` TEXT NOT NULL,
+                        `repeatInterval` INTEGER NOT NULL,
+                        `enabled` INTEGER NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`),
+                        FOREIGN KEY(`reminderId`) REFERENCES `smart_reminders`(`id`)
+                            ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT INTO `smart_reminder_schedules`
+                    SELECT `id`, `reminderId`, `triggerType`, `offsetValue`, `offsetUnit`,
+                           `triggerDateTime`, `repeatType`, `repeatInterval`, `enabled`, `createdAt`
+                    FROM `smart_reminder_schedules_backup`
+                """.trimIndent())
+                db.execSQL("DROP TABLE `smart_reminder_schedules_backup`")
+
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_smart_reminders_userId_sourceType_sourceId` ON `smart_reminders` (`userId`, `sourceType`, `sourceId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_smart_reminder_schedules_reminderId` ON `smart_reminder_schedules` (`reminderId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_smart_reminder_schedules_triggerDateTime` ON `smart_reminder_schedules` (`triggerDateTime`)")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -856,7 +964,7 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
                          MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
                          MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30,
-                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44, MIGRATION_44_45, MIGRATION_45_46, MIGRATION_46_47, MIGRATION_47_48, MIGRATION_48_49
+                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44, MIGRATION_44_45, MIGRATION_45_46, MIGRATION_46_47, MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50
                      )
                     .build()
                 INSTANCE = instance
