@@ -258,6 +258,65 @@ class ReminderManager(
     }
 
     /**
+     * Completes only the selected payment's reminder occurrence.
+     * The loan-level reminder remains active and later unpaid payments keep
+     * their configured schedules.
+     */
+    suspend fun completeInstallmentReminderOccurrence(
+        reminderId: String,
+        paymentId: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        val reminder = repository.getReminderById(reminderId) ?: return@withContext false
+        if (!reminder.sourceType.equals("INSTALLMENT", ignoreCase = true) ||
+            reminder.sourceId.isNullOrBlank()
+        ) return@withContext false
+
+        val oldSchedules = repository.getSchedulesSync(reminderId)
+        val completedScheduleIds = oldSchedules.filter { schedule ->
+            val expectedId = UUID.nameUUIDFromBytes(
+                "installment:${reminder.sourceId}:${paymentId}:${schedule.offsetValue}:${schedule.offsetUnit.uppercase()}"
+                    .toByteArray(Charsets.UTF_8)
+            ).toString()
+            schedule.id == expectedId
+        }.mapTo(mutableSetOf()) { it.id }
+
+        if (completedScheduleIds.isEmpty()) return@withContext false
+
+        val updatedSchedules = oldSchedules.map { schedule ->
+            if (schedule.id in completedScheduleIds) schedule.copy(enabled = false) else schedule
+        }
+        val updatedReminder = reminder.copy(updatedAt = System.currentTimeMillis())
+
+        // Cancel old PendingIntents before replacing the rows, then re-arm all
+        // remaining future payment schedules without changing the parent status.
+        scheduler.cancel(reminder.id, oldSchedules)
+        NotificationDispatcher(context).cancelReminderNotifications(reminder.id, oldSchedules)
+        try {
+            repository.updateReminderWithSchedules(updatedReminder, updatedSchedules)
+            val remainingFutureSchedules = updatedSchedules.filter {
+                it.enabled && it.triggerDateTime > System.currentTimeMillis()
+            }
+            if (remainingFutureSchedules.isNotEmpty()) {
+                scheduler.schedule(updatedReminder, remainingFutureSchedules)
+            }
+            true
+        } catch (e: Exception) {
+            Log.e("ReminderManager", "Could not complete installment reminder occurrence $paymentId; restoring schedules.", e)
+            runCatching {
+                repository.updateReminderWithSchedules(reminder, oldSchedules)
+                val restorable = oldSchedules.filter {
+                    it.enabled && it.triggerDateTime > System.currentTimeMillis()
+                }
+                if (restorable.isNotEmpty()) scheduler.schedule(reminder, restorable)
+            }.onFailure { rollbackError ->
+                e.addSuppressed(rollbackError)
+                Log.e("ReminderManager", "Failed to restore installment reminder schedules after completion error.", rollbackError)
+            }
+            throw e
+        }
+    }
+
+    /**
      * Marks a reminder as completed.
      */
     suspend fun completeReminder(reminderId: String) = withContext(Dispatchers.IO) {
