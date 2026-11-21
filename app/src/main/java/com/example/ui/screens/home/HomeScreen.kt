@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -61,6 +62,7 @@ import com.example.domain.subscription.SubscriptionStatus
 import com.example.domain.subscription.SubscriptionValidator
 import com.example.ui.screens.subscription.SubscriptionState
 import com.example.ui.screens.subscription.SubscriptionStatusCard
+import com.example.ui.screens.subscription.SubscriptionLockedScreen
 import com.example.ui.screens.subscription.SubscriptionViewModel
 import kotlinx.coroutines.launch
 
@@ -80,6 +82,7 @@ fun HomeScreen(
     val subState by subscriptionViewModel.uiState.collectAsState()
     var debugSubscriptionState by remember { mutableStateOf<SubscriptionState?>(null) }
     var showSubscriptionDebugPanel by remember { mutableStateOf(false) }
+    var showDebugExpiredScreen by remember { mutableStateOf(false) }
     var pendingInstallmentPaymentId by remember { mutableStateOf<String?>(null) }
     val displayedSubscriptionState = if (BuildConfig.DEBUG) debugSubscriptionState ?: subState else subState
     val smsPermissionState by viewModel.smsPermissionState.collectAsState()
@@ -194,6 +197,17 @@ fun HomeScreen(
         }
     }
 
+    if (BuildConfig.DEBUG && showDebugExpiredScreen) {
+        BackHandler(enabled = true) {
+            showDebugExpiredScreen = false
+            debugSubscriptionState = null
+        }
+        SubscriptionLockedScreen(
+            viewModel = subscriptionViewModel,
+            forceLockedForDebug = true,
+            forceAnnualExpiryForDebug = true
+        )
+    } else {
     Scaffold(
         modifier = modifier
             .fillMaxSize()
@@ -291,7 +305,7 @@ fun HomeScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     androidx.compose.material3.Text(
-                                        "این حالت فقط ظاهر کارت را تغییر می‌دهد و هیچ خرید یا اطلاعات ذخیره‌شده‌ای را دست‌کاری نمی‌کند."
+                                        "این گزینه‌ها فقط برای آزمایش رابط کاربری هستند و هیچ خرید یا اطلاعات ذخیره‌شده‌ای را تغییر نمی‌دهند."
                                     )
                                     androidx.compose.material3.TextButton(
                                         onClick = { applyDebugState(SubscriptionStatus.TRIAL, 14L) },
@@ -463,6 +477,8 @@ fun HomeScreen(
             }
         }
     }
+    }
+
 
     pendingInstallmentPaymentId?.let { obligationId ->
         androidx.compose.material3.AlertDialog(
