@@ -226,14 +226,17 @@ class LocalCheckRepository private constructor() : CheckRepository {
             } catch (e: Exception) {
                 e.printStackTrace()
                 // Do not report a successful check deletion while its linked reminder
-                // may still exist. Restore the exact prior check row so the user can retry.
+                // may still exist. Restore only the deletion marker so the user can retry.
                 runCatching {
-                    database.checkDao().restoreSoftDeletedCheckAfterReminderFailure(
+                    val restoredRows = database.checkDao().restoreSoftDeletedCheckAfterReminderFailure(
                         userId = userId,
                         checkId = id,
                         deletedAt = deletionTimestamp,
                         restoredUpdatedAt = existing.updatedAt
                     )
+                    if (restoredRows != 1) {
+                        throw IllegalStateException("Unable to restore the check after reminder cleanup failed.")
+                    }
                 }.onFailure { rollbackError ->
                     rollbackError.printStackTrace()
                 }
