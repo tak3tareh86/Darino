@@ -192,6 +192,19 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
     companion object {
         private val migrationMutex = Mutex()
         private val migrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+        /**
+         * Serializes check-specific legacy cleanup with the one-time legacy import.
+         * This does not change migration behavior for any other reminder source.
+         */
+        suspend fun <T> withLegacyMigrationLock(block: suspend () -> T): T {
+            migrationMutex.lock()
+            try {
+                return block()
+            } finally {
+                migrationMutex.unlock()
+            }
+        }
     }
 
     override fun getAllReminders(): Flow<List<ReminderEntity>> =
