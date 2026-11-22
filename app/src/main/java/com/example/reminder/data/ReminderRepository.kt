@@ -304,8 +304,9 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
     }
 
     /**
-     * Check-only cleanup: remove its schedules, delivery logs, and reminder atomically.
-     * Generic reminder deletion intentionally keeps its existing behavior.
+     * Check-only cleanup: remove its notification-center entries, schedules,
+     * delivery logs, and reminder atomically. Generic reminder deletion
+     * intentionally keeps its existing behavior.
      */
     override suspend fun deleteCheckReminderWithSchedulesAndLogs(reminderId: String) {
         val userId = requireUserId()
