@@ -310,16 +310,16 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
      */
     override suspend fun deleteCheckReminderWithSchedulesAndLogs(reminderId: String) {
         val userId = requireUserId()
-        val deliveryLogs = dao.getDeliveryLogsForReminderSync(userId, reminderId)
-        val notificationIds = deliveryLogs.map { log ->
-            NotificationIdGenerator.generateNotificationId(
-                reminderId = reminderId,
-                scheduleId = log.scheduleId,
-                triggerTime = log.scheduledAt
-            )
-        }.distinct()
-
         db.withTransaction {
+            val deliveryLogs = dao.getDeliveryLogsForReminderSync(userId, reminderId)
+            val notificationIds = deliveryLogs.map { log ->
+                NotificationIdGenerator.generateNotificationId(
+                    reminderId = reminderId,
+                    scheduleId = log.scheduleId,
+                    triggerTime = log.scheduledAt
+                )
+            }.distinct()
+
             if (notificationIds.isNotEmpty()) {
                 db.notificationLogDao().deleteSmartReminderNotifications(userId, notificationIds)
             }
