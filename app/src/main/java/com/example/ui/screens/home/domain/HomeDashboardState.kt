@@ -43,7 +43,8 @@ data class UpcomingReminderItem(
     val datePersian: String = "",
     val dueDatePersian: String? = null,
     val reminderDatePersian: String? = null,
-    val installmentPaymentId: String? = null
+    val installmentPaymentId: String? = null,
+    val vehicleName: String? = null
 )
 
 data class HomeDashboardState(
