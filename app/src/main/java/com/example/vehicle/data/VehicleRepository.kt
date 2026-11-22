@@ -149,14 +149,28 @@ class VehicleRepository {
             }
 
             val errors = mutableListOf<Throwable>()
-            schedules.forEach { schedule ->
-                runCatching { scheduler.cancelSchedule(schedule.id) }
+            if (pending.reminderId.startsWith("legacy:")) {
+                val legacyId = pending.reminderId.removePrefix("legacy:").toIntOrNull()
+                if (legacyId == null) {
+                    android.util.Log.e("VehicleRepository", "Invalid legacy reminder cleanup key: ${pending.reminderId}")
+                    return@forEach
+                }
+                runCatching { com.example.data.receiver.ReminderScheduler(context).cancel(legacyId) }
                     .onFailure { errors.add(it) }
+                runCatching {
+                    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                    manager.cancel(legacyId)
+                }.onFailure { errors.add(it) }
+            } else {
+                schedules.forEach { schedule ->
+                    runCatching { scheduler.cancelSchedule(schedule.id) }
+                        .onFailure { errors.add(it) }
+                }
+                runCatching {
+                    com.example.reminder.domain.NotificationDispatcher(context)
+                        .cancelReminderNotifications(pending.reminderId, schedules)
+                }.onFailure { errors.add(it) }
             }
-            runCatching {
-                com.example.reminder.domain.NotificationDispatcher(context)
-                    .cancelReminderNotifications(pending.reminderId, schedules)
-            }.onFailure { errors.add(it) }
 
             if (errors.isEmpty()) {
                 dao.delete(pending.userId, pending.reminderId)
@@ -1099,29 +1113,22 @@ class VehicleRepository {
 
         try {
             val db = AppDatabase.getDatabase(context)
-
-            // Gather child entity IDs to clean up their reminders
-            val serviceIds = db.vehicleDao().getServiceServerIdsByVehicleId(userId, vehicleId)
-            val insuranceIds = db.vehicleDao().getInsuranceIdsByVehicleId(userId, vehicleId)
-            val inspectionIds = db.vehicleDao().getInspectionIdsByVehicleId(userId, vehicleId)
-
-            // Gather child schedules to cancel alarms for
-            val allSchedulesToCancel = mutableListOf<com.example.reminder.data.ReminderScheduleEntity>()
-            (serviceIds + insuranceIds + inspectionIds + listOf(vehicleId)).forEach { id ->
-                val schedules = db.smartReminderDao().getSchedulesForReminderSync(userId, id)
-                allSchedulesToCancel.addAll(schedules)
-            }
+            val vehicleDao = db.vehicleDao()
+            val serviceIds = vehicleDao.getServiceServerIdsByVehicleId(userId, vehicleId)
+            val serviceLocalIds = vehicleDao.getServiceLocalIdsByVehicleId(userId, vehicleId)
+            val insuranceIds = vehicleDao.getInsuranceIdsByVehicleId(userId, vehicleId)
+            val inspectionIds = vehicleDao.getInspectionIdsByVehicleId(userId, vehicleId)
 
             val affectedRows = db.withTransaction {
-                val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
+                val vehicle = vehicleDao.getVehicleByServerId(userId, vehicleId)
                 if (vehicle != null) {
                     val legacyVehicleIds = buildSet {
                         add(vehicleId)
                         add(vehicle.id.toString())
                         vehicle.serverId?.takeIf(String::isNotBlank)?.let(::add)
                     }
-                    db.vehicleDao().getVehicleStore(userId)?.let { store ->
-                        db.vehicleDao().insertVehicleStore(
+                    vehicleDao.getVehicleStore(userId)?.let { store ->
+                        vehicleDao.insertVehicleStore(
                             store.copy(
                                 vehiclesJson = removeLegacyVehicleRows(store.vehiclesJson, "id", legacyVehicleIds),
                                 servicesJson = removeLegacyVehicleRows(store.servicesJson, "vehicleId", legacyVehicleIds),
@@ -1132,26 +1139,56 @@ class VehicleRepository {
                         )
                     }
                 }
-                val vehicleAffected = db.vehicleDao().deleteVehicleByServerId(userId, vehicleId)
-                // Queue every reminder whose database rows are removed below, even if the
-                // vehicle row was already missing but orphan child/reminder rows still exist.
+
+                val smartSourceIds = (serviceIds + serviceLocalIds.map(Int::toString) +
+                    insuranceIds + inspectionIds + vehicleId).distinct()
+                val smartDao = db.smartReminderDao()
+                val vehicleReminders = smartDao.getVehicleRemindersForSources(userId, smartSourceIds)
+                val vehicleReminderIds = vehicleReminders.map { it.id }.distinct()
+                val smartSchedules = vehicleReminderIds.flatMap { reminderId ->
+                    smartDao.getSchedulesForExactVehicleReminder(userId, reminderId)
+                }
+
                 enqueueVehicleReminderCleanup(
                     db = db,
                     userId = userId,
-                    reminderIds = serviceIds + insuranceIds + inspectionIds + listOf(vehicleId),
-                    schedules = allSchedulesToCancel
+                    reminderIds = vehicleReminderIds,
+                    schedules = smartSchedules
                 )
-                db.vehicleDao().deleteServicesByVehicleId(userId, vehicleId)
-                db.vehicleDao().deleteExpensesByVehicleId(userId, vehicleId)
-                db.vehicleDao().deleteInsurancesByVehicleId(userId, vehicleId)
-                db.vehicleDao().deleteInspectionsByVehicleId(userId, vehicleId)
-                
-                // Delete all corresponding reminders & schedules in DB inside the same transaction
-                (serviceIds + insuranceIds + inspectionIds + listOf(vehicleId)).forEach { id ->
-                    db.smartReminderDao().deleteReminderById(userId, id)
-                    db.smartReminderDao().deleteSchedulesByReminderId(userId, id)
+
+                val legacyReminders = if (serviceLocalIds.isNotEmpty()) {
+                    db.reminderDao().getVehicleServiceReminders(userId, serviceLocalIds)
+                } else emptyList()
+                val legacyReminderIds = legacyReminders.map { it.id }.distinct()
+                if (legacyReminderIds.isNotEmpty()) {
+                    enqueueVehicleReminderCleanup(
+                        db = db,
+                        userId = userId,
+                        reminderIds = legacyReminderIds.map { "legacy:$it" },
+                        schedules = emptyList()
+                    )
+                    db.reminderDao().deleteSchedulesForReminders(userId, legacyReminderIds)
+                    db.notificationLogDao().deleteLegacyReminderNotificationsBatch(userId, legacyReminderIds)
+                    db.smsLogDao().deleteLogsForReminders(userId, legacyReminderIds)
+                    db.reminderDao().deleteVehicleServiceReminders(userId, legacyReminderIds)
                 }
-                
+
+                vehicleReminderIds.forEach { reminderId ->
+                    smartDao.deleteDeliveryLogsForExactVehicleReminder(userId, reminderId)
+                    smartDao.deleteSchedulesForExactVehicleReminder(userId, reminderId)
+                    smartDao.deleteExactVehicleReminder(userId, reminderId)
+                }
+
+                val financialSourceIds = (serviceIds + serviceLocalIds.map(Int::toString) + insuranceIds).distinct()
+                if (financialSourceIds.isNotEmpty()) {
+                    db.transactionDao().softDeleteVehicleTransactions(userId, financialSourceIds)
+                }
+
+                val vehicleAffected = vehicleDao.deleteVehicleByServerId(userId, vehicleId)
+                vehicleDao.deleteServicesByVehicleId(userId, vehicleId)
+                vehicleDao.deleteExpensesByVehicleId(userId, vehicleId)
+                vehicleDao.deleteInsurancesByVehicleId(userId, vehicleId)
+                vehicleDao.deleteInspectionsByVehicleId(userId, vehicleId)
                 vehicleAffected
             }
 
@@ -1159,7 +1196,6 @@ class VehicleRepository {
                 return@withContext Result.failure(IllegalStateException("هیچ خودرویی برای حذف یافت نشد."))
             }
 
-            // The durable queue survives this deletion even if Android cleanup fails.
             runCatching { retryPendingVehicleReminderCleanup(context, userId) }
                 .onFailure {
                     android.util.Log.e("VehicleRepository", "Vehicle deletion succeeded; reminder cleanup remains queued.", it)
