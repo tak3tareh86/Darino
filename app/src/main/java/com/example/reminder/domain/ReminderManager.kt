@@ -1143,6 +1143,40 @@ class ReminderManager(
     }
 
     /**
+     * Deletes only the reminder records associated with a deleted check.
+     *
+     * Legacy rows are soft-deleted through their existing repository path while
+     * holding the same lock used by legacy migration, preventing the importer
+     * from recreating the deleted check reminder. The current smart reminder is
+     * then removed through the standard alarm/notification cancellation path.
+     */
+    suspend fun deleteCheckReminder(checkId: String) = withContext(Dispatchers.IO) {
+        val userId = SessionManager.userId
+            ?: throw IllegalStateException("Authenticated user is required to delete a check reminder")
+
+        LocalReminderRepository.withLegacyMigrationLock {
+            val legacyReminders = AppDatabase.getDatabase(context)
+                .reminderDao()
+                .getAllRemindersForBackup(userId)
+                .filter { legacy ->
+                    legacy.deletedAt == null &&
+                        legacy.sourceType.equals("CHECK", ignoreCase = true) &&
+                        legacy.sourceId?.toString() == checkId
+                }
+
+            val legacyRepository = com.example.data.repository.ReminderRepository(context)
+            legacyReminders.forEach { legacy ->
+                legacyRepository.deleteReminder(legacy.id)
+            }
+
+            val smartReminder = repository.getReminderBySource("CHECK", checkId)
+            if (smartReminder != null) {
+                deleteReminder(smartReminder.id)
+            }
+        }
+    }
+
+    /**
      * Triggered when a check is cleared, paid or canceled.
      */
     suspend fun onCheckSettled(checkId: String) = withContext(Dispatchers.IO) {
