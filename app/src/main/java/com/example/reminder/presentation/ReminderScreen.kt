@@ -81,9 +81,31 @@ fun ReminderScreen(
     val vehicleRepository = remember { VehicleRepository.instance }
     val vehicles by vehicleRepository.vehicles.collectAsState()
     val vehicleServices by vehicleRepository.services.collectAsState()
+    val vehicleInsurances by vehicleRepository.insurances.collectAsState()
+    val vehicleInspections by vehicleRepository.inspections.collectAsState()
 
     LaunchedEffect(vehicleRepository, appContext) {
         vehicleRepository.initDatabase(appContext)
+    }
+
+    val vehicleNameForReminder: (ReminderEntity) -> String? = { reminder ->
+        val sourceId = reminder.sourceId ?: reminder.id
+        val linkedVehicleId = when {
+            reminder.sourceType.equals("INSURANCE", ignoreCase = true) ->
+                vehicleInsurances.firstOrNull { it.id == sourceId }?.vehicleId
+            reminder.sourceType.equals("VEHICLE", ignoreCase = true) ->
+                vehicleInspections.firstOrNull { it.id == sourceId }?.vehicleId
+            else -> null
+        }
+        linkedVehicleId?.let { vehicleId ->
+            vehicles.firstOrNull { it.id == vehicleId }?.let { vehicle ->
+                listOf(vehicle.brand, vehicle.model)
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .joinToString(" ")
+                    .takeIf { it.isNotBlank() }
+            }
+        }
     }
 
     val vehiclePlateForReminder: (ReminderEntity) -> String? = { reminder ->
@@ -428,6 +450,20 @@ fun ReminderScreen(
                                                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                                         )
                                                         uiState.nearestReminder?.let { reminder ->
+                                                            vehicleNameForReminder(reminder)?.let { vehicleName ->
+                                                                Text(
+                                                                    text = vehicleName,
+                                                                    modifier = Modifier.fillMaxWidth(),
+                                                                    maxLines = 1,
+                                                                    softWrap = false,
+                                                                    overflow = TextOverflow.Ellipsis,
+                                                                    style = MaterialTheme.typography.labelMedium.copy(
+                                                                        fontWeight = FontWeight.SemiBold,
+                                                                        color = Color.White
+                                                                    ),
+                                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                                )
+                                                            }
                                                             Text(
                                                                 text = "تاریخ سررسید: ${uiState.nearestReminderDueAt?.let { com.example.util.PersianCalendarHelper.fromEpochMillis(it).toFormattedDate() } ?: reminder.date}",
                                                                 maxLines = 1,
