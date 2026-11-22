@@ -217,7 +217,9 @@ class CalendarManager(private val context: Context) {
                             amount = svc.cost,
                             amountUnit = svc.costUnit,
                             date = normDate,
-                            // Vehicle service records store a date only; no service time is entered.
+                            // This row is a historical service record (the date it was performed).
+                            // Its completion is presentation-only; reminder records and schedules
+                            // are stored separately and are deliberately not modified.
                             time = null,
                             repeatType = "NONE",
                             reminderBefore = ReminderBeforeOption.NONE,
@@ -227,11 +229,10 @@ class CalendarManager(private val context: Context) {
                                 null
                             },
                             sourceId = svc.id,
-                            status = when (svc.status.uppercase()) {
-                                "COMPLETED" -> FinancialEventStatus.PAID
-                                "OVERDUE" -> FinancialEventStatus.OVERDUE
-                                else -> FinancialEventStatus.PENDING
-                            }
+                            // A VehicleServiceEntity represents a service already recorded
+                            // in service history on svc.date. Show it as performed in the calendar
+                            // without changing the persisted service status or any reminder state.
+                            status = FinancialEventStatus.PAID
                         )
                     )
                 }
@@ -308,8 +309,14 @@ class CalendarManager(private val context: Context) {
                 }
             }
 
-            // 7. Cross-integrate Vehicle Expenses
-            vehicleData.fourth.forEach { exp ->
+            // 7. Cross-integrate standalone Vehicle Expenses.
+            // Service invoices are already represented by their service-history cards.
+            // Hide only the expense rows created by addService (exp_svc_<serviceId>);
+            // independent vehicle expenses remain visible.
+            val serviceExpenseIds = vehicleData.first.map { "exp_svc_${it.id}" }.toSet()
+            vehicleData.fourth
+                .filterNot { it.id in serviceExpenseIds }
+                .forEach { exp ->
                 val eventId = "auto_veh_exp_${exp.id}"
                 if (seenIds.add(eventId)) {
                     val normDate = CalendarDateUtils.normalizeDate(exp.date)
@@ -323,7 +330,8 @@ class CalendarManager(private val context: Context) {
                             amount = exp.amount,
                             amountUnit = exp.amountUnit,
                             date = normDate,
-                            time = "09:00",
+                            // Vehicle expenses do not store a time; do not invent a default.
+                            time = null,
                             repeatType = "NONE",
                             reminderBefore = ReminderBeforeOption.NONE,
                             sourceId = exp.id,
