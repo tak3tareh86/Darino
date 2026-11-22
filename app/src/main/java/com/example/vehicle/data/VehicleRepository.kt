@@ -1192,9 +1192,9 @@ class VehicleRepository {
                     // retains the exact schedule key and trigger timestamp needed to identify
                     // the old notification-log IDs without guessing from titles or dates.
                     smartDeliveryLogs.forEach { log ->
-                        log.scheduleId?.let { scheduleId ->
-                            add(log.reminderId to (scheduleId to log.scheduledAt))
-                        }
+                        // A manually triggered notification can legitimately have no schedule ID.
+                        // The dispatcher still derives its notification ID from a null schedule key.
+                        add(log.reminderId to (log.scheduleId to log.scheduledAt))
                     }
                 }.distinct()
                 val smartNotificationIds = notificationKeys.flatMap { (reminderId, key) ->
@@ -1207,7 +1207,7 @@ class VehicleRepository {
                         ),
                         com.example.reminder.domain.NotificationIdGenerator.generateNotificationId(
                             reminderId = reminderId,
-                            scheduleId = "standard:$scheduleId",
+                            scheduleId = scheduleId?.let { "standard:$it" } ?: "standard:",
                             triggerTime = triggerTime
                         )
                     )
