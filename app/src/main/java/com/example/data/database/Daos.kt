@@ -450,6 +450,13 @@ interface NotificationLogDao {
         deletedAt: Long = System.currentTimeMillis()
     )
 
+    @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND source = 'SMART_REMINDER' AND reminderId IN (:notificationIds) AND deletedAt IS NULL")
+    suspend fun deleteSmartReminderNotifications(
+        userId: String,
+        notificationIds: List<Int>,
+        deletedAt: Long = System.currentTimeMillis()
+    )
+
     @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND deletedAt IS NULL")
     suspend fun deleteAllNotifications(userId: String, deletedAt: Long = System.currentTimeMillis())
 }
