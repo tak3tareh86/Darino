@@ -154,7 +154,8 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
 
-        notificationManager.notify(reminder.id, notificationBuilder.build())
+        // A dedicated tag scopes cancellation to this legacy reminder only.
+        notificationManager.notify("legacy_reminder:${reminder.id}", reminder.id, notificationBuilder.build())
         Log.i("ReminderReceiver", "Displayed local notification for: ${reminder.title}")
 
         // Log to NotificationCenter database

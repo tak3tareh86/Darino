@@ -8,6 +8,7 @@ import com.example.data.database.VehicleInspectionRoomEntity
 import com.example.data.database.VehicleInsuranceRoomEntity
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
+import com.example.reminder.data.LocalReminderRepository
 import com.example.util.PersianCalendarHelper
 import com.example.ui.screens.settings.model.AppCurrency
 import kotlinx.coroutines.CoroutineScope
@@ -149,14 +150,31 @@ class VehicleRepository {
             }
 
             val errors = mutableListOf<Throwable>()
-            schedules.forEach { schedule ->
-                runCatching { scheduler.cancelSchedule(schedule.id) }
+            if (pending.reminderId.startsWith("legacy:")) {
+                val legacyId = pending.reminderId.removePrefix("legacy:").toIntOrNull()
+                if (legacyId == null) {
+                    android.util.Log.e("VehicleRepository", "Invalid legacy reminder cleanup key: ${pending.reminderId}")
+                    return@forEach
+                }
+                runCatching { com.example.data.receiver.ReminderScheduler(context).cancel(legacyId) }
                     .onFailure { errors.add(it) }
+                runCatching {
+                    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                    // Only cancel notifications posted by the legacy reminder receiver.
+                    // Untagged historical notifications cannot be safely distinguished
+                    // from other app notifications that may share the same integer ID.
+                    manager.cancel("legacy_reminder:$legacyId", legacyId)
+                }.onFailure { errors.add(it) }
+            } else {
+                schedules.forEach { schedule ->
+                    runCatching { scheduler.cancelSchedule(schedule.id) }
+                        .onFailure { errors.add(it) }
+                }
+                runCatching {
+                    com.example.reminder.domain.NotificationDispatcher(context)
+                        .cancelReminderNotifications(pending.reminderId, schedules)
+                }.onFailure { errors.add(it) }
             }
-            runCatching {
-                com.example.reminder.domain.NotificationDispatcher(context)
-                    .cancelReminderNotifications(pending.reminderId, schedules)
-            }.onFailure { errors.add(it) }
 
             if (errors.isEmpty()) {
                 dao.delete(pending.userId, pending.reminderId)
@@ -1075,21 +1093,32 @@ class VehicleRepository {
 
     /**
      * Removes only legacy records explicitly linked to the deleted vehicle.
-     * Invalid JSON is preserved so corruption is never silently discarded.
+     * Invalid JSON aborts the enclosing deletion transaction: a vehicle is never
+     * reported as deleted while uninspectable legacy records may still contain it.
      */
-    private fun removeLegacyVehicleRows(rawJson: String, field: String, vehicleIds: Set<String>): String {
+    private fun removeLegacyVehicleRows(
+        rawJson: String,
+        field: String,
+        vehicleIds: Set<String>,
+        alternateField: String? = null
+    ): String {
         if (rawJson.isBlank() || rawJson == "[]") return rawJson
         return runCatching {
             val source = JSONArray(rawJson)
             val filtered = JSONArray()
             for (index in 0 until source.length()) {
                 val item = source.optJSONObject(index)
-                if (item == null || item.optString(field) !in vehicleIds) {
+                val matchesPrimary = item != null && item.optString(field, "") in vehicleIds
+                val matchesAlternate = item != null &&
+                    alternateField?.let { item.optString(it, "") in vehicleIds } == true
+                if (!matchesPrimary && !matchesAlternate) {
                     filtered.put(source.get(index))
                 }
             }
             filtered.toString()
-        }.getOrDefault(rawJson)
+        }.getOrElse { error ->
+            throw IllegalStateException("اطلاعات قدیمی خودرو قابل بررسی نیست؛ برای جلوگیری از حذف اطلاعات خودروهای دیگر، عملیات حذف انجام نشد.", error)
+        }
     }
 
     // 4. Delete Vehicle (Atomic cascading delete in Room transaction with child reminder cleanup)
@@ -1099,67 +1128,159 @@ class VehicleRepository {
 
         try {
             val db = AppDatabase.getDatabase(context)
+            val vehicleDao = db.vehicleDao()
 
-            // Gather child entity IDs to clean up their reminders
-            val serviceIds = db.vehicleDao().getServiceServerIdsByVehicleId(userId, vehicleId)
-            val insuranceIds = db.vehicleDao().getInsuranceIdsByVehicleId(userId, vehicleId)
-            val inspectionIds = db.vehicleDao().getInspectionIdsByVehicleId(userId, vehicleId)
-
-            // Gather child schedules to cancel alarms for
-            val allSchedulesToCancel = mutableListOf<com.example.reminder.data.ReminderScheduleEntity>()
-            (serviceIds + insuranceIds + inspectionIds + listOf(vehicleId)).forEach { id ->
-                val schedules = db.smartReminderDao().getSchedulesForReminderSync(userId, id)
-                allSchedulesToCancel.addAll(schedules)
-            }
-
-            val affectedRows = db.withTransaction {
-                val vehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
-                if (vehicle != null) {
-                    val legacyVehicleIds = buildSet {
-                        add(vehicleId)
-                        add(vehicle.id.toString())
-                        vehicle.serverId?.takeIf(String::isNotBlank)?.let(::add)
+            val affectedRows = LocalReminderRepository.withLegacyMigrationLock {
+                db.withTransaction {
+                val vehicle = vehicleDao.getVehicleByServerId(userId, vehicleId)
+                val legacyStore = vehicleDao.getVehicleStore(userId)
+                // Read every dependent ID from the same transaction snapshot as deletion.
+                // This prevents a child added between lookup and delete from escaping cleanup.
+                val serviceIds = vehicleDao.getServiceServerIdsByVehicleId(userId, vehicleId)
+                val serviceLocalIds = vehicleDao.getServiceLocalIdsByVehicleId(userId, vehicleId)
+                val insuranceIds = vehicleDao.getInsuranceIdsByVehicleId(userId, vehicleId)
+                val inspectionIds = vehicleDao.getInspectionIdsByVehicleId(userId, vehicleId)
+                // Clean legacy JSON even if the structured vehicle row is already missing.
+                // Recover local/server aliases only from the exact legacy vehicle object
+                // matching a known identifier. Never infer ownership from child records.
+                var legacyVehicleMappingFound = vehicle != null
+                val legacyVehicleIds = buildSet {
+                    add(vehicleId)
+                    vehicle?.let {
+                        add(it.id.toString())
+                        it.serverId?.takeIf(String::isNotBlank)?.let(::add)
                     }
-                    db.vehicleDao().getVehicleStore(userId)?.let { store ->
-                        db.vehicleDao().insertVehicleStore(
-                            store.copy(
-                                vehiclesJson = removeLegacyVehicleRows(store.vehiclesJson, "id", legacyVehicleIds),
-                                servicesJson = removeLegacyVehicleRows(store.servicesJson, "vehicleId", legacyVehicleIds),
-                                expensesJson = removeLegacyVehicleRows(store.expensesJson, "vehicleId", legacyVehicleIds),
-                                insurancesJson = removeLegacyVehicleRows(store.insurancesJson, "vehicleId", legacyVehicleIds),
-                                inspectionsJson = removeLegacyVehicleRows(store.inspectionsJson, "vehicleId", legacyVehicleIds)
-                            )
-                        )
+                    legacyStore?.vehiclesJson?.takeIf { it.isNotBlank() && it != "[]" }?.let { raw ->
+                        val legacyVehicles = JSONArray(raw)
+                        for (index in 0 until legacyVehicles.length()) {
+                            val item = legacyVehicles.optJSONObject(index) ?: continue
+                            val legacyId = item.optString("id", "").takeIf(String::isNotBlank)
+                            val legacyServerId = item.optString("serverId", "").takeIf(String::isNotBlank)
+                            val matchesKnownId = legacyId?.let { it in this } == true
+                            val matchesKnownServerId = legacyServerId?.let { it in this } == true
+                            if (matchesKnownId || matchesKnownServerId) {
+                                legacyVehicleMappingFound = true
+                                legacyId?.let(::add)
+                                legacyServerId?.let(::add)
+                            }
+                        }
                     }
                 }
-                val vehicleAffected = db.vehicleDao().deleteVehicleByServerId(userId, vehicleId)
-                // Queue every reminder whose database rows are removed below, even if the
-                // vehicle row was already missing but orphan child/reminder rows still exist.
+                if (!legacyVehicleMappingFound) {
+                    throw IllegalStateException(
+                        "شناسه خودرو در اطلاعات ساختاری یا نسخه قدیمی قابل تطبیق نیست؛ برای جلوگیری از حذف اطلاعات خودروی دیگر، عملیات متوقف شد."
+                    )
+                }
+                var legacyStoreChanged = false
+                legacyStore?.let { store ->
+                    val updatedStore = store.copy(
+                        vehiclesJson = removeLegacyVehicleRows(store.vehiclesJson, "id", legacyVehicleIds, "serverId"),
+                        servicesJson = removeLegacyVehicleRows(store.servicesJson, "vehicleId", legacyVehicleIds),
+                        expensesJson = removeLegacyVehicleRows(store.expensesJson, "vehicleId", legacyVehicleIds),
+                        insurancesJson = removeLegacyVehicleRows(store.insurancesJson, "vehicleId", legacyVehicleIds),
+                        inspectionsJson = removeLegacyVehicleRows(store.inspectionsJson, "vehicleId", legacyVehicleIds)
+                    )
+                    legacyStoreChanged = updatedStore != store
+                    if (legacyStoreChanged) vehicleDao.insertVehicleStore(updatedStore)
+                }
+
+                val smartSourceIds = (serviceIds + serviceLocalIds.map(Int::toString) +
+                    insuranceIds + inspectionIds + vehicleId).distinct()
+                val smartDao = db.smartReminderDao()
+                val vehicleReminders = smartDao.getVehicleRemindersForSources(userId, smartSourceIds)
+                val vehicleReminderIds = vehicleReminders.map { it.id }.distinct()
+                val smartSchedules = vehicleReminderIds.flatMap { reminderId ->
+                    smartDao.getSchedulesForExactVehicleReminder(userId, reminderId)
+                }
+                val smartDeliveryLogs = vehicleReminderIds.flatMap { reminderId ->
+                    smartDao.getDeliveryLogsForExactVehicleReminder(userId, reminderId)
+                }
+
                 enqueueVehicleReminderCleanup(
                     db = db,
                     userId = userId,
-                    reminderIds = serviceIds + insuranceIds + inspectionIds + listOf(vehicleId),
-                    schedules = allSchedulesToCancel
+                    reminderIds = vehicleReminderIds,
+                    schedules = smartSchedules
                 )
-                db.vehicleDao().deleteServicesByVehicleId(userId, vehicleId)
-                db.vehicleDao().deleteExpensesByVehicleId(userId, vehicleId)
-                db.vehicleDao().deleteInsurancesByVehicleId(userId, vehicleId)
-                db.vehicleDao().deleteInspectionsByVehicleId(userId, vehicleId)
-                
-                // Delete all corresponding reminders & schedules in DB inside the same transaction
-                (serviceIds + insuranceIds + inspectionIds + listOf(vehicleId)).forEach { id ->
-                    db.smartReminderDao().deleteReminderById(userId, id)
-                    db.smartReminderDao().deleteSchedulesByReminderId(userId, id)
+
+                val legacyReminders = if (serviceLocalIds.isNotEmpty()) {
+                    db.reminderDao().getVehicleServiceReminders(userId, serviceLocalIds)
+                } else emptyList()
+                val legacyReminderIds = legacyReminders.map { it.id }.distinct()
+                if (legacyReminderIds.isNotEmpty()) {
+                    enqueueVehicleReminderCleanup(
+                        db = db,
+                        userId = userId,
+                        reminderIds = legacyReminderIds.map { "legacy:$it" },
+                        schedules = emptyList()
+                    )
+                    db.reminderDao().deleteSchedulesForReminders(userId, legacyReminderIds)
+                    db.notificationLogDao().deleteLegacyReminderNotificationsBatch(userId, legacyReminderIds)
+                    db.smsLogDao().deleteLogsForReminders(userId, legacyReminderIds)
+                    db.reminderDao().deleteVehicleServiceReminders(userId, legacyReminderIds)
                 }
-                
-                vehicleAffected
+
+                // notification_logs.reminderId is the generated integer notification ID.
+                // Recompute both standard and full-screen IDs from the exact stored schedules.
+                val notificationKeys = buildList {
+                    smartSchedules.forEach { schedule ->
+                        add(schedule.reminderId to (schedule.id to schedule.triggerDateTime))
+                    }
+                    // Schedules may already have been pruned after delivery; delivery history
+                    // retains the exact schedule key and trigger timestamp needed to identify
+                    // the old notification-log IDs without guessing from titles or dates.
+                    smartDeliveryLogs.forEach { log ->
+                        // A manually triggered notification can legitimately have no schedule ID.
+                        // The dispatcher still derives its notification ID from a null schedule key.
+                        add(log.reminderId to (log.scheduleId to log.scheduledAt))
+                    }
+                }.distinct()
+                val smartNotificationIds = notificationKeys.flatMap { (reminderId, key) ->
+                    val (scheduleId, triggerTime) = key
+                    listOf(
+                        com.example.reminder.domain.NotificationIdGenerator.generateNotificationId(
+                            reminderId = reminderId,
+                            scheduleId = scheduleId,
+                            triggerTime = triggerTime
+                        ),
+                        com.example.reminder.domain.NotificationIdGenerator.generateNotificationId(
+                            reminderId = reminderId,
+                            scheduleId = scheduleId?.let { "standard:$it" } ?: "standard:",
+                            triggerTime = triggerTime
+                        )
+                    )
+                }.distinct()
+                if (smartNotificationIds.isNotEmpty()) {
+                    db.notificationLogDao().deleteSmartReminderNotifications(userId, smartNotificationIds)
+                }
+
+                vehicleReminderIds.forEach { reminderId ->
+                    smartDao.deleteDeliveryLogsForExactVehicleReminder(userId, reminderId)
+                    smartDao.deleteSchedulesForExactVehicleReminder(userId, reminderId)
+                    smartDao.deleteExactVehicleReminder(userId, reminderId)
+                }
+
+                val financialSourceIds = (serviceIds + serviceLocalIds.map(Int::toString) + insuranceIds).distinct()
+                if (financialSourceIds.isNotEmpty()) {
+                    db.transactionDao().softDeleteVehicleTransactions(userId, financialSourceIds)
+                }
+
+                val vehicleAffected = vehicleDao.deleteVehicleByServerId(userId, vehicleId)
+                val deletedChildRows =
+                    vehicleDao.deleteServicesByVehicleId(userId, vehicleId) +
+                    vehicleDao.deleteExpensesByVehicleId(userId, vehicleId) +
+                    vehicleDao.deleteInsurancesByVehicleId(userId, vehicleId) +
+                    vehicleDao.deleteInspectionsByVehicleId(userId, vehicleId)
+                Triple(vehicleAffected, deletedChildRows, legacyStoreChanged)
+                }
             }
 
-            if (affectedRows == 0) {
-                return@withContext Result.failure(IllegalStateException("هیچ خودرویی برای حذف یافت نشد."))
+            // A missing parent row is not by itself a failed deletion: linked legacy
+            // JSON or child rows may still have been removed successfully.
+            if (affectedRows.first == 0 && affectedRows.second == 0 && !affectedRows.third) {
+                return@withContext Result.failure(IllegalStateException("هیچ خودرو یا اطلاعات وابسته‌ای برای حذف یافت نشد."))
             }
 
-            // The durable queue survives this deletion even if Android cleanup fails.
             runCatching { retryPendingVehicleReminderCleanup(context, userId) }
                 .onFailure {
                     android.util.Log.e("VehicleRepository", "Vehicle deletion succeeded; reminder cleanup remains queued.", it)
@@ -1387,6 +1508,11 @@ class VehicleRepository {
             )
 
             db.withTransaction {
+                // Re-check the parent after acquiring the write transaction. If deletion
+                // won the race, no service, expense, or reminder row may be inserted.
+                check(db.vehicleDao().getVehicleByServerId(userId, vehicleId) != null) {
+                    "خودروی موردنظر پیش از ثبت سرویس حذف شده است."
+                }
                 // Insert Service Record
                 db.vehicleDao().insertService(
                     com.example.data.database.VehicleServiceEntity(
@@ -2257,19 +2383,24 @@ class VehicleRepository {
                 description = description.trim()
             )
 
-            db.vehicleDao().insertExpense(
-                VehicleExpenseRoomEntity(
-                    id = expenseId,
-                    userId = userId,
-                    vehicleId = vehicleId,
-                    title = title.trim(),
-                    category = category.name,
-                    amount = amount,
-                    amountUnit = AppCurrency.RIAL.name,
-                    date = date.trim(),
-                    description = description.trim()
+            db.withTransaction {
+                check(db.vehicleDao().getVehicleByServerId(userId, vehicleId) != null) {
+                    "خودروی موردنظر پیش از ثبت هزینه حذف شده است."
+                }
+                db.vehicleDao().insertExpense(
+                    VehicleExpenseRoomEntity(
+                        id = expenseId,
+                        userId = userId,
+                        vehicleId = vehicleId,
+                        title = title.trim(),
+                        category = category.name,
+                        amount = amount,
+                        amountUnit = AppCurrency.RIAL.name,
+                        date = date.trim(),
+                        description = description.trim()
+                    )
                 )
-            )
+            }
 
             Result.success(newExpense)
         } catch (e: Exception) {
@@ -2387,6 +2518,8 @@ class VehicleRepository {
 
             val insuranceId = recordId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
             db.withTransaction {
+                val currentVehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
+                    ?: throw NoSuchElementException("خودرو پیش از ذخیره بیمه حذف شده است.")
                 val existingInsurance = if (recordId.isNullOrBlank()) {
                     null
                 } else {
@@ -2459,7 +2592,7 @@ class VehicleRepository {
                     userId = userId,
                     id = insuranceId,
                     title = "تمدید $type خودرو",
-                    description = "سررسید انقضای بیمه‌نامه برای خودرو ${vehicle.brand} ${vehicle.model}. شماره بیمه‌نامه: $policyNumber",
+                    description = "سررسید انقضای بیمه‌نامه برای خودرو ${currentVehicle.brand} ${currentVehicle.model}. شماره بیمه‌نامه: $policyNumber",
                     date = endDate.trim(),
                     time = effectiveReminderTime,
                     type = "INSURANCE",
@@ -2771,6 +2904,8 @@ class VehicleRepository {
 
             val inspectionId = recordId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
             db.withTransaction {
+                val currentVehicle = db.vehicleDao().getVehicleByServerId(userId, vehicleId)
+                    ?: throw NoSuchElementException("خودرو پیش از ذخیره معاینه فنی حذف شده است.")
                 val existingInspection = if (recordId.isNullOrBlank()) {
                     null
                 } else {
@@ -2842,7 +2977,7 @@ class VehicleRepository {
                     userId = userId,
                     id = inspectionId,
                     title = "معاینه فنی خودرو",
-                    description = "موعد سررسید معاینه فنی برای خودرو ${vehicle.brand} ${vehicle.model}. مرکز $centerName",
+                    description = "موعد سررسید معاینه فنی برای خودرو ${currentVehicle.brand} ${currentVehicle.model}. مرکز $centerName",
                     date = expiryDate.trim(),
                     time = effectiveReminderTime,
                     type = "VEHICLE",
