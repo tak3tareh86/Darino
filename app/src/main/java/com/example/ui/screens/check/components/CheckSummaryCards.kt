@@ -226,14 +226,14 @@ private fun MonthChecksCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = scheme.primary,
+                        color = androidx.compose.ui.graphics.Color(0xFF2DD4BF),
                         modifier = Modifier.size(34.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 Icons.Rounded.Check,
                                 contentDescription = null,
-                                tint = scheme.onPrimary,
+                                tint = androidx.compose.ui.graphics.Color(0xFF0B132B),
                                 modifier = Modifier.size(22.dp)
                             )
                         }
@@ -251,7 +251,7 @@ private fun MonthChecksCard(
                     Text(
                         monthName,
                         style = MaterialTheme.typography.titleMedium,
-                        color = scheme.primary,
+                        color = androidx.compose.ui.graphics.Color(0xFF2DD4BF),
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
                     )
@@ -335,7 +335,7 @@ private fun MonthAmountRow(
             Text(
                 "${IranianPhoneUtils.convertDigitsToPersian(count.toString())} فقره",
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = androidx.compose.ui.graphics.Color(0xFFF8FAFC),
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1
             )
