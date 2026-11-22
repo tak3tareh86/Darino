@@ -89,9 +89,6 @@ interface ReminderDao {
     @Query("DELETE FROM smart_reminder_delivery_logs WHERE reminderId = :reminderId")
     suspend fun deleteDeliveryLogsByReminderId(reminderId: String): Int
 
-    @Query("DELETE FROM smart_reminder_delivery_logs WHERE reminderId = :reminderId")
-    suspend fun deleteDeliveryLogsByReminderId(reminderId: String): Int
-
     @Query("""
         SELECT s.*
         FROM smart_reminder_schedules AS s
