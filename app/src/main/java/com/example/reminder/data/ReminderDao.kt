@@ -65,7 +65,7 @@ interface ReminderDao {
     @Query("DELETE FROM smart_reminders WHERE userId = :userId AND (id = :id OR (sourceType = 'VEHICLE' AND sourceId = :id))")
     suspend fun deleteReminderById(userId: String, id: String): Int
 
-    @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND (id IN (:sourceIds) OR (sourceType = 'VEHICLE' AND sourceId IN (:sourceIds)))")
+    @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND sourceType = 'VEHICLE' AND (id IN (:sourceIds) OR sourceId IN (:sourceIds))")
     suspend fun getVehicleRemindersForSources(userId: String, sourceIds: List<String>): List<ReminderEntity>
 
     @Query("DELETE FROM smart_reminder_schedules WHERE reminderId = :reminderId AND reminderId IN (SELECT id FROM smart_reminders WHERE userId = :userId AND id = :reminderId AND sourceType = 'VEHICLE')")
