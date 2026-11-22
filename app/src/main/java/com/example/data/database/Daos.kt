@@ -660,6 +660,14 @@ interface CheckDao {
     @Query("UPDATE checks SET deletedAt = :deletedAt, updatedAt = :updatedAt WHERE userId = :userId AND id = :checkId")
     suspend fun softDeleteCheck(userId: String, checkId: Int, deletedAt: Long, updatedAt: Long): Int
 
+    @Query("UPDATE checks SET deletedAt = NULL, updatedAt = :restoredUpdatedAt WHERE userId = :userId AND id = :checkId AND deletedAt = :deletedAt")
+    suspend fun restoreSoftDeletedCheckAfterReminderFailure(
+        userId: String,
+        checkId: Int,
+        deletedAt: Long,
+        restoredUpdatedAt: Long
+    ): Int
+
     @Query("SELECT * FROM checks WHERE userId = :userId AND status IN ('REGISTERED', 'PENDING', 'BOUNCED') AND deletedAt IS NULL")
     suspend fun getActiveChecks(userId: String): List<CheckEntity>
 
