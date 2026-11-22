@@ -86,6 +86,9 @@ interface ReminderDao {
     @Query("DELETE FROM smart_reminder_schedules WHERE reminderId IN (SELECT id FROM smart_reminders WHERE userId = :userId AND (id = :reminderId OR (sourceType = 'VEHICLE' AND sourceId = :reminderId)))")
     suspend fun deleteSchedulesByReminderId(userId: String, reminderId: String): Int
 
+    @Query("DELETE FROM smart_reminder_delivery_logs WHERE reminderId = :reminderId")
+    suspend fun deleteDeliveryLogsByReminderId(reminderId: String): Int
+
     @Query("""
         SELECT s.*
         FROM smart_reminder_schedules AS s
