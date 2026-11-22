@@ -253,6 +253,12 @@ class HomeDashboardRepository(
         val now = System.currentTimeMillis()
         val installments = installmentRepository.installments.value.associateBy { it.id }
 
+        // Read-only lookup data for showing the owning vehicle on insurance/inspection reminders.
+        // This is presentation-only and does not participate in reminder scheduling or completion.
+        val vehiclesById = vehicleRepository.vehicles.value.associateBy { it.id }
+        val insuranceById = vehicleRepository.insurances.value.associateBy { it.id }
+        val inspectionById = vehicleRepository.inspections.value.associateBy { it.id }
+
         // Keep the exact timestamp used for sorting; date-only sorting can put a
         // later alert ahead of an earlier alert when they fall on different days.
         val itemsWithTrigger = realReminders.mapNotNull { reminder ->
@@ -347,6 +353,25 @@ class HomeDashboardRepository(
                 diff == 1 -> "فردا"
                 else -> "${IranianPhoneUtils.convertDigitsToPersian(diff.toString())} روز دیگر"
             }
+            val linkedVehicleName = when {
+                reminder.type.equals("INSURANCE", ignoreCase = true) ||
+                    reminder.sourceType.equals("INSURANCE", ignoreCase = true) -> {
+                    reminder.sourceId
+                        ?.let(insuranceById::get)
+                        ?.vehicleId
+                        ?.let(vehiclesById::get)
+                        ?.let { vehicle -> listOf(vehicle.brand, vehicle.model).filter { it.isNotBlank() }.joinToString(" ").takeIf { it.isNotBlank() } }
+                }
+                reminder.type.equals("VEHICLE", ignoreCase = true) ||
+                    reminder.sourceType.equals("VEHICLE", ignoreCase = true) -> {
+                    reminder.sourceId
+                        ?.let(inspectionById::get)
+                        ?.vehicleId
+                        ?.let(vehiclesById::get)
+                        ?.let { vehicle -> listOf(vehicle.brand, vehicle.model).filter { it.isNotBlank() }.joinToString(" ").takeIf { it.isNotBlank() } }
+                }
+                else -> null
+            }
             val typeTitle = when (reminder.type) {
                 "INSTALLMENT" -> "قسط و وام"
                 "VEHICLE", "SERVICE" -> "سرویس خودرو"
@@ -386,7 +411,8 @@ class HomeDashboardRepository(
                 } else {
                     null
                 },
-                installmentPaymentId = paymentId
+                installmentPaymentId = paymentId,
+                vehicleName = linkedVehicleName
             )
             item to actualTrigger
         }
