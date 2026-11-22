@@ -1109,8 +1109,8 @@ class VehicleRepository {
             for (index in 0 until source.length()) {
                 val item = source.optJSONObject(index)
                 val matchesPrimary = item != null && item.optString(field, "") in vehicleIds
-                val matchesAlternate = item != null && !alternateField.isNullOrBlank() &&
-                    item.optString(alternateField, "") in vehicleIds
+                val matchesAlternate = item != null &&
+                    alternateField?.let { item.optString(it, "") in vehicleIds } == true
                 if (!matchesPrimary && !matchesAlternate) {
                     filtered.put(source.get(index))
                 }
