@@ -42,6 +42,7 @@ interface ReminderRepository {
     suspend fun deleteReminder(reminder: ReminderEntity)
     suspend fun deleteReminderById(id: String)
     suspend fun deleteReminderWithSchedules(reminderId: String)
+    suspend fun deleteCheckReminderWithSchedulesAndLogs(reminderId: String)
     suspend fun updateStatus(id: String, status: String)
 
     fun getSchedules(reminderId: String): Flow<List<ReminderScheduleEntity>>
@@ -297,6 +298,19 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
         val userId = requireUserId()
         db.withTransaction {
             dao.deleteSchedulesByReminderId(userId, reminderId)
+            dao.deleteReminderById(userId, reminderId)
+        }
+    }
+
+    /**
+     * Check-only cleanup: remove its schedules, delivery logs, and reminder atomically.
+     * Generic reminder deletion intentionally keeps its existing behavior.
+     */
+    override suspend fun deleteCheckReminderWithSchedulesAndLogs(reminderId: String) {
+        val userId = requireUserId()
+        db.withTransaction {
+            dao.deleteSchedulesByReminderId(userId, reminderId)
+            dao.deleteDeliveryLogsByReminderId(reminderId)
             dao.deleteReminderById(userId, reminderId)
         }
     }
