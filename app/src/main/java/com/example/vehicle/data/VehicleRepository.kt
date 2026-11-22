@@ -1118,14 +1118,16 @@ class VehicleRepository {
         try {
             val db = AppDatabase.getDatabase(context)
             val vehicleDao = db.vehicleDao()
-            val serviceIds = vehicleDao.getServiceServerIdsByVehicleId(userId, vehicleId)
-            val serviceLocalIds = vehicleDao.getServiceLocalIdsByVehicleId(userId, vehicleId)
-            val insuranceIds = vehicleDao.getInsuranceIdsByVehicleId(userId, vehicleId)
-            val inspectionIds = vehicleDao.getInspectionIdsByVehicleId(userId, vehicleId)
 
             val affectedRows = LocalReminderRepository.withLegacyMigrationLock {
                 db.withTransaction {
                 val vehicle = vehicleDao.getVehicleByServerId(userId, vehicleId)
+                // Read every dependent ID from the same transaction snapshot as deletion.
+                // This prevents a child added between lookup and delete from escaping cleanup.
+                val serviceIds = vehicleDao.getServiceServerIdsByVehicleId(userId, vehicleId)
+                val serviceLocalIds = vehicleDao.getServiceLocalIdsByVehicleId(userId, vehicleId)
+                val insuranceIds = vehicleDao.getInsuranceIdsByVehicleId(userId, vehicleId)
+                val inspectionIds = vehicleDao.getInspectionIdsByVehicleId(userId, vehicleId)
                 // Clean legacy JSON even if the structured vehicle row is already missing.
                 val legacyVehicleIds = buildSet {
                     add(vehicleId)
