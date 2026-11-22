@@ -211,41 +211,23 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 return@withContext CheckOperationResult.VALIDATION_ERROR
             }
             val deletionTimestamp = System.currentTimeMillis()
-            val rowsAffected = database.checkDao().softDeleteCheck(
-                userId = userId,
-                checkId = id,
-                deletedAt = deletionTimestamp,
-                updatedAt = deletionTimestamp
-            )
-            if (rowsAffected == 0) return@withContext CheckOperationResult.NOT_FOUND
-
-            try {
-                (reminderManager
-                    ?: throw IllegalStateException("مدیر یادآور مقداردهی نشده است."))
-                    .deleteCheckReminder(id.toString())
-            } catch (e: Exception) {
-                e.printStackTrace()
-                // Do not report a successful check deletion while its linked reminder
-                // may still exist. Restore only the deletion marker so the user can retry.
-                runCatching {
-                    val restoredRows = database.checkDao().restoreSoftDeletedCheckAfterReminderFailure(
+            (reminderManager
+                ?: throw IllegalStateException("مدیر یادآور مقداردهی نشده است."))
+                .deleteCheckReminder(id.toString()) {
+                    val rowsAffected = database.checkDao().softDeleteCheck(
                         userId = userId,
                         checkId = id,
                         deletedAt = deletionTimestamp,
-                        restoredUpdatedAt = existing.updatedAt
+                        updatedAt = deletionTimestamp
                     )
-                    if (restoredRows != 1) {
-                        throw IllegalStateException("Unable to restore the check after reminder cleanup failed.")
+                    if (rowsAffected != 1) {
+                        throw IllegalStateException("Check deletion did not update exactly one row.")
                     }
-                }.onFailure { rollbackError ->
-                    rollbackError.printStackTrace()
                 }
-                return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
-            }
             CheckOperationResult.SUCCESS
         } catch (e: Exception) {
             e.printStackTrace()
-            CheckOperationResult.PERSISTENCE_ERROR
+            CheckOperationResult.REMINDER_SETUP_ERROR
         }
     }
 
