@@ -1182,27 +1182,42 @@ class ReminderManager(
         val legacyRepository = com.example.data.repository.ReminderRepository(context)
         val platformNotificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val cancellationErrors = mutableListOf<Throwable>()
         legacyReminders.forEach { legacy ->
             runCatching { legacyRepository.deleteReminder(legacy.id) }
                 .onFailure { error ->
+                    cancellationErrors.add(error)
                     Log.e("ReminderManager", "Could not cancel legacy check reminder alarm ${legacy.id}.", error)
                 }
             runCatching { platformNotificationManager.cancel(legacy.id) }
                 .onFailure { error ->
+                    cancellationErrors.add(error)
                     Log.e("ReminderManager", "Could not cancel legacy check reminder notification ${legacy.id}.", error)
                 }
         }
         if (smartReminder != null) {
             runCatching { scheduler.cancel(smartReminder.id, smartSchedules) }
                 .onFailure { error ->
+                    cancellationErrors.add(error)
                     Log.e("ReminderManager", "Could not cancel smart check reminder alarms ${smartReminder.id}.", error)
                 }
             runCatching {
                 NotificationDispatcher(context).cancelReminderNotifications(smartReminder.id, smartSchedules)
             }.onFailure { error ->
+                cancellationErrors.add(error)
                 Log.e("ReminderManager", "Could not cancel smart check reminder notifications ${smartReminder.id}.", error)
             }
             Log.i("ReminderManager", "Deleted check reminder $checkId and all its schedules and delivery logs.")
+        }
+
+        // Remove the durable outbox entry only after every OS cancellation succeeds.
+        // Otherwise the next authenticated session will retry the remaining cleanup.
+        if (cancellationErrors.isEmpty()) {
+            runCatching {
+                database.checkReminderCleanupQueueDao().delete(userId, checkId)
+            }.onFailure { error ->
+                Log.w("ReminderManager", "Could not clear completed check reminder cleanup entry $checkId; it will be replayed safely.", error)
+            }
         }
     }
 
