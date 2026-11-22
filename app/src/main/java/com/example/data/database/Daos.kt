@@ -483,7 +483,7 @@ interface NotificationLogDao {
         deletedAt: Long = System.currentTimeMillis()
     )
 
-    @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND reminderId IN (:legacyReminderIds) AND deletedAt IS NULL")
+    @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND source = 'SYSTEM_ALARM' AND reminderId IN (:legacyReminderIds) AND deletedAt IS NULL")
     suspend fun deleteLegacyReminderNotificationsBatch(
         userId: String,
         legacyReminderIds: List<Int>,

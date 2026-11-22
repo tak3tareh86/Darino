@@ -241,7 +241,10 @@ class LocalBackupRepository(
             val checks = db.checkDao().getAllChecksList(userId)
 
             val transactions =
-                db.transactionDao().getAllTransactionsForBackup(userId)
+                db.transactionDao().getAllTransactionsForBackup(userId).filterNot { transaction ->
+                    transaction.deletedAt != null &&
+                        transaction.sourceType.uppercase() in setOf("MAINTENANCE", "SERVICE", "INSURANCE")
+                }
 
             val installments =
                 db.installmentDao().getAllInstallmentsList(userId)
@@ -286,6 +289,7 @@ class LocalBackupRepository(
             val userPreference =
                 db.userPreferenceDao().getPreference(userId)
             val notificationLogs = db.notificationLogDao().getAllNotificationsForBackup(userId)
+                .filter { it.deletedAt == null }
             val smsLogs = db.smsLogDao().getAllSmsLogsForBackup(userId)
             val vehicleStore = db.vehicleDao().getVehicleStore(userId)
             val reminderDeliveryLogs = db.smartReminderDao().getAllDeliveryLogsForBackup(userId)

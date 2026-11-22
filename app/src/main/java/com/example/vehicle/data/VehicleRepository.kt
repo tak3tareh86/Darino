@@ -8,6 +8,7 @@ import com.example.data.database.VehicleInspectionRoomEntity
 import com.example.data.database.VehicleInsuranceRoomEntity
 import com.example.data.security.SessionManager
 import com.example.data.security.SessionState
+import com.example.reminder.data.LocalReminderRepository
 import com.example.util.PersianCalendarHelper
 import com.example.ui.screens.settings.model.AppCurrency
 import kotlinx.coroutines.CoroutineScope
@@ -1119,25 +1120,27 @@ class VehicleRepository {
             val insuranceIds = vehicleDao.getInsuranceIdsByVehicleId(userId, vehicleId)
             val inspectionIds = vehicleDao.getInspectionIdsByVehicleId(userId, vehicleId)
 
-            val affectedRows = db.withTransaction {
+            val affectedRows = LocalReminderRepository.withLegacyMigrationLock {
+                db.withTransaction {
                 val vehicle = vehicleDao.getVehicleByServerId(userId, vehicleId)
-                if (vehicle != null) {
-                    val legacyVehicleIds = buildSet {
-                        add(vehicleId)
-                        add(vehicle.id.toString())
-                        vehicle.serverId?.takeIf(String::isNotBlank)?.let(::add)
+                // Clean legacy JSON even if the structured vehicle row is already missing.
+                val legacyVehicleIds = buildSet {
+                    add(vehicleId)
+                    vehicle?.let {
+                        add(it.id.toString())
+                        it.serverId?.takeIf(String::isNotBlank)?.let(::add)
                     }
-                    vehicleDao.getVehicleStore(userId)?.let { store ->
-                        vehicleDao.insertVehicleStore(
-                            store.copy(
-                                vehiclesJson = removeLegacyVehicleRows(store.vehiclesJson, "id", legacyVehicleIds),
-                                servicesJson = removeLegacyVehicleRows(store.servicesJson, "vehicleId", legacyVehicleIds),
-                                expensesJson = removeLegacyVehicleRows(store.expensesJson, "vehicleId", legacyVehicleIds),
-                                insurancesJson = removeLegacyVehicleRows(store.insurancesJson, "vehicleId", legacyVehicleIds),
-                                inspectionsJson = removeLegacyVehicleRows(store.inspectionsJson, "vehicleId", legacyVehicleIds)
-                            )
+                }
+                vehicleDao.getVehicleStore(userId)?.let { store ->
+                    vehicleDao.insertVehicleStore(
+                        store.copy(
+                            vehiclesJson = removeLegacyVehicleRows(store.vehiclesJson, "id", legacyVehicleIds),
+                            servicesJson = removeLegacyVehicleRows(store.servicesJson, "vehicleId", legacyVehicleIds),
+                            expensesJson = removeLegacyVehicleRows(store.expensesJson, "vehicleId", legacyVehicleIds),
+                            insurancesJson = removeLegacyVehicleRows(store.insurancesJson, "vehicleId", legacyVehicleIds),
+                            inspectionsJson = removeLegacyVehicleRows(store.inspectionsJson, "vehicleId", legacyVehicleIds)
                         )
-                    }
+                    )
                 }
 
                 val smartSourceIds = (serviceIds + serviceLocalIds.map(Int::toString) +
@@ -1173,6 +1176,26 @@ class VehicleRepository {
                     db.reminderDao().deleteVehicleServiceReminders(userId, legacyReminderIds)
                 }
 
+                // notification_logs.reminderId is the generated integer notification ID.
+                // Recompute both standard and full-screen IDs from the exact stored schedules.
+                val smartNotificationIds = smartSchedules.flatMap { schedule ->
+                    listOf(
+                        com.example.reminder.domain.NotificationIdGenerator.generateNotificationId(
+                            reminderId = schedule.reminderId,
+                            scheduleId = schedule.id,
+                            triggerTime = schedule.triggerDateTime
+                        ),
+                        com.example.reminder.domain.NotificationIdGenerator.generateNotificationId(
+                            reminderId = schedule.reminderId,
+                            scheduleId = "standard:${schedule.id}",
+                            triggerTime = schedule.triggerDateTime
+                        )
+                    )
+                }.distinct()
+                if (smartNotificationIds.isNotEmpty()) {
+                    db.notificationLogDao().deleteSmartReminderNotifications(userId, smartNotificationIds)
+                }
+
                 vehicleReminderIds.forEach { reminderId ->
                     smartDao.deleteDeliveryLogsForExactVehicleReminder(userId, reminderId)
                     smartDao.deleteSchedulesForExactVehicleReminder(userId, reminderId)
@@ -1190,6 +1213,7 @@ class VehicleRepository {
                 vehicleDao.deleteInsurancesByVehicleId(userId, vehicleId)
                 vehicleDao.deleteInspectionsByVehicleId(userId, vehicleId)
                 vehicleAffected
+                }
             }
 
             if (affectedRows == 0) {
