@@ -210,7 +210,13 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 existing.replacedByCheckId != null || existing.replacesCheckId != null) {
                 return@withContext CheckOperationResult.VALIDATION_ERROR
             }
-            val rowsAffected = database.checkDao().softDeleteCheck(userId, id, System.currentTimeMillis(), System.currentTimeMillis())
+            val deletionTimestamp = System.currentTimeMillis()
+            val rowsAffected = database.checkDao().softDeleteCheck(
+                userId = userId,
+                checkId = id,
+                deletedAt = deletionTimestamp,
+                updatedAt = deletionTimestamp
+            )
             if (rowsAffected == 0) return@withContext CheckOperationResult.NOT_FOUND
 
             try {
@@ -221,10 +227,16 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 e.printStackTrace()
                 // Do not report a successful check deletion while its linked reminder
                 // may still exist. Restore the exact prior check row so the user can retry.
-                runCatching { database.checkDao().updateCheck(existing) }
-                    .onFailure { rollbackError ->
-                        rollbackError.printStackTrace()
-                    }
+                runCatching {
+                    database.checkDao().restoreSoftDeletedCheckAfterReminderFailure(
+                        userId = userId,
+                        checkId = id,
+                        deletedAt = deletionTimestamp,
+                        restoredUpdatedAt = existing.updatedAt
+                    )
+                }.onFailure { rollbackError ->
+                    rollbackError.printStackTrace()
+                }
                 return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
             }
             CheckOperationResult.SUCCESS
