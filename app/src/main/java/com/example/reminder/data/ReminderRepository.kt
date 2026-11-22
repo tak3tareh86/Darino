@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import com.example.reminder.domain.ReminderScheduler
 import com.example.reminder.domain.ReminderManager
+import com.example.reminder.domain.NotificationIdGenerator
 import com.example.reminder.domain.ReminderPolicyEngine
 import com.example.reminder.domain.RepeatType
 
@@ -308,7 +309,19 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
      */
     override suspend fun deleteCheckReminderWithSchedulesAndLogs(reminderId: String) {
         val userId = requireUserId()
+        val deliveryLogs = dao.getDeliveryLogsForReminderSync(userId, reminderId)
+        val notificationIds = deliveryLogs.map { log ->
+            NotificationIdGenerator.generateNotificationId(
+                reminderId = reminderId,
+                scheduleId = log.scheduleId,
+                triggerTime = log.scheduledAt
+            )
+        }.distinct()
+
         db.withTransaction {
+            if (notificationIds.isNotEmpty()) {
+                db.notificationLogDao().deleteSmartReminderNotifications(userId, notificationIds)
+            }
             dao.deleteSchedulesByReminderId(userId, reminderId)
             dao.deleteDeliveryLogsByReminderId(reminderId)
             dao.deleteReminderById(userId, reminderId)
