@@ -398,6 +398,9 @@ interface ReminderDao {
     @Query("SELECT s.* FROM reminder_schedules s INNER JOIN reminders r ON r.id = s.reminderId WHERE r.userId = :userId AND s.reminderId = :reminderId")
     suspend fun getSchedulesForReminder(userId: String, reminderId: Int): List<ReminderScheduleEntity>
 
+    @Query("SELECT * FROM reminders WHERE userId = :userId AND sourceType = 'CHECK' AND sourceId = :checkId")
+    suspend fun getCheckRemindersForCheck(userId: String, checkId: Int): List<ReminderEntity>
+
     @Query("SELECT * FROM reminder_schedules WHERE triggerDateTime >= :start AND triggerDateTime <= :end AND status = 'PENDING'")
     suspend fun getPendingSchedulesInRange(start: Long, end: Long): List<ReminderScheduleEntity>
 
