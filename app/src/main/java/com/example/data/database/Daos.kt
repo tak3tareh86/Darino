@@ -373,6 +373,9 @@ interface ReminderDao {
     @Query("UPDATE reminders SET deletedAt = :deletedAt, syncState = 'PENDING_DELETE' WHERE userId = :userId AND id = :id")
     suspend fun softDeleteReminder(userId: String, id: Int, deletedAt: Long = System.currentTimeMillis())
 
+    @Query("DELETE FROM reminder_schedules WHERE reminderId = :reminderId AND reminderId IN (SELECT id FROM reminders WHERE userId = :userId)")
+    suspend fun deleteSchedulesForReminder(userId: String, reminderId: Int): Int
+
     @Query("DELETE FROM reminders WHERE userId = :userId AND id = :id")
     suspend fun hardDeleteReminder(userId: String, id: Int)
 
@@ -439,6 +442,13 @@ interface NotificationLogDao {
 
     @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND id = :id")
     suspend fun deleteNotification(userId: String, id: Int, deletedAt: Long = System.currentTimeMillis())
+
+    @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND source = 'SYSTEM_ALARM' AND reminderId = :legacyReminderId AND deletedAt IS NULL")
+    suspend fun deleteLegacyReminderNotifications(
+        userId: String,
+        legacyReminderId: Int,
+        deletedAt: Long = System.currentTimeMillis()
+    )
 
     @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND deletedAt IS NULL")
     suspend fun deleteAllNotifications(userId: String, deletedAt: Long = System.currentTimeMillis())
