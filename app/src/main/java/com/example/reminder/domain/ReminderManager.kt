@@ -1171,7 +1171,11 @@ class ReminderManager(
 
             val smartReminder = repository.getReminderBySource("CHECK", checkId)
             if (smartReminder != null) {
-                deleteReminder(smartReminder.id)
+                val schedules = repository.getSchedulesSync(smartReminder.id)
+                scheduler.cancel(smartReminder.id, schedules)
+                NotificationDispatcher(context).cancelReminderNotifications(smartReminder.id, schedules)
+                repository.deleteCheckReminderWithSchedulesAndLogs(smartReminder.id)
+                Log.i("ReminderManager", "Deleted check reminder $checkId and all its schedules and delivery logs.")
             }
         }
     }
