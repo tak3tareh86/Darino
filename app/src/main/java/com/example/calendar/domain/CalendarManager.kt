@@ -111,7 +111,7 @@ class CalendarManager(private val context: Context) {
                 if (
                     (rem.sourceType.equals("VEHICLE", ignoreCase = true) ||
                         rem.sourceType.equals("INSURANCE", ignoreCase = true)) &&
-                    rem.sourceId in vehicleExpiryRecordIds
+                    rem.sourceId?.let { it in vehicleExpiryRecordIds } == true
                 ) return@forEach
                 val eventId = "auto_rem_${rem.id}"
                 if (seenIds.add(eventId)) {
