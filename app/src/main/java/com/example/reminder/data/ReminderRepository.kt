@@ -316,8 +316,34 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
         val legacyReminders = db.reminderDao().getCheckRemindersForCheck(userId, numericCheckId)
         val smartReminder = dao.getCheckReminderBySource(userId, checkId)
 
-        // All persistent check-reminder cleanup is atomic across legacy and smart tables.
+        // Persist every OS cancellation identifier in the same transaction as check/reminder deletion.
+        // If the process dies immediately after commit, session startup can replay this check-only outbox.
         db.withTransaction {
+            val smartSchedules = smartReminder?.let {
+                dao.getCheckSchedulesForReminderSync(userId, it.id)
+            }.orEmpty()
+            if (legacyReminders.isNotEmpty() || smartReminder != null) {
+                db.checkReminderCleanupQueueDao().upsert(
+                    com.example.data.database.CheckReminderCleanupQueueEntity(
+                        userId = userId,
+                        checkId = checkId,
+                        smartReminderId = smartReminder?.id,
+                        smartSchedulesJson = org.json.JSONArray().apply {
+                            smartSchedules.forEach { schedule ->
+                                put(
+                                    org.json.JSONObject()
+                                        .put("id", schedule.id)
+                                        .put("triggerDateTime", schedule.triggerDateTime)
+                                )
+                            }
+                        }.toString(),
+                        legacyReminderIdsJson = org.json.JSONArray().apply {
+                            legacyReminders.forEach { put(it.id) }
+                        }.toString(),
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
             legacyReminders.forEach { legacy ->
                 db.reminderDao().softDeleteReminder(userId, legacy.id)
                 db.reminderDao().deleteSchedulesForReminder(userId, legacy.id)
