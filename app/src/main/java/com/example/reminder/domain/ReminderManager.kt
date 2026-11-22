@@ -1,6 +1,8 @@
 package com.example.reminder.domain
 
 import android.content.Context
+import android.app.NotificationManager
+import androidx.room.withTransaction
 import android.util.Log
 import com.example.reminder.data.LocalReminderRepository
 import com.example.reminder.data.ReminderEntity
@@ -1149,32 +1151,45 @@ class ReminderManager(
      * under the same lock used by legacy migration. OS alarms are cancelled only
      * after the database transaction commits, so a failed cleanup can be retried.
      */
-    suspend fun deleteCheckReminder(checkId: String) = withContext(Dispatchers.IO) {
+    suspend fun deleteCheckReminder(
+        checkId: String,
+        deleteCheckRecord: suspend () -> Unit = {}
+    ) = withContext(Dispatchers.IO) {
         val userId = SessionManager.userId
             ?: throw IllegalStateException("Authenticated user is required to delete a check reminder")
 
         val database = AppDatabase.getDatabase(context)
-        // Read the exact legacy/smart rows and commit their cleanup under the same
-        // mutex as migration, so a just-imported reminder cannot escape cancellation.
+        // Serialize against legacy migration, then commit the check row and both
+        // reminder stores in one Room transaction. A process death cannot leave
+        // a soft-deleted check with a still-visible linked reminder.
         val cleanupSnapshot = LocalReminderRepository.withLegacyMigrationLock {
             val smart = repository.getReminderBySource("CHECK", checkId)
             val schedules = smart?.let { repository.getCheckSchedulesSync(it.id) }.orEmpty()
             val legacy = checkId.toIntOrNull()?.let { numericId ->
                 database.reminderDao().getCheckRemindersForCheck(userId, numericId)
             }.orEmpty()
-            repository.deleteCheckReminderWithSchedulesAndLogs(checkId)
+            database.withTransaction {
+                deleteCheckRecord()
+                repository.deleteCheckReminderWithSchedulesAndLogs(checkId)
+            }
             Triple(smart, schedules, legacy)
         }
         val smartReminder = cleanupSnapshot.first
         val smartSchedules = cleanupSnapshot.second
         val legacyReminders = cleanupSnapshot.third
 
-        // Cancel OS alarms only after the database transaction succeeds.
+        // Platform alarms and visible notifications are cancelled only after commit.
         val legacyRepository = com.example.data.repository.ReminderRepository(context)
+        val platformNotificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         legacyReminders.forEach { legacy ->
             runCatching { legacyRepository.deleteReminder(legacy.id) }
                 .onFailure { error ->
                     Log.e("ReminderManager", "Could not cancel legacy check reminder alarm ${legacy.id}.", error)
+                }
+            runCatching { platformNotificationManager.cancel(legacy.id) }
+                .onFailure { error ->
+                    Log.e("ReminderManager", "Could not cancel legacy check reminder notification ${legacy.id}.", error)
                 }
         }
         if (smartReminder != null) {
