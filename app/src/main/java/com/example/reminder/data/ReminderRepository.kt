@@ -43,11 +43,12 @@ interface ReminderRepository {
     suspend fun deleteReminder(reminder: ReminderEntity)
     suspend fun deleteReminderById(id: String)
     suspend fun deleteReminderWithSchedules(reminderId: String)
-    suspend fun deleteCheckReminderWithSchedulesAndLogs(reminderId: String)
+    suspend fun deleteCheckReminderWithSchedulesAndLogs(checkId: String)
     suspend fun updateStatus(id: String, status: String)
 
     fun getSchedules(reminderId: String): Flow<List<ReminderScheduleEntity>>
     suspend fun getSchedulesSync(reminderId: String): List<ReminderScheduleEntity>
+    suspend fun getCheckSchedulesSync(reminderId: String): List<ReminderScheduleEntity>
     suspend fun insertSchedule(schedule: ReminderScheduleEntity)
     suspend fun insertSchedules(schedules: List<ReminderScheduleEntity>)
     suspend fun updateSchedule(schedule: ReminderScheduleEntity)
@@ -308,24 +309,36 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
      * delivery logs, and reminder atomically. Generic reminder deletion
      * intentionally keeps its existing behavior.
      */
-    override suspend fun deleteCheckReminderWithSchedulesAndLogs(reminderId: String) {
+    override suspend fun deleteCheckReminderWithSchedulesAndLogs(checkId: String) {
         val userId = requireUserId()
-        db.withTransaction {
-            val deliveryLogs = dao.getDeliveryLogsForReminderSync(userId, reminderId)
-            val notificationIds = deliveryLogs.map { log ->
-                NotificationIdGenerator.generateNotificationId(
-                    reminderId = reminderId,
-                    scheduleId = log.scheduleId,
-                    triggerTime = log.scheduledAt
-                )
-            }.distinct()
+        val numericCheckId = checkId.toIntOrNull()
+            ?: throw IllegalArgumentException("Invalid check ID for reminder cleanup")
+        val legacyReminders = db.reminderDao().getCheckRemindersForCheck(userId, numericCheckId)
+        val smartReminder = dao.getCheckReminderBySource(userId, checkId)
 
-            if (notificationIds.isNotEmpty()) {
-                db.notificationLogDao().deleteSmartReminderNotifications(userId, notificationIds)
+        // All persistent check-reminder cleanup is atomic across legacy and smart tables.
+        db.withTransaction {
+            legacyReminders.forEach { legacy ->
+                db.reminderDao().softDeleteReminder(userId, legacy.id)
+                db.reminderDao().deleteSchedulesForReminder(userId, legacy.id)
+                db.notificationLogDao().deleteLegacyReminderNotifications(userId, legacy.id)
             }
-            dao.deleteSchedulesByReminderId(userId, reminderId)
-            dao.deleteDeliveryLogsByReminderId(reminderId)
-            dao.deleteReminderById(userId, reminderId)
+            if (smartReminder != null) {
+                val deliveryLogs = dao.getDeliveryLogsForReminderSync(userId, smartReminder.id)
+                val notificationIds = deliveryLogs.map { log ->
+                    NotificationIdGenerator.generateNotificationId(
+                        reminderId = smartReminder.id,
+                        scheduleId = log.scheduleId,
+                        triggerTime = log.scheduledAt
+                    )
+                }.distinct()
+                if (notificationIds.isNotEmpty()) {
+                    db.notificationLogDao().deleteSmartReminderNotifications(userId, notificationIds)
+                }
+                dao.deleteCheckSchedulesByReminderId(userId, smartReminder.id)
+                dao.deleteDeliveryLogsByReminderId(smartReminder.id)
+                dao.deleteCheckReminderById(userId, smartReminder.id)
+            }
         }
     }
 
@@ -341,6 +354,9 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
 
     override suspend fun getSchedulesSync(reminderId: String): List<ReminderScheduleEntity> =
         dao.getSchedulesForReminderSync(requireUserId(), reminderId)
+
+    override suspend fun getCheckSchedulesSync(reminderId: String): List<ReminderScheduleEntity> =
+        dao.getCheckSchedulesForReminderSync(requireUserId(), reminderId)
 
     override suspend fun insertSchedule(schedule: ReminderScheduleEntity) {
         val userId = requireUserId()
