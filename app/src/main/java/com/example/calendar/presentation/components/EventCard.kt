@@ -337,13 +337,14 @@ fun EventCard(
                 }
             }
 
-            // Bottom Footer: Reminder Before badge + Category tag
-            Row(
+            // Footer is vertical so the reminder text gets the full card width
+            // instead of competing horizontally with the category chip.
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+                horizontalAlignment = Alignment.End
             ) {
                 // Category Chip
                 Surface(
@@ -364,22 +365,25 @@ fun EventCard(
                 // Show a reminder only when its value is actually configured for this event.
                 event.reminderLabel?.takeIf { it.isNotBlank() }?.let { reminderLabel ->
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.NotificationsActive,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            modifier = Modifier.size(11.dp)
+                            modifier = Modifier
+                                .padding(top = 1.dp)
+                                .size(12.dp)
                         )
                         Text(
                             text = "یادآوری: $reminderLabel",
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                            maxLines = 3,
+                            overflow = TextOverflow.Clip,
                             textAlign = TextAlign.End
                         )
                     }
