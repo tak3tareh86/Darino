@@ -1155,16 +1155,20 @@ class ReminderManager(
             ?: throw IllegalStateException("Authenticated user is required to delete a check reminder")
 
         val database = AppDatabase.getDatabase(context)
-        val smartReminder = repository.getReminderBySource("CHECK", checkId)
-        val smartSchedules = smartReminder?.let { repository.getCheckSchedulesSync(it.id) }.orEmpty()
-        val legacyReminders = checkId.toIntOrNull()?.let { numericId ->
-            database.reminderDao().getCheckRemindersForCheck(userId, numericId)
-        }.orEmpty()
-
-        // Commit all persistent deletion first; failures leave every alarm untouched.
-        LocalReminderRepository.withLegacyMigrationLock {
+        // Read the exact legacy/smart rows and commit their cleanup under the same
+        // mutex as migration, so a just-imported reminder cannot escape cancellation.
+        val cleanupSnapshot = LocalReminderRepository.withLegacyMigrationLock {
+            val smart = repository.getReminderBySource("CHECK", checkId)
+            val schedules = smart?.let { repository.getCheckSchedulesSync(it.id) }.orEmpty()
+            val legacy = checkId.toIntOrNull()?.let { numericId ->
+                database.reminderDao().getCheckRemindersForCheck(userId, numericId)
+            }.orEmpty()
             repository.deleteCheckReminderWithSchedulesAndLogs(checkId)
+            Triple(smart, schedules, legacy)
         }
+        val smartReminder = cleanupSnapshot.first
+        val smartSchedules = cleanupSnapshot.second
+        val legacyReminders = cleanupSnapshot.third
 
         // Cancel OS alarms only after the database transaction succeeds.
         val legacyRepository = com.example.data.repository.ReminderRepository(context)
