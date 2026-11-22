@@ -80,6 +80,9 @@ interface ReminderDao {
     @Query("SELECT s.* FROM smart_reminder_schedules s INNER JOIN smart_reminders r ON r.id = s.reminderId WHERE r.userId = :userId AND r.id = :reminderId AND r.sourceType = 'VEHICLE' ORDER BY s.triggerDateTime ASC")
     suspend fun getSchedulesForExactVehicleReminder(userId: String, reminderId: String): List<ReminderScheduleEntity>
 
+    @Query("SELECT l.* FROM smart_reminder_delivery_logs l INNER JOIN smart_reminders r ON r.id = l.reminderId WHERE r.userId = :userId AND r.id = :reminderId AND r.sourceType = 'VEHICLE'")
+    suspend fun getDeliveryLogsForExactVehicleReminder(userId: String, reminderId: String): List<ReminderDeliveryLogEntity>
+
     @Query("DELETE FROM smart_reminders WHERE userId = :userId AND id = :reminderId AND sourceType = 'CHECK'")
     suspend fun deleteCheckReminderById(userId: String, reminderId: String): Int
 

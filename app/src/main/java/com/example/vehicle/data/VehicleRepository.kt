@@ -1090,7 +1090,8 @@ class VehicleRepository {
 
     /**
      * Removes only legacy records explicitly linked to the deleted vehicle.
-     * Invalid JSON is preserved so corruption is never silently discarded.
+     * Invalid JSON aborts the enclosing deletion transaction: a vehicle is never
+     * reported as deleted while uninspectable legacy records may still contain it.
      */
     private fun removeLegacyVehicleRows(rawJson: String, field: String, vehicleIds: Set<String>): String {
         if (rawJson.isBlank() || rawJson == "[]") return rawJson
@@ -1104,7 +1105,9 @@ class VehicleRepository {
                 }
             }
             filtered.toString()
-        }.getOrDefault(rawJson)
+        }.getOrElse { error ->
+            throw IllegalStateException("اطلاعات قدیمی خودرو قابل بررسی نیست؛ برای جلوگیری از حذف اطلاعات خودروهای دیگر، عملیات حذف انجام نشد.", error)
+        }
     }
 
     // 4. Delete Vehicle (Atomic cascading delete in Room transaction with child reminder cleanup)
@@ -1151,6 +1154,9 @@ class VehicleRepository {
                 val smartSchedules = vehicleReminderIds.flatMap { reminderId ->
                     smartDao.getSchedulesForExactVehicleReminder(userId, reminderId)
                 }
+                val smartDeliveryLogs = vehicleReminderIds.flatMap { reminderId ->
+                    smartDao.getDeliveryLogsForExactVehicleReminder(userId, reminderId)
+                }
 
                 enqueueVehicleReminderCleanup(
                     db = db,
@@ -1178,17 +1184,31 @@ class VehicleRepository {
 
                 // notification_logs.reminderId is the generated integer notification ID.
                 // Recompute both standard and full-screen IDs from the exact stored schedules.
-                val smartNotificationIds = smartSchedules.flatMap { schedule ->
+                val notificationKeys = buildList {
+                    smartSchedules.forEach { schedule ->
+                        add(schedule.reminderId to (schedule.id to schedule.triggerDateTime))
+                    }
+                    // Schedules may already have been pruned after delivery; delivery history
+                    // retains the exact schedule key and trigger timestamp needed to identify
+                    // the old notification-log IDs without guessing from titles or dates.
+                    smartDeliveryLogs.forEach { log ->
+                        log.scheduleId?.let { scheduleId ->
+                            add(log.reminderId to (scheduleId to log.scheduledAt))
+                        }
+                    }
+                }.distinct()
+                val smartNotificationIds = notificationKeys.flatMap { (reminderId, key) ->
+                    val (scheduleId, triggerTime) = key
                     listOf(
                         com.example.reminder.domain.NotificationIdGenerator.generateNotificationId(
-                            reminderId = schedule.reminderId,
-                            scheduleId = schedule.id,
-                            triggerTime = schedule.triggerDateTime
+                            reminderId = reminderId,
+                            scheduleId = scheduleId,
+                            triggerTime = triggerTime
                         ),
                         com.example.reminder.domain.NotificationIdGenerator.generateNotificationId(
-                            reminderId = schedule.reminderId,
-                            scheduleId = "standard:${schedule.id}",
-                            triggerTime = schedule.triggerDateTime
+                            reminderId = reminderId,
+                            scheduleId = "standard:$scheduleId",
+                            triggerTime = triggerTime
                         )
                     )
                 }.distinct()
