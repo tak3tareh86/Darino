@@ -262,6 +262,12 @@ class HomeDashboardRepository(
                 reminder.sourceType.equals("INSTALLMENT", ignoreCase = true) ||
                     reminder.type.equals("INSTALLMENT", ignoreCase = true)
 
+            val isVehicleReminder =
+                reminder.sourceType.equals("VEHICLE", ignoreCase = true) ||
+                    reminder.sourceType.equals("INSURANCE", ignoreCase = true) ||
+                    reminder.type.equals("VEHICLE", ignoreCase = true) ||
+                    reminder.type.equals("INSURANCE", ignoreCase = true)
+
             var paymentId: String? = null
             var dueDate: String? = null
             var triggerMillis: Long? = null
@@ -300,6 +306,26 @@ class HomeDashboardRepository(
                 paymentId = nextOccurrence.first.id
                 dueDate = nextOccurrence.first.dueDate
                 triggerMillis = nextOccurrence.third
+            } else if (isVehicleReminder) {
+                // Vehicle insurance and inspection cards must show the actual configured
+                // alert occurrence, not the reminder's base date (which is the expiry date).
+                // Read-only lookup: this does not modify schedules or alarm delivery.
+                val schedules = runCatching {
+                    db.smartReminderDao().getSchedulesForReminderSync(userId, reminder.id)
+                }.getOrDefault(emptyList())
+
+                val nextVehicleTrigger = schedules.asSequence()
+                    .filter { schedule ->
+                        schedule.enabled &&
+                            schedule.triggerDateTime > now &&
+                            !schedule.triggerType.equals("COMPLETED", ignoreCase = true) &&
+                            !schedule.id.startsWith("snooze_")
+                    }
+                    .minByOrNull { it.triggerDateTime }
+                    ?: return@mapNotNull null
+
+                dueDate = reminder.date
+                triggerMillis = nextVehicleTrigger.triggerDateTime
             } else {
                 val parsedTriggerMillis: Long? = try {
                     ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
@@ -345,13 +371,21 @@ class HomeDashboardRepository(
                 id = reminder.id,
                 title = reminder.title,
                 relativeDaysText = relativeText,
-                timePersian = if (isInstallmentReminder) triggerDate.toFormattedTime() else reminder.time,
+                timePersian = if (isInstallmentReminder || isVehicleReminder) {
+                    triggerDate.toFormattedTime()
+                } else {
+                    reminder.time
+                },
                 typeTitle = typeTitle,
                 iconRes = iconRes,
                 accentColor = accentColor,
                 datePersian = dueDate ?: reminder.date,
                 dueDatePersian = dueDate,
-                reminderDatePersian = if (isInstallmentReminder) triggerDate.toFormattedDate() else null,
+                reminderDatePersian = if (isInstallmentReminder || isVehicleReminder) {
+                    triggerDate.toFormattedDate()
+                } else {
+                    null
+                },
                 installmentPaymentId = paymentId
             )
             item to actualTrigger
