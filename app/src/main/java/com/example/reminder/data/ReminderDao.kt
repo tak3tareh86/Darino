@@ -89,6 +89,9 @@ interface ReminderDao {
     @Query("DELETE FROM smart_reminder_delivery_logs WHERE reminderId = :reminderId")
     suspend fun deleteDeliveryLogsByReminderId(reminderId: String): Int
 
+    @Query("DELETE FROM smart_reminder_delivery_logs WHERE reminderId = :reminderId")
+    suspend fun deleteDeliveryLogsByReminderId(reminderId: String): Int
+
     @Query("""
         SELECT s.*
         FROM smart_reminder_schedules AS s
@@ -116,6 +119,9 @@ interface ReminderDao {
 
     @Query("SELECT l.* FROM smart_reminder_delivery_logs l INNER JOIN smart_reminders r ON r.id = l.reminderId WHERE r.userId = :userId AND (l.reminderId = :reminderId OR (r.sourceType = 'VEHICLE' AND r.sourceId = :reminderId)) ORDER BY l.scheduledAt DESC")
     fun getDeliveryLogsForReminder(userId: String, reminderId: String): Flow<List<ReminderDeliveryLogEntity>>
+
+    @Query("SELECT l.* FROM smart_reminder_delivery_logs l INNER JOIN smart_reminders r ON r.id = l.reminderId WHERE r.userId = :userId AND l.reminderId = :reminderId ORDER BY l.scheduledAt DESC")
+    suspend fun getDeliveryLogsForReminderSync(userId: String, reminderId: String): List<ReminderDeliveryLogEntity>
 
     @Query("SELECT l.* FROM smart_reminder_delivery_logs l INNER JOIN smart_reminders r ON r.id = l.reminderId WHERE r.userId = :userId ORDER BY l.scheduledAt DESC")
     fun getAllDeliveryLogs(userId: String): Flow<List<ReminderDeliveryLogEntity>>
