@@ -65,6 +65,21 @@ interface ReminderDao {
     @Query("DELETE FROM smart_reminders WHERE userId = :userId AND (id = :id OR (sourceType = 'VEHICLE' AND sourceId = :id))")
     suspend fun deleteReminderById(userId: String, id: String): Int
 
+    @Query("SELECT * FROM smart_reminders WHERE userId = :userId AND (id IN (:sourceIds) OR (sourceType = 'VEHICLE' AND sourceId IN (:sourceIds)))")
+    suspend fun getVehicleRemindersForSources(userId: String, sourceIds: List<String>): List<ReminderEntity>
+
+    @Query("DELETE FROM smart_reminder_schedules WHERE reminderId = :reminderId AND reminderId IN (SELECT id FROM smart_reminders WHERE userId = :userId AND id = :reminderId AND sourceType = 'VEHICLE')")
+    suspend fun deleteSchedulesForExactVehicleReminder(userId: String, reminderId: String): Int
+
+    @Query("DELETE FROM smart_reminder_delivery_logs WHERE reminderId = :reminderId AND reminderId IN (SELECT id FROM smart_reminders WHERE userId = :userId AND id = :reminderId AND sourceType = 'VEHICLE')")
+    suspend fun deleteDeliveryLogsForExactVehicleReminder(userId: String, reminderId: String): Int
+
+    @Query("DELETE FROM smart_reminders WHERE userId = :userId AND id = :reminderId AND sourceType = 'VEHICLE'")
+    suspend fun deleteExactVehicleReminder(userId: String, reminderId: String): Int
+
+    @Query("SELECT s.* FROM smart_reminder_schedules s INNER JOIN smart_reminders r ON r.id = s.reminderId WHERE r.userId = :userId AND r.id = :reminderId AND r.sourceType = 'VEHICLE' ORDER BY s.triggerDateTime ASC")
+    suspend fun getSchedulesForExactVehicleReminder(userId: String, reminderId: String): List<ReminderScheduleEntity>
+
     @Query("DELETE FROM smart_reminders WHERE userId = :userId AND id = :reminderId AND sourceType = 'CHECK'")
     suspend fun deleteCheckReminderById(userId: String, reminderId: String): Int
 
