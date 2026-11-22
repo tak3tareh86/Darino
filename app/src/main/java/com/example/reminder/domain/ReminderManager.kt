@@ -1145,10 +1145,9 @@ class ReminderManager(
     /**
      * Deletes only the reminder records associated with a deleted check.
      *
-     * Legacy rows are soft-deleted through their existing repository path while
-     * holding the same lock used by legacy migration, preventing the importer
-     * from recreating the deleted check reminder. The current smart reminder is
-     * then removed through the standard alarm/notification cancellation path.
+     * Legacy and smart rows are removed from visible reminder data atomically
+     * under the same lock used by legacy migration. OS alarms are cancelled only
+     * after the database transaction commits, so a failed cleanup can be retried.
      */
     suspend fun deleteCheckReminder(checkId: String) = withContext(Dispatchers.IO) {
         val userId = SessionManager.userId
