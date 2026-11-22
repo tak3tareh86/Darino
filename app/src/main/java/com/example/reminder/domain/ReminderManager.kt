@@ -1155,8 +1155,8 @@ class ReminderManager(
             ?: throw IllegalStateException("Authenticated user is required to delete a check reminder")
 
         LocalReminderRepository.withLegacyMigrationLock {
-            val legacyReminders = AppDatabase.getDatabase(context)
-                .reminderDao()
+            val database = AppDatabase.getDatabase(context)
+            val legacyReminders = database.reminderDao()
                 .getAllRemindersForBackup(userId)
                 .filter { legacy ->
                     legacy.sourceType.equals("CHECK", ignoreCase = true) &&
@@ -1168,10 +1168,8 @@ class ReminderManager(
                 if (legacy.deletedAt == null) {
                     legacyRepository.deleteReminder(legacy.id)
                 }
-                AppDatabase.getDatabase(context).reminderDao()
-                    .deleteSchedulesForReminder(userId, legacy.id)
-                AppDatabase.getDatabase(context).notificationLogDao()
-                    .deleteLegacyReminderNotifications(userId, legacy.id)
+                database.reminderDao().deleteSchedulesForReminder(userId, legacy.id)
+                database.notificationLogDao().deleteLegacyReminderNotifications(userId, legacy.id)
             }
 
             val smartReminder = repository.getReminderBySource("CHECK", checkId)
