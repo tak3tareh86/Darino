@@ -1159,14 +1159,19 @@ class ReminderManager(
                 .reminderDao()
                 .getAllRemindersForBackup(userId)
                 .filter { legacy ->
-                    legacy.deletedAt == null &&
-                        legacy.sourceType.equals("CHECK", ignoreCase = true) &&
+                    legacy.sourceType.equals("CHECK", ignoreCase = true) &&
                         legacy.sourceId?.toString() == checkId
                 }
 
             val legacyRepository = com.example.data.repository.ReminderRepository(context)
             legacyReminders.forEach { legacy ->
-                legacyRepository.deleteReminder(legacy.id)
+                if (legacy.deletedAt == null) {
+                    legacyRepository.deleteReminder(legacy.id)
+                }
+                AppDatabase.getDatabase(context).reminderDao()
+                    .deleteSchedulesForReminder(userId, legacy.id)
+                AppDatabase.getDatabase(context).notificationLogDao()
+                    .deleteLegacyReminderNotifications(userId, legacy.id)
             }
 
             val smartReminder = repository.getReminderBySource("CHECK", checkId)
