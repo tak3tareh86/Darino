@@ -1154,32 +1154,37 @@ class ReminderManager(
         val userId = SessionManager.userId
             ?: throw IllegalStateException("Authenticated user is required to delete a check reminder")
 
+        val database = AppDatabase.getDatabase(context)
+        val smartReminder = repository.getReminderBySource("CHECK", checkId)
+        val smartSchedules = smartReminder?.let { repository.getCheckSchedulesSync(it.id) }.orEmpty()
+        val legacyReminders = checkId.toIntOrNull()?.let { numericId ->
+            database.reminderDao().getCheckRemindersForCheck(userId, numericId)
+        }.orEmpty()
+
+        // Commit all persistent deletion first; failures leave every alarm untouched.
         LocalReminderRepository.withLegacyMigrationLock {
-            val database = AppDatabase.getDatabase(context)
-            val legacyReminders = database.reminderDao()
-                .getAllRemindersForBackup(userId)
-                .filter { legacy ->
-                    legacy.sourceType.equals("CHECK", ignoreCase = true) &&
-                        legacy.sourceId?.toString() == checkId
-                }
+            repository.deleteCheckReminderWithSchedulesAndLogs(checkId)
+        }
 
-            val legacyRepository = com.example.data.repository.ReminderRepository(context)
-            legacyReminders.forEach { legacy ->
-                if (legacy.deletedAt == null) {
-                    legacyRepository.deleteReminder(legacy.id)
+        // Cancel OS alarms only after the database transaction succeeds.
+        val legacyRepository = com.example.data.repository.ReminderRepository(context)
+        legacyReminders.forEach { legacy ->
+            runCatching { legacyRepository.deleteReminder(legacy.id) }
+                .onFailure { error ->
+                    Log.e("ReminderManager", "Could not cancel legacy check reminder alarm ${legacy.id}.", error)
                 }
-                database.reminderDao().deleteSchedulesForReminder(userId, legacy.id)
-                database.notificationLogDao().deleteLegacyReminderNotifications(userId, legacy.id)
+        }
+        if (smartReminder != null) {
+            runCatching { scheduler.cancel(smartReminder.id, smartSchedules) }
+                .onFailure { error ->
+                    Log.e("ReminderManager", "Could not cancel smart check reminder alarms ${smartReminder.id}.", error)
+                }
+            runCatching {
+                NotificationDispatcher(context).cancelReminderNotifications(smartReminder.id, smartSchedules)
+            }.onFailure { error ->
+                Log.e("ReminderManager", "Could not cancel smart check reminder notifications ${smartReminder.id}.", error)
             }
-
-            val smartReminder = repository.getReminderBySource("CHECK", checkId)
-            if (smartReminder != null) {
-                val schedules = repository.getSchedulesSync(smartReminder.id)
-                scheduler.cancel(smartReminder.id, schedules)
-                NotificationDispatcher(context).cancelReminderNotifications(smartReminder.id, schedules)
-                repository.deleteCheckReminderWithSchedulesAndLogs(smartReminder.id)
-                Log.i("ReminderManager", "Deleted check reminder $checkId and all its schedules and delivery logs.")
-            }
+            Log.i("ReminderManager", "Deleted check reminder $checkId and all its schedules and delivery logs.")
         }
     }
 
