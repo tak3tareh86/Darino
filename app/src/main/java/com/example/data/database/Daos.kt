@@ -70,6 +70,24 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions WHERE userId = :userId AND deletedAt IS NULL AND (stringId = :stringId OR CAST(id AS TEXT) = :stringId) LIMIT 1")
     suspend fun getTransactionByStringId(userId: String, stringId: String): TransactionEntity?
+
+    /**
+     * Marks only vehicle-originated service/insurance transactions for deletion.
+     * Manual transactions and transactions from every other feature are untouched.
+     */
+    @Query("""
+        UPDATE transactions
+        SET deletedAt = :deletedAt, updatedAt = :deletedAt, syncState = 'PENDING_DELETE'
+        WHERE userId = :userId
+          AND deletedAt IS NULL
+          AND sourceType IN ('MAINTENANCE', 'SERVICE', 'INSURANCE')
+          AND sourceId IN (:sourceIds)
+    """)
+    suspend fun softDeleteVehicleTransactions(
+        userId: String,
+        sourceIds: List<String>,
+        deletedAt: Long = System.currentTimeMillis()
+    ): Int
 }
 
 @Dao
@@ -301,6 +319,9 @@ interface VehicleDao {
     @Query("SELECT COALESCE(NULLIF(serverId, ''), CAST(id AS TEXT)) FROM vehicle_services WHERE userId = :userId AND vehicleId = :vehicleId")
     suspend fun getServiceServerIdsByVehicleId(userId: String, vehicleId: String): List<String>
 
+    @Query("SELECT id FROM vehicle_services WHERE userId = :userId AND vehicleId = :vehicleId")
+    suspend fun getServiceLocalIdsByVehicleId(userId: String, vehicleId: String): List<Int>
+
     @Query("SELECT id FROM vehicle_insurances WHERE userId = :userId AND vehicleId = :vehicleId")
     suspend fun getInsuranceIdsByVehicleId(userId: String, vehicleId: String): List<String>
 
@@ -401,6 +422,15 @@ interface ReminderDao {
     @Query("SELECT * FROM reminders WHERE userId = :userId AND UPPER(sourceType) = 'CHECK' AND sourceId = :checkId")
     suspend fun getCheckRemindersForCheck(userId: String, checkId: Int): List<ReminderEntity>
 
+    @Query("SELECT * FROM reminders WHERE userId = :userId AND UPPER(sourceType) = 'VEHICLE_SERVICE' AND sourceId IN (:serviceIds)")
+    suspend fun getVehicleServiceReminders(userId: String, serviceIds: List<Int>): List<ReminderEntity>
+
+    @Query("DELETE FROM reminder_schedules WHERE reminderId IN (:reminderIds) AND reminderId IN (SELECT id FROM reminders WHERE userId = :userId)")
+    suspend fun deleteSchedulesForReminders(userId: String, reminderIds: List<Int>): Int
+
+    @Query("DELETE FROM reminders WHERE userId = :userId AND id IN (:reminderIds) AND UPPER(sourceType) = 'VEHICLE_SERVICE'")
+    suspend fun deleteVehicleServiceReminders(userId: String, reminderIds: List<Int>): Int
+
     @Query("SELECT * FROM reminder_schedules WHERE triggerDateTime >= :start AND triggerDateTime <= :end AND status = 'PENDING'")
     suspend fun getPendingSchedulesInRange(start: Long, end: Long): List<ReminderScheduleEntity>
 
@@ -453,6 +483,13 @@ interface NotificationLogDao {
         deletedAt: Long = System.currentTimeMillis()
     )
 
+    @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND source = 'SYSTEM_ALARM' AND reminderId IN (:legacyReminderIds) AND deletedAt IS NULL")
+    suspend fun deleteLegacyReminderNotificationsBatch(
+        userId: String,
+        legacyReminderIds: List<Int>,
+        deletedAt: Long = System.currentTimeMillis()
+    )
+
     @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND source = 'SMART_REMINDER' AND reminderId IN (:notificationIds) AND deletedAt IS NULL")
     suspend fun deleteSmartReminderNotifications(
         userId: String,
@@ -499,6 +536,9 @@ interface SmsLogDao {
 
     @Query("UPDATE sms_logs SET status = :status, deliveredAt = :deliveredAt WHERE userId = :userId AND providerMessageId = :providerId")
     suspend fun updateStatusByProviderId(userId: String, providerId: String, status: String, deliveredAt: Long?)
+
+    @Query("DELETE FROM sms_logs WHERE userId = :userId AND reminderId IN (:reminderIds)")
+    suspend fun deleteLogsForReminders(userId: String, reminderIds: List<Int>): Int
 }
 
 @Dao
