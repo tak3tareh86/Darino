@@ -1159,20 +1159,20 @@ class ReminderManager(
             ?: throw IllegalStateException("Authenticated user is required to delete a check reminder")
 
         val database = AppDatabase.getDatabase(context)
-        // Serialize against legacy migration, then commit the check row and both
-        // reminder stores in one Room transaction. A process death cannot leave
-        // a soft-deleted check with a still-visible linked reminder.
+        // Serialize against legacy migration. Read the cancellation snapshot,
+        // soft-delete the check, and remove both reminder stores in one Room
+        // transaction so concurrent writes cannot escape the cleanup snapshot.
         val cleanupSnapshot = LocalReminderRepository.withLegacyMigrationLock {
-            val smart = repository.getReminderBySource("CHECK", checkId)
-            val schedules = smart?.let { repository.getCheckSchedulesSync(it.id) }.orEmpty()
-            val legacy = checkId.toIntOrNull()?.let { numericId ->
-                database.reminderDao().getCheckRemindersForCheck(userId, numericId)
-            }.orEmpty()
             database.withTransaction {
+                val smart = repository.getReminderBySource("CHECK", checkId)
+                val schedules = smart?.let { repository.getCheckSchedulesSync(it.id) }.orEmpty()
+                val legacy = checkId.toIntOrNull()?.let { numericId ->
+                    database.reminderDao().getCheckRemindersForCheck(userId, numericId)
+                }.orEmpty()
                 deleteCheckRecord()
                 repository.deleteCheckReminderWithSchedulesAndLogs(checkId)
+                Triple(smart, schedules, legacy)
             }
-            Triple(smart, schedules, legacy)
         }
         val smartReminder = cleanupSnapshot.first
         val smartSchedules = cleanupSnapshot.second
