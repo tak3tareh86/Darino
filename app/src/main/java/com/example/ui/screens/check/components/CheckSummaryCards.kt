@@ -2,6 +2,9 @@ package com.example.ui.screens.check.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -186,14 +189,33 @@ private fun MonthChecksCard(
     bouncedCount: Int
 ) {
     val scheme = MaterialTheme.colorScheme
+    val cardShape = RoundedCornerShape(20.dp)
     Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = scheme.surface),
-        border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.65f))
+        modifier = modifier
+            .shadow(
+                elevation = 3.dp,
+                shape = cardShape,
+                ambientColor = androidx.compose.ui.graphics.Color(0xFF0D9488).copy(alpha = 0.2f),
+                spotColor = androidx.compose.ui.graphics.Color(0xFF0F172A).copy(alpha = 0.35f)
+            )
+            .clip(cardShape),
+        shape = cardShape,
+        colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+        border = BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFF2DD4BF).copy(alpha = 0.28f))
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 11.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            androidx.compose.ui.graphics.Color(0xFF0B132B),
+                            androidx.compose.ui.graphics.Color(0xFF112240),
+                            androidx.compose.ui.graphics.Color(0xFF0A2B28)
+                        )
+                    )
+                )
+                .padding(horizontal = 12.dp, vertical = 11.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
             Row(
@@ -220,7 +242,7 @@ private fun MonthChecksCard(
                     Text(
                         "چک‌های ماه جاری",
                         style = MaterialTheme.typography.titleSmall,
-                        color = scheme.onSurface,
+                        color = androidx.compose.ui.graphics.Color(0xFFF8FAFC),
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
                     )
@@ -240,17 +262,17 @@ private fun MonthChecksCard(
                 title = "دریافتی",
                 amount = receivedAmount,
                 count = receivedCount,
-                amountColor = scheme.primary,
-                rowColor = scheme.primaryContainer.copy(alpha = 0.42f)
+                amountColor = androidx.compose.ui.graphics.Color(0xFF2DD4BF),
+                rowColor = androidx.compose.ui.graphics.Color(0xFF2DD4BF).copy(alpha = 0.13f)
             )
             MonthAmountRow(
                 title = "پرداختی",
                 amount = paidAmount,
                 count = paidCount,
-                amountColor = scheme.error,
-                rowColor = scheme.errorContainer.copy(alpha = 0.48f)
+                amountColor = androidx.compose.ui.graphics.Color(0xFFF87171),
+                rowColor = androidx.compose.ui.graphics.Color(0xFFEF4444).copy(alpha = 0.16f)
             )
-            HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.7f))
+            HorizontalDivider(color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.16f))
             if (bouncedCount > 0) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 1.dp),
@@ -259,7 +281,7 @@ private fun MonthChecksCard(
                     Text(
                         "${IranianPhoneUtils.convertDigitsToPersian(bouncedCount.toString())} فقره",
                         style = MaterialTheme.typography.labelMedium,
-                        color = scheme.onSurface,
+                        color = androidx.compose.ui.graphics.Color(0xFFF8FAFC),
                         maxLines = 1
                     )
                     Spacer(Modifier.width(10.dp))
@@ -273,7 +295,7 @@ private fun MonthChecksCard(
                     Text(
                         "برگشتی / فعال",
                         style = MaterialTheme.typography.labelMedium,
-                        color = scheme.onSurfaceVariant,
+                        color = androidx.compose.ui.graphics.Color(0xFFCBD5E1),
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1
                     )
@@ -283,7 +305,7 @@ private fun MonthChecksCard(
                     "${IranianPhoneUtils.convertDigitsToPersian(monthCount.toString())} چک فعال",
                     modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = scheme.onSurfaceVariant,
+                    color = androidx.compose.ui.graphics.Color(0xFFCBD5E1),
                     textAlign = TextAlign.Center,
                     maxLines = 1
                 )
