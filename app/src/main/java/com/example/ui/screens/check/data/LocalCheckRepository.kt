@@ -210,13 +210,24 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 existing.replacedByCheckId != null || existing.replacesCheckId != null) {
                 return@withContext CheckOperationResult.VALIDATION_ERROR
             }
-            val rowsAffected = database.checkDao().softDeleteCheck(userId, id, System.currentTimeMillis(), System.currentTimeMillis())
-            if (rowsAffected == 0) return@withContext CheckOperationResult.NOT_FOUND
-            
+            val deletionTimestamp = System.currentTimeMillis()
             try {
-                reminderManager?.onCheckSettled(id.toString())
+                (reminderManager
+                    ?: throw IllegalStateException("مدیر یادآور مقداردهی نشده است."))
+                    .deleteCheckReminder(id.toString()) {
+                        val rowsAffected = database.checkDao().softDeleteCheck(
+                            userId = userId,
+                            checkId = id,
+                            deletedAt = deletionTimestamp,
+                            updatedAt = deletionTimestamp
+                        )
+                        if (rowsAffected != 1) {
+                            throw IllegalStateException("Check deletion did not update exactly one row.")
+                        }
+                    }
             } catch (e: Exception) {
                 e.printStackTrace()
+                return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
             }
             CheckOperationResult.SUCCESS
         } catch (e: Exception) {

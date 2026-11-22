@@ -373,6 +373,9 @@ interface ReminderDao {
     @Query("UPDATE reminders SET deletedAt = :deletedAt, syncState = 'PENDING_DELETE' WHERE userId = :userId AND id = :id")
     suspend fun softDeleteReminder(userId: String, id: Int, deletedAt: Long = System.currentTimeMillis())
 
+    @Query("DELETE FROM reminder_schedules WHERE reminderId = :reminderId AND reminderId IN (SELECT id FROM reminders WHERE userId = :userId)")
+    suspend fun deleteSchedulesForReminder(userId: String, reminderId: Int): Int
+
     @Query("DELETE FROM reminders WHERE userId = :userId AND id = :id")
     suspend fun hardDeleteReminder(userId: String, id: Int)
 
@@ -394,6 +397,9 @@ interface ReminderDao {
     // Schedules
     @Query("SELECT s.* FROM reminder_schedules s INNER JOIN reminders r ON r.id = s.reminderId WHERE r.userId = :userId AND s.reminderId = :reminderId")
     suspend fun getSchedulesForReminder(userId: String, reminderId: Int): List<ReminderScheduleEntity>
+
+    @Query("SELECT * FROM reminders WHERE userId = :userId AND UPPER(sourceType) = 'CHECK' AND sourceId = :checkId")
+    suspend fun getCheckRemindersForCheck(userId: String, checkId: Int): List<ReminderEntity>
 
     @Query("SELECT * FROM reminder_schedules WHERE triggerDateTime >= :start AND triggerDateTime <= :end AND status = 'PENDING'")
     suspend fun getPendingSchedulesInRange(start: Long, end: Long): List<ReminderScheduleEntity>
@@ -439,6 +445,20 @@ interface NotificationLogDao {
 
     @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND id = :id")
     suspend fun deleteNotification(userId: String, id: Int, deletedAt: Long = System.currentTimeMillis())
+
+    @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND source = 'SYSTEM_ALARM' AND reminderId = :legacyReminderId AND deletedAt IS NULL")
+    suspend fun deleteLegacyReminderNotifications(
+        userId: String,
+        legacyReminderId: Int,
+        deletedAt: Long = System.currentTimeMillis()
+    )
+
+    @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND source = 'SMART_REMINDER' AND reminderId IN (:notificationIds) AND deletedAt IS NULL")
+    suspend fun deleteSmartReminderNotifications(
+        userId: String,
+        notificationIds: List<Int>,
+        deletedAt: Long = System.currentTimeMillis()
+    )
 
     @Query("UPDATE notification_logs SET deletedAt = :deletedAt WHERE userId = :userId AND deletedAt IS NULL")
     suspend fun deleteAllNotifications(userId: String, deletedAt: Long = System.currentTimeMillis())
@@ -659,6 +679,14 @@ interface CheckDao {
 
     @Query("UPDATE checks SET deletedAt = :deletedAt, updatedAt = :updatedAt WHERE userId = :userId AND id = :checkId")
     suspend fun softDeleteCheck(userId: String, checkId: Int, deletedAt: Long, updatedAt: Long): Int
+
+    @Query("UPDATE checks SET deletedAt = NULL, updatedAt = :restoredUpdatedAt WHERE userId = :userId AND id = :checkId AND deletedAt = :deletedAt")
+    suspend fun restoreSoftDeletedCheckAfterReminderFailure(
+        userId: String,
+        checkId: Int,
+        deletedAt: Long,
+        restoredUpdatedAt: Long
+    ): Int
 
     @Query("SELECT * FROM checks WHERE userId = :userId AND status IN ('REGISTERED', 'PENDING', 'BOUNCED') AND deletedAt IS NULL")
     suspend fun getActiveChecks(userId: String): List<CheckEntity>

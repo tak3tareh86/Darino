@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import com.example.reminder.domain.ReminderScheduler
 import com.example.reminder.domain.ReminderManager
+import com.example.reminder.domain.NotificationIdGenerator
 import com.example.reminder.domain.ReminderPolicyEngine
 import com.example.reminder.domain.RepeatType
 
@@ -42,10 +43,12 @@ interface ReminderRepository {
     suspend fun deleteReminder(reminder: ReminderEntity)
     suspend fun deleteReminderById(id: String)
     suspend fun deleteReminderWithSchedules(reminderId: String)
+    suspend fun deleteCheckReminderWithSchedulesAndLogs(checkId: String)
     suspend fun updateStatus(id: String, status: String)
 
     fun getSchedules(reminderId: String): Flow<List<ReminderScheduleEntity>>
     suspend fun getSchedulesSync(reminderId: String): List<ReminderScheduleEntity>
+    suspend fun getCheckSchedulesSync(reminderId: String): List<ReminderScheduleEntity>
     suspend fun insertSchedule(schedule: ReminderScheduleEntity)
     suspend fun insertSchedules(schedules: List<ReminderScheduleEntity>)
     suspend fun updateSchedule(schedule: ReminderScheduleEntity)
@@ -78,10 +81,95 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
         migrationScope.launch {
             SessionManager.sessionState.collect { state ->
                 val userId = state.userIdOrNull() ?: return@collect
+                runCatching { retryPendingCheckReminderCleanup(userId) }
+                    .onFailure {
+                        android.util.Log.e("LocalReminderRepository", "Pending check reminder cleanup recovery failed for the authenticated user.", it)
+                    }
                 runCatching { migrateLegacyReminders(userId) }
                     .onFailure {
                         android.util.Log.e("LocalReminderRepository", "Legacy reminder migration failed for the authenticated user.", it)
                     }
+            }
+        }
+    }
+
+    /**
+     * Replays only check-owned platform cancellations saved in the durable outbox.
+     * Failures keep the row for the next authenticated session; no reminder is rescheduled or edited.
+     */
+    private suspend fun retryPendingCheckReminderCleanup(userId: String) {
+        val queueDao = db.checkReminderCleanupQueueDao()
+        val legacyScheduler = com.example.data.receiver.ReminderScheduler(appContext)
+        val smartScheduler = com.example.reminder.domain.ReminderScheduler(appContext)
+        val notificationManager =
+            appContext.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+
+        queueDao.getPendingForUser(userId).forEach { pending ->
+            val legacyIds = try {
+                org.json.JSONArray(pending.legacyReminderIdsJson).let { json ->
+                    (0 until json.length()).map { json.getInt(it) }
+                }
+            } catch (error: Exception) {
+                android.util.Log.e(
+                    "LocalReminderRepository",
+                    "Invalid legacy cancellation snapshot for deleted check ${pending.checkId}; keeping it for recovery.",
+                    error
+                )
+                return@forEach
+            }
+
+            val smartSchedules = try {
+                org.json.JSONArray(pending.smartSchedulesJson).let { json ->
+                    (0 until json.length()).map { index ->
+                        val item = json.getJSONObject(index)
+                        ReminderScheduleEntity(
+                            id = item.getString("id"),
+                            reminderId = pending.smartReminderId
+                                ?: throw IllegalStateException("Missing smart reminder ID in cleanup snapshot"),
+                            triggerDateTime = item.getLong("triggerDateTime")
+                        )
+                    }
+                }
+            } catch (error: Exception) {
+                if (pending.smartReminderId != null) {
+                    android.util.Log.e(
+                        "LocalReminderRepository",
+                        "Invalid smart cancellation snapshot for deleted check ${pending.checkId}; keeping it for recovery.",
+                        error
+                    )
+                    return@forEach
+                } else {
+                    emptyList()
+                }
+            }
+
+            val errors = mutableListOf<Throwable>()
+            legacyIds.forEach { reminderId ->
+                runCatching { legacyScheduler.cancel(reminderId) }
+                    .onFailure { errors.add(it) }
+                runCatching { notificationManager.cancel(reminderId) }
+                    .onFailure { errors.add(it) }
+            }
+
+            pending.smartReminderId?.let { reminderId ->
+                smartSchedules.forEach { schedule ->
+                    runCatching { smartScheduler.cancelSchedule(schedule.id) }
+                        .onFailure { errors.add(it) }
+                }
+                runCatching {
+                    com.example.reminder.domain.NotificationDispatcher(appContext)
+                        .cancelReminderNotifications(reminderId, smartSchedules)
+                }.onFailure { errors.add(it) }
+            }
+
+            if (errors.isEmpty()) {
+                queueDao.delete(pending.userId, pending.checkId)
+            } else {
+                android.util.Log.w(
+                    "LocalReminderRepository",
+                    "Pending cleanup for deleted check ${pending.checkId} remains queued for retry.",
+                    errors.first()
+                )
             }
         }
     }
@@ -192,6 +280,19 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
     companion object {
         private val migrationMutex = Mutex()
         private val migrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+        /**
+         * Serializes check-specific legacy cleanup with the one-time legacy import.
+         * This does not change migration behavior for any other reminder source.
+         */
+        suspend fun <T> withLegacyMigrationLock(block: suspend () -> T): T {
+            migrationMutex.lock()
+            try {
+                return block()
+            } finally {
+                migrationMutex.unlock()
+            }
+        }
     }
 
     override fun getAllReminders(): Flow<List<ReminderEntity>> =
@@ -288,6 +389,70 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
         }
     }
 
+    /**
+     * Check-only cleanup: remove its notification-center entries, schedules,
+     * delivery logs, and reminder atomically. Generic reminder deletion
+     * intentionally keeps its existing behavior.
+     */
+    override suspend fun deleteCheckReminderWithSchedulesAndLogs(checkId: String) {
+        val userId = requireUserId()
+        val numericCheckId = checkId.toIntOrNull()
+            ?: throw IllegalArgumentException("Invalid check ID for reminder cleanup")
+        val legacyReminders = db.reminderDao().getCheckRemindersForCheck(userId, numericCheckId)
+        val smartReminder = dao.getCheckReminderBySource(userId, checkId)
+
+        // Persist every OS cancellation identifier in the same transaction as check/reminder deletion.
+        // If the process dies immediately after commit, session startup can replay this check-only outbox.
+        db.withTransaction {
+            val smartSchedules = smartReminder?.let {
+                dao.getCheckSchedulesForReminderSync(userId, it.id)
+            }.orEmpty()
+            if (legacyReminders.isNotEmpty() || smartReminder != null) {
+                db.checkReminderCleanupQueueDao().upsert(
+                    com.example.data.database.CheckReminderCleanupQueueEntity(
+                        userId = userId,
+                        checkId = checkId,
+                        smartReminderId = smartReminder?.id,
+                        smartSchedulesJson = org.json.JSONArray().apply {
+                            smartSchedules.forEach { schedule ->
+                                put(
+                                    org.json.JSONObject()
+                                        .put("id", schedule.id)
+                                        .put("triggerDateTime", schedule.triggerDateTime)
+                                )
+                            }
+                        }.toString(),
+                        legacyReminderIdsJson = org.json.JSONArray().apply {
+                            legacyReminders.forEach { put(it.id) }
+                        }.toString(),
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+            legacyReminders.forEach { legacy ->
+                db.reminderDao().softDeleteReminder(userId, legacy.id)
+                db.reminderDao().deleteSchedulesForReminder(userId, legacy.id)
+                db.notificationLogDao().deleteLegacyReminderNotifications(userId, legacy.id)
+            }
+            if (smartReminder != null) {
+                val deliveryLogs = dao.getDeliveryLogsForReminderSync(userId, smartReminder.id)
+                val notificationIds = deliveryLogs.map { log ->
+                    NotificationIdGenerator.generateNotificationId(
+                        reminderId = smartReminder.id,
+                        scheduleId = log.scheduleId,
+                        triggerTime = log.scheduledAt
+                    )
+                }.distinct()
+                if (notificationIds.isNotEmpty()) {
+                    db.notificationLogDao().deleteSmartReminderNotifications(userId, notificationIds)
+                }
+                dao.deleteCheckSchedulesByReminderId(userId, smartReminder.id)
+                dao.deleteDeliveryLogsByReminderId(smartReminder.id)
+                dao.deleteCheckReminderById(userId, smartReminder.id)
+            }
+        }
+    }
+
     override suspend fun updateStatus(id: String, status: String) {
         val userId = requireUserId()
         val completedAt = if (status == "COMPLETED") System.currentTimeMillis() else null
@@ -300,6 +465,9 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
 
     override suspend fun getSchedulesSync(reminderId: String): List<ReminderScheduleEntity> =
         dao.getSchedulesForReminderSync(requireUserId(), reminderId)
+
+    override suspend fun getCheckSchedulesSync(reminderId: String): List<ReminderScheduleEntity> =
+        dao.getCheckSchedulesForReminderSync(requireUserId(), reminderId)
 
     override suspend fun insertSchedule(schedule: ReminderScheduleEntity) {
         val userId = requireUserId()

@@ -1,6 +1,8 @@
 package com.example.reminder.domain
 
 import android.content.Context
+import android.app.NotificationManager
+import androidx.room.withTransaction
 import android.util.Log
 import com.example.reminder.data.LocalReminderRepository
 import com.example.reminder.data.ReminderEntity
@@ -1138,6 +1140,83 @@ class ReminderManager(
             val scheduledCount = updateReminder(reminder, offsets)
             if (scheduledCount <= 0) {
                 throw IllegalStateException("آلارم دقیق چک در سیستم ثبت نشد.")
+            }
+        }
+    }
+
+    /**
+     * Deletes only the reminder records associated with a deleted check.
+     *
+     * Legacy and smart rows are removed from visible reminder data atomically
+     * under the same lock used by legacy migration. OS alarms are cancelled only
+     * after the database transaction commits, so a failed cleanup can be retried.
+     */
+    suspend fun deleteCheckReminder(
+        checkId: String,
+        deleteCheckRecord: suspend () -> Unit = {}
+    ) = withContext(Dispatchers.IO) {
+        val userId = SessionManager.userId
+            ?: throw IllegalStateException("Authenticated user is required to delete a check reminder")
+
+        val database = AppDatabase.getDatabase(context)
+        // Serialize against legacy migration. Read the cancellation snapshot,
+        // soft-delete the check, and remove both reminder stores in one Room
+        // transaction so concurrent writes cannot escape the cleanup snapshot.
+        val cleanupSnapshot = LocalReminderRepository.withLegacyMigrationLock {
+            database.withTransaction {
+                val smart = repository.getReminderBySource("CHECK", checkId)
+                val schedules = smart?.let { repository.getCheckSchedulesSync(it.id) }.orEmpty()
+                val legacy = checkId.toIntOrNull()?.let { numericId ->
+                    database.reminderDao().getCheckRemindersForCheck(userId, numericId)
+                }.orEmpty()
+                deleteCheckRecord()
+                repository.deleteCheckReminderWithSchedulesAndLogs(checkId)
+                Triple(smart, schedules, legacy)
+            }
+        }
+        val smartReminder = cleanupSnapshot.first
+        val smartSchedules = cleanupSnapshot.second
+        val legacyReminders = cleanupSnapshot.third
+
+        // Platform alarms and visible notifications are cancelled only after commit.
+        val legacyRepository = com.example.data.repository.ReminderRepository(context)
+        val platformNotificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val cancellationErrors = mutableListOf<Throwable>()
+        legacyReminders.forEach { legacy ->
+            runCatching { legacyRepository.deleteReminder(legacy.id) }
+                .onFailure { error ->
+                    cancellationErrors.add(error)
+                    Log.e("ReminderManager", "Could not cancel legacy check reminder alarm ${legacy.id}.", error)
+                }
+            runCatching { platformNotificationManager.cancel(legacy.id) }
+                .onFailure { error ->
+                    cancellationErrors.add(error)
+                    Log.e("ReminderManager", "Could not cancel legacy check reminder notification ${legacy.id}.", error)
+                }
+        }
+        if (smartReminder != null) {
+            runCatching { scheduler.cancel(smartReminder.id, smartSchedules) }
+                .onFailure { error ->
+                    cancellationErrors.add(error)
+                    Log.e("ReminderManager", "Could not cancel smart check reminder alarms ${smartReminder.id}.", error)
+                }
+            runCatching {
+                NotificationDispatcher(context).cancelReminderNotifications(smartReminder.id, smartSchedules)
+            }.onFailure { error ->
+                cancellationErrors.add(error)
+                Log.e("ReminderManager", "Could not cancel smart check reminder notifications ${smartReminder.id}.", error)
+            }
+            Log.i("ReminderManager", "Deleted check reminder $checkId and all its schedules and delivery logs.")
+        }
+
+        // Remove the durable outbox entry only after every OS cancellation succeeds.
+        // Otherwise the next authenticated session will retry the remaining cleanup.
+        if (cancellationErrors.isEmpty()) {
+            runCatching {
+                database.checkReminderCleanupQueueDao().delete(userId, checkId)
+            }.onFailure { error ->
+                Log.w("ReminderManager", "Could not clear completed check reminder cleanup entry $checkId; it will be replayed safely.", error)
             }
         }
     }
