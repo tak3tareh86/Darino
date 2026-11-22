@@ -1143,6 +1143,7 @@ class VehicleRepository {
                 // Clean legacy JSON even if the structured vehicle row is already missing.
                 // Recover local/server aliases only from the exact legacy vehicle object
                 // matching a known identifier. Never infer ownership from child records.
+                var legacyVehicleMappingFound = vehicle != null
                 val legacyVehicleIds = buildSet {
                     add(vehicleId)
                     vehicle?.let {
@@ -1158,11 +1159,17 @@ class VehicleRepository {
                             val matchesKnownId = legacyId?.let { it in this } == true
                             val matchesKnownServerId = legacyServerId?.let { it in this } == true
                             if (matchesKnownId || matchesKnownServerId) {
+                                legacyVehicleMappingFound = true
                                 legacyId?.let(::add)
                                 legacyServerId?.let(::add)
                             }
                         }
                     }
+                }
+                if (!legacyVehicleMappingFound) {
+                    throw IllegalStateException(
+                        "شناسه خودرو در اطلاعات ساختاری یا نسخه قدیمی قابل تطبیق نیست؛ برای جلوگیری از حذف اطلاعات خودروی دیگر، عملیات متوقف شد."
+                    )
                 }
                 var legacyStoreChanged = false
                 legacyStore?.let { store ->
@@ -2383,13 +2390,13 @@ class VehicleRepository {
                 db.vehicleDao().insertExpense(
                     VehicleExpenseRoomEntity(
                         id = expenseId,
-                    userId = userId,
-                    vehicleId = vehicleId,
-                    title = title.trim(),
-                    category = category.name,
-                    amount = amount,
-                    amountUnit = AppCurrency.RIAL.name,
-                    date = date.trim(),
+                        userId = userId,
+                        vehicleId = vehicleId,
+                        title = title.trim(),
+                        category = category.name,
+                        amount = amount,
+                        amountUnit = AppCurrency.RIAL.name,
+                        date = date.trim(),
                         description = description.trim()
                     )
                 )
