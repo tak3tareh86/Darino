@@ -71,7 +71,7 @@ fun InstallmentsSummaryCard(
                 shape = RoundedCornerShape(16.dp),
                 ambientColor = Color(0xFF0D9488).copy(alpha = 0.2f),
                 spotColor = Color(0xFF0F172A).copy(alpha = 0.35f)
-            ),
+            )
             .border(
                 width = 1.dp,
                 color = accentTeal.copy(alpha = 0.28f),
