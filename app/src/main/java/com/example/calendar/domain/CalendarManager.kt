@@ -95,11 +95,24 @@ class CalendarManager(private val context: Context) {
             }
 
             // 2. Cross-integrate Smart Reminders
+            // Vehicle insurance and inspection records are rendered from their dossier
+            // entities below, where expiry date, configured reminder offsets and time
+            // are all available. Suppress only their linked smart-reminder duplicates.
+            // This is calendar presentation de-duplication only; persisted reminders,
+            // schedules and alarm delivery remain untouched.
+            val vehicleExpiryRecordIds = (
+                vehicleData.second.map { it.id } + vehicleData.third.map { it.id }
+            ).toSet()
+
             reminders.forEach { rem ->
                 // Installment schedule rows above are the calendar source of truth.
-                // A Smart Reminder only controls notification timing, not whether
-                // the installment exists; suppress its duplicate calendar card.
+                // Vehicle expiry records are also represented by their dossier entities.
                 if (rem.sourceType.equals("INSTALLMENT", ignoreCase = true)) return@forEach
+                if (
+                    (rem.sourceType.equals("VEHICLE", ignoreCase = true) ||
+                        rem.sourceType.equals("INSURANCE", ignoreCase = true)) &&
+                    rem.sourceId in vehicleExpiryRecordIds
+                ) return@forEach
                 val eventId = "auto_rem_${rem.id}"
                 if (seenIds.add(eventId)) {
                     val normDate = CalendarDateUtils.normalizeDate(rem.date)
@@ -239,7 +252,10 @@ class CalendarManager(private val context: Context) {
                             amount = ins.amount,
                             amountUnit = ins.amountUnit,
                             date = normDate,
-                            time = "09:00",
+                            // Keep the configured vehicle reminder time; never inject a
+                            // calendar-only default that differs from the user's setting.
+                            time = ins.reminderTime.takeIf { ins.reminderEnabled }
+                                ?.let { IranianPhoneUtils.convertDigitsToEnglish(it) },
                             repeatType = "YEARLY",
                             reminderBefore = ReminderBeforeOption.NONE,
                             reminderLabel = if (ins.reminderEnabled && ins.reminderDays.isNotEmpty()) {
@@ -272,7 +288,9 @@ class CalendarManager(private val context: Context) {
                             amount = insp.cost,
                             amountUnit = insp.costUnit,
                             date = normDate,
-                            time = "09:00",
+                            // Use the time saved with this inspection reminder.
+                            time = insp.reminderTime.takeIf { insp.reminderEnabled }
+                                ?.let { IranianPhoneUtils.convertDigitsToEnglish(it) },
                             repeatType = "YEARLY",
                             reminderBefore = ReminderBeforeOption.NONE,
                             reminderLabel = if (insp.reminderEnabled && insp.reminderDays.isNotEmpty()) {
