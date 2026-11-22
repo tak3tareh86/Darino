@@ -212,11 +212,20 @@ class LocalCheckRepository private constructor() : CheckRepository {
             }
             val rowsAffected = database.checkDao().softDeleteCheck(userId, id, System.currentTimeMillis(), System.currentTimeMillis())
             if (rowsAffected == 0) return@withContext CheckOperationResult.NOT_FOUND
-            
+
             try {
-                reminderManager?.onCheckSettled(id.toString())
+                (reminderManager
+                    ?: throw IllegalStateException("مدیر یادآور مقداردهی نشده است."))
+                    .deleteCheckReminder(id.toString())
             } catch (e: Exception) {
                 e.printStackTrace()
+                // Do not report a successful check deletion while its linked reminder
+                // may still exist. Restore the exact prior check row so the user can retry.
+                runCatching { database.checkDao().updateCheck(existing) }
+                    .onFailure { rollbackError ->
+                        rollbackError.printStackTrace()
+                    }
+                return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
             }
             CheckOperationResult.SUCCESS
         } catch (e: Exception) {
