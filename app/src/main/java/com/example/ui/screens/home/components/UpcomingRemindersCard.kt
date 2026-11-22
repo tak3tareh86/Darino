@@ -242,9 +242,9 @@ private fun ReminderFlatItem(
             overflow = TextOverflow.Ellipsis
         )
 
-        // 2. Type
+        // Show the linked vehicle for insurance/technical-inspection reminders; retain the type for other reminders.
         Text(
-            text = "نوع: ${item.typeTitle}",
+            text = item.vehicleName?.let { "خودرو: $it" } ?: "نوع: ${item.typeTitle}",
             style = MaterialTheme.typography.bodySmall.copy(
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Medium
