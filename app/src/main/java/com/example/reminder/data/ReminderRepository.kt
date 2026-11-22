@@ -81,10 +81,95 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
         migrationScope.launch {
             SessionManager.sessionState.collect { state ->
                 val userId = state.userIdOrNull() ?: return@collect
+                runCatching { retryPendingCheckReminderCleanup(userId) }
+                    .onFailure {
+                        android.util.Log.e("LocalReminderRepository", "Pending check reminder cleanup recovery failed for the authenticated user.", it)
+                    }
                 runCatching { migrateLegacyReminders(userId) }
                     .onFailure {
                         android.util.Log.e("LocalReminderRepository", "Legacy reminder migration failed for the authenticated user.", it)
                     }
+            }
+        }
+    }
+
+    /**
+     * Replays only check-owned platform cancellations saved in the durable outbox.
+     * Failures keep the row for the next authenticated session; no reminder is rescheduled or edited.
+     */
+    private suspend fun retryPendingCheckReminderCleanup(userId: String) {
+        val queueDao = db.checkReminderCleanupQueueDao()
+        val legacyScheduler = com.example.data.receiver.ReminderScheduler(appContext)
+        val smartScheduler = com.example.reminder.domain.ReminderScheduler(appContext)
+        val notificationManager =
+            appContext.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+
+        queueDao.getPendingForUser(userId).forEach { pending ->
+            val legacyIds = try {
+                org.json.JSONArray(pending.legacyReminderIdsJson).let { json ->
+                    (0 until json.length()).map { json.getInt(it) }
+                }
+            } catch (error: Exception) {
+                android.util.Log.e(
+                    "LocalReminderRepository",
+                    "Invalid legacy cancellation snapshot for deleted check ${pending.checkId}; keeping it for recovery.",
+                    error
+                )
+                return@forEach
+            }
+
+            val smartSchedules = try {
+                org.json.JSONArray(pending.smartSchedulesJson).let { json ->
+                    (0 until json.length()).map { index ->
+                        val item = json.getJSONObject(index)
+                        ReminderScheduleEntity(
+                            id = item.getString("id"),
+                            reminderId = pending.smartReminderId
+                                ?: throw IllegalStateException("Missing smart reminder ID in cleanup snapshot"),
+                            triggerDateTime = item.getLong("triggerDateTime")
+                        )
+                    }
+                }
+            } catch (error: Exception) {
+                if (pending.smartReminderId != null) {
+                    android.util.Log.e(
+                        "LocalReminderRepository",
+                        "Invalid smart cancellation snapshot for deleted check ${pending.checkId}; keeping it for recovery.",
+                        error
+                    )
+                    return@forEach
+                } else {
+                    emptyList()
+                }
+            }
+
+            val errors = mutableListOf<Throwable>()
+            legacyIds.forEach { reminderId ->
+                runCatching { legacyScheduler.cancel(reminderId) }
+                    .onFailure { errors.add(it) }
+                runCatching { notificationManager.cancel(reminderId) }
+                    .onFailure { errors.add(it) }
+            }
+
+            pending.smartReminderId?.let { reminderId ->
+                smartSchedules.forEach { schedule ->
+                    runCatching { smartScheduler.cancelSchedule(schedule.id) }
+                        .onFailure { errors.add(it) }
+                }
+                runCatching {
+                    com.example.reminder.domain.NotificationDispatcher(appContext)
+                        .cancelReminderNotifications(reminderId, smartSchedules)
+                }.onFailure { errors.add(it) }
+            }
+
+            if (errors.isEmpty()) {
+                queueDao.delete(pending.userId, pending.checkId)
+            } else {
+                android.util.Log.w(
+                    "LocalReminderRepository",
+                    "Pending cleanup for deleted check ${pending.checkId} remains queued for retry.",
+                    errors.first()
+                )
             }
         }
     }
