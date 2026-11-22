@@ -91,7 +91,8 @@ fun ReminderScreen(
     val vehicleNameForReminder: (ReminderEntity) -> String? = { reminder ->
         val sourceId = reminder.sourceId ?: reminder.id
         val linkedVehicleId = when {
-            reminder.sourceType.equals("INSURANCE", ignoreCase = true) ->
+            reminder.type.equals("INSURANCE", ignoreCase = true) ||
+                reminder.sourceType.equals("INSURANCE", ignoreCase = true) ->
                 vehicleInsurances.firstOrNull { it.id == sourceId }?.vehicleId
             reminder.sourceType.equals("VEHICLE", ignoreCase = true) ->
                 vehicleInspections.firstOrNull { it.id == sourceId }?.vehicleId
