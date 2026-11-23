@@ -143,6 +143,9 @@ fun AddTransactionSheet(
 
     var selectedSubCategory by remember { mutableStateOf(initialTransaction?.subCategory) }
     var showCategoryPicker by remember { mutableStateOf(false) }
+    var categoryDraft by remember { mutableStateOf(selectedCategory) }
+    var categorySearchQuery by remember { mutableStateOf("") }
+    val categoryPickerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var paymentMethod by remember { mutableStateOf(initialTransaction?.paymentMethod ?: PaymentMethod.BANK_CARD) }
     var datePersian by remember { mutableStateOf(initialTransaction?.datePersian ?: todayPersian) }
     var timePersian by remember {
@@ -391,7 +394,11 @@ fun AddTransactionSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(RadiusMD))
-                            .clickable { showCategoryPicker = true },
+                            .clickable {
+                                categoryDraft = selectedCategory
+                                categorySearchQuery = ""
+                                showCategoryPicker = true
+                            },
                         shape = RoundedCornerShape(RadiusMD),
                         color = if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
@@ -420,89 +427,197 @@ fun AddTransactionSheet(
                 }
 
                 if (showCategoryPicker) {
-                    Dialog(
+                    ModalBottomSheet(
                         onDismissRequest = { showCategoryPicker = false },
-                        properties = DialogProperties(usePlatformDefaultWidth = false)
+                        sheetState = categoryPickerSheetState,
+                        containerColor = if (isDark) Color(0xFF0B1320) else MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                        dragHandle = {
+                            Box(
+                                modifier = Modifier
+                                    .padding(top = 10.dp, bottom = 4.dp)
+                                    .size(width = 48.dp, height = 5.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                            )
+                        }
                     ) {
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .widthIn(max = 400.dp)
-                                .padding(horizontal = 20.dp),
-                            shape = RoundedCornerShape(20.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            tonalElevation = 6.dp
+                        androidx.compose.foundation.layout.BoxWithConstraints(
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = maxHeight * 0.82f)
+                                    .padding(horizontal = 20.dp)
+                                    .padding(bottom = 20.dp),
+                                verticalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
-                                Text(
-                                    text = "انتخاب دسته‌بندی",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Spacer(modifier = Modifier.size(40.dp))
+                                    Text(
+                                        text = "انتخاب دسته‌بندی",
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    IconButton(
+                                        onClick = { showCategoryPicker = false },
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Close,
+                                            contentDescription = "بستن",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                OutlinedTextField(
+                                    value = categorySearchQuery,
+                                    onValueChange = { categorySearchQuery = it },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("category_picker_search"),
+                                    singleLine = true,
+                                    placeholder = { Text("جستجو در دسته‌بندی‌ها...") },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Search,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    },
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                                    )
                                 )
 
-                                if (availableCategories.isEmpty()) {
-                                    Text(
-                                        text = "دسته‌بندی فعالی برای این نوع تراکنش وجود ندارد.",
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center
-                                    )
-                                } else {
-                                    LazyVerticalGrid(
-                                        columns = GridCells.Fixed(3),
+                                val filteredCategories = availableCategories.filter {
+                                    it.title.contains(categorySearchQuery.trim(), ignoreCase = true)
+                                }
+
+                                if (filteredCategories.isEmpty()) {
+                                    Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .heightIn(max = 360.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                            .height(180.dp),
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        items(availableCategories) { category ->
-                                            val isSelected = selectedCategory.id == category.id
+                                        Text(
+                                            text = if (availableCategories.isEmpty()) {
+                                                "دسته‌بندی فعالی برای این نوع تراکنش وجود ندارد."
+                                            } else {
+                                                "دسته‌بندی موردنظر پیدا نشد."
+                                            },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                } else {
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Fixed(2),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(min = 180.dp, max = maxHeight * 0.44f)
+                                            .testTag("category_picker_grid"),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        items(filteredCategories, key = { it.id }) { category ->
+                                            val isSelected = categoryDraft.id == category.id
                                             Surface(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .heightIn(min = 82.dp)
-                                                    .clip(RoundedCornerShape(10.dp))
-                                                    .clickable {
-                                                        selectedCategory = category
-                                                        selectedSubCategory = null
-                                                        showCategoryPicker = false
-                                                    },
-                                                shape = RoundedCornerShape(10.dp),
-                                                color = if (isSelected) category.accentColor.copy(alpha = 0.18f)
-                                                else if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
+                                                    .heightIn(min = 64.dp)
+                                                    .clip(RoundedCornerShape(16.dp))
+                                                    .clickable { categoryDraft = category },
+                                                shape = RoundedCornerShape(16.dp),
+                                                color = if (isSelected) {
+                                                    MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.20f else 0.10f)
+                                                } else if (isDark) {
+                                                    Color(0xFF172238)
+                                                } else {
+                                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                                                },
                                                 border = BorderStroke(
-                                                    1.dp,
-                                                    if (isSelected) category.accentColor
+                                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary
                                                     else MaterialTheme.colorScheme.outlineVariant
                                                 )
                                             ) {
-                                                Column(
+                                                Row(
                                                     modifier = Modifier
                                                         .fillMaxWidth()
-                                                        .padding(horizontal = 4.dp, vertical = 10.dp),
-                                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(9.dp)
                                                 ) {
-                                                    Text(text = category.iconEmoji, fontSize = 20.sp)
+                                                    Text(text = category.iconEmoji, fontSize = 22.sp)
                                                     Text(
                                                         text = category.title,
-                                                        style = MaterialTheme.typography.labelSmall.copy(
-                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                            fontSize = 10.sp
+                                                        modifier = Modifier.weight(1f),
+                                                        style = MaterialTheme.typography.labelLarge.copy(
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                            fontSize = 12.sp
                                                         ),
-                                                        color = if (isSelected) category.accentColor
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary
                                                         else MaterialTheme.colorScheme.onSurface,
-                                                        textAlign = TextAlign.Center,
                                                         maxLines = 2
                                                     )
+                                                    if (isSelected) {
+                                                        Icon(
+                                                            imageVector = Icons.Rounded.CheckCircle,
+                                                            contentDescription = "انتخاب‌شده",
+                                                            tint = MaterialTheme.colorScheme.primary,
+                                                            modifier = Modifier.size(19.dp)
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
+                                    }
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    androidx.compose.material3.OutlinedButton(
+                                        onClick = { showCategoryPicker = false },
+                                        modifier = Modifier.weight(0.85f).height(50.dp),
+                                        shape = RoundedCornerShape(14.dp)
+                                    ) {
+                                        Text("لغو")
+                                    }
+                                    Button(
+                                        onClick = {
+                                            selectedCategory = categoryDraft
+                                            selectedSubCategory = null
+                                            showCategoryPicker = false
+                                        },
+                                        modifier = Modifier
+                                            .weight(1.15f)
+                                            .height(50.dp)
+                                            .testTag("confirm_category_selection"),
+                                        enabled = filteredCategories.any { it.id == categoryDraft.id },
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary
+                                        )
+                                    ) {
+                                        Text("تأیید انتخاب", fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
