@@ -171,7 +171,7 @@ fun BankSmsAssistantCard(
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF0F172A) else Color.White
         ),
-        border = BorderStroke(1.dp, if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0))
+        border = BorderStroke(1.dp, Color(0xFF2DD4BF).copy(alpha = 0.28f))
     ) {
         Column(
             modifier = Modifier
