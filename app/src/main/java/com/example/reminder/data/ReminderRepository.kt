@@ -426,6 +426,27 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
             }
         }
 
+        // A process can also die after the replacement row is deleted and the
+        // original check is released, but before ReminderManager reactivates its smart
+        // reminder. Recover only the durable replacement-pause marker on a BOUNCED check.
+        val smartReminderManager = com.example.reminder.domain.ReminderManager(appContext, this)
+        db.checkDao().getActiveChecks(userId)
+            .filter { it.status == "BOUNCED" && it.replacedByCheckId == null }
+            .forEach { check ->
+                val smart = dao.getCheckReminderBySource(userId, check.id.toString())
+                    ?: return@forEach
+                if (smart.status.equals("COMPLETED", ignoreCase = true) && smart.cancelledAt != null) {
+                    runCatching { smartReminderManager.restoreReminder(smart.id) }
+                        .onFailure {
+                            android.util.Log.e(
+                                "LocalReminderRepository",
+                                "Could not restore smart reminder ${smart.id} after interrupted check replacement cleanup.",
+                                it
+                            )
+                        }
+                }
+            }
+
         // If the legacy rows were intentionally withheld from migration while the
         // check was replaced, import them now that the original check is active again.
         migrateLegacyReminders(userId)
