@@ -30,7 +30,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -57,7 +61,27 @@ fun RecentTransactionsSection(
     onSeeAllClick: () -> Unit = {}
 ) {
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .drawWithContent {
+                drawContent()
+                val borderColors = if (borderPaletteIndex % 2 == 0) {
+                    listOf(
+                        Color(0xFF9A6700).copy(alpha = 0.28f),
+                        Color(0xFFB45309).copy(alpha = 0.28f)
+                    )
+                } else {
+                    listOf(
+                        Color(0xFF7F1D3F).copy(alpha = 0.28f),
+                        Color(0xFF6B245F).copy(alpha = 0.28f)
+                    )
+                }
+                drawRoundRect(
+                    brush = Brush.linearGradient(colors = borderColors),
+                    style = Stroke(width = 1.dp.toPx()),
+                    cornerRadius = CornerRadius(RadiusMD.toPx())
+                )
+            },
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
@@ -111,9 +135,10 @@ fun RecentTransactionsSection(
             Column(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                transactions.take(4).forEach { tx ->
+                transactions.take(4).forEachIndexed { index, tx ->
                     TransactionRowItem(
                         transaction = tx,
+                        borderPaletteIndex = index,
                         onClick = { onTransactionClick(tx) },
                         onEditClick = { onEditClick(tx) },
                         onDuplicateClick = { onDuplicateClick(tx) },
@@ -132,7 +157,8 @@ fun TransactionRowItem(
     onClick: () -> Unit,
     onEditClick: () -> Unit = {},
     onDuplicateClick: () -> Unit = {},
-    onDeleteClick: () -> Unit = {}
+    onDeleteClick: () -> Unit = {},
+    borderPaletteIndex: Int = 0
 ) {
     val isExpense = transaction.type == TransactionType.EXPENSE
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
