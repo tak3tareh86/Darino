@@ -317,14 +317,18 @@ fun EventCard(
                 }
             }
 
-            // Check number is rendered from the linked active Check record, never parsed from title/description.
-            event.checkNumber?.takeIf { it.isNotBlank() }?.let { number ->
+            // Check identity is shown once, above the amount, from the linked active Check record.
+            val checkDetails = buildList {
+                event.checkHolderName?.takeIf { it.isNotBlank() }?.let { add("صاحب چک: $it") }
+                event.checkNumber?.takeIf { it.isNotBlank() }?.let { add("شماره چک: $it") }
+            }.joinToString("  |  ")
+            if (checkDetails.isNotBlank()) {
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "شماره چک: $number",
+                        text = checkDetails,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp
