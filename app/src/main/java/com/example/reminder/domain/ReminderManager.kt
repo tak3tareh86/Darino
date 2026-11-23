@@ -1254,6 +1254,15 @@ class ReminderManager(
                     Log.e("ReminderManager", "Could not reactivate the original check reminder $reminderId after replacement deletion.", error)
                 }
         }
+
+        // Restore only the legacy reminders whose persisted pause snapshot still
+        // matches an untouched, incomplete reminder on the released original check.
+        runCatching {
+            (repository as? LocalReminderRepository ?: LocalReminderRepository(context))
+                .resumePendingLegacyCheckReminders(userId)
+        }.onFailure { error ->
+            Log.e("ReminderManager", "Could not restore paused legacy check reminders after check deletion.", error)
+        }
     }
 
     /**
@@ -1263,26 +1272,76 @@ class ReminderManager(
      * user had already disabled or completed.
      */
     suspend fun pauseCheckReminderForReplacement(checkId: String) = withContext(Dispatchers.IO) {
-        val reminder = repository.getReminderBySource("CHECK", checkId) ?: return@withContext
-        if (!reminder.status.equals("ACTIVE", ignoreCase = true)) return@withContext
-
-        val schedules = repository.getCheckSchedulesSync(reminder.id)
+        val userId = SessionManager.userId
+            ?: throw IllegalStateException("Authenticated user is required to pause a check reminder")
+        val numericCheckId = checkId.toIntOrNull()
+            ?: throw IllegalArgumentException("Invalid check ID for reminder replacement")
+        val database = AppDatabase.getDatabase(context)
         val now = System.currentTimeMillis()
-        repository.updateReminderWithSchedules(
-            reminder.copy(
-                status = "COMPLETED",
-                completedAt = now,
-                cancelledAt = now,
-                updatedAt = now
-            ),
-            schedules.map { it.copy(enabled = false) }
-        )
-        // Room state is authoritative. Platform cancellation is best-effort and
-        // must not make replaceCheck roll back after the persisted pause has committed.
-        runCatching { scheduler.cancel(reminder.id, schedules) }
-            .onFailure { Log.e("ReminderManager", "Could not cancel original check alarms during replacement.", it) }
-        runCatching { NotificationDispatcher(context).cancelReminderNotifications(reminder.id, schedules) }
-            .onFailure { Log.e("ReminderManager", "Could not cancel original check notifications during replacement.", it) }
+
+        // Pause only active legacy rows and persist their exact IDs in the same
+        // transaction. Existing snapshots are retained on repeated calls.
+        val pausedLegacyReminders = LocalReminderRepository.withLegacyMigrationLock {
+            database.withTransaction {
+                val activeLegacy = database.reminderDao()
+                    .getCheckRemindersForCheck(userId, numericCheckId)
+                    .filter { it.enabled && it.completedAt == null && it.deletedAt == null }
+
+                if (activeLegacy.isNotEmpty()) {
+                    database.checkReminderReplacementPauseDao().insertAll(
+                        activeLegacy.map { legacy ->
+                            com.example.data.database.CheckReminderReplacementPauseEntity(
+                                userId = userId,
+                                checkId = numericCheckId,
+                                legacyReminderId = legacy.id,
+                                pausedAt = now
+                            )
+                        }
+                    )
+                    activeLegacy.forEach { legacy ->
+                        database.reminderDao().updateReminder(
+                            legacy.copy(
+                                enabled = false,
+                                updatedAt = now,
+                                syncState = "PENDING_UPDATE"
+                            )
+                        )
+                    }
+                }
+                activeLegacy
+            }
+        }
+
+        // Cancel only the platform alarms/notifications belonging to those legacy IDs.
+        val legacyScheduler = com.example.data.receiver.ReminderScheduler(context)
+        val platformNotificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        pausedLegacyReminders.forEach { legacy ->
+            runCatching { legacyScheduler.cancel(legacy.id) }
+                .onFailure { Log.e("ReminderManager", "Could not cancel legacy check alarm ${legacy.id} during replacement.", it) }
+            runCatching { platformNotificationManager.cancel(legacy.id) }
+                .onFailure { Log.e("ReminderManager", "Could not cancel legacy check notification ${legacy.id} during replacement.", it) }
+        }
+
+        // Preserve the existing smart-reminder pause behavior, but do not return
+        // early when no smart row exists: legacy reminders still need pausing.
+        val reminder = repository.getReminderBySource("CHECK", checkId)
+        if (reminder != null && reminder.status.equals("ACTIVE", ignoreCase = true)) {
+            val schedules = repository.getCheckSchedulesSync(reminder.id)
+            repository.updateReminderWithSchedules(
+                reminder.copy(
+                    status = "COMPLETED",
+                    completedAt = now,
+                    cancelledAt = now,
+                    updatedAt = now
+                ),
+                schedules.map { it.copy(enabled = false) }
+            )
+            runCatching { scheduler.cancel(reminder.id, schedules) }
+                .onFailure { Log.e("ReminderManager", "Could not cancel original check alarms during replacement.", it) }
+            runCatching { NotificationDispatcher(context).cancelReminderNotifications(reminder.id, schedules) }
+                .onFailure { Log.e("ReminderManager", "Could not cancel original check notifications during replacement.", it) }
+        }
     }
 
     /**
