@@ -1,5 +1,7 @@
 package com.example.ui.screens.installments.components
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,6 +16,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -91,9 +95,25 @@ private fun CategoryGridCard(
     modifier: Modifier = Modifier
 ) {
     val numberMode by AppNumberFormatter.modeFlow.collectAsState()
+    val categoryBorderColors = when (item.category) {
+        InstallmentCategory.BANK_LOANS -> listOf(Color(0xFF087F78), Color(0xFF28B99A))
+        InstallmentCategory.HOME_LOANS -> listOf(Color(0xFF647D2E), Color(0xFFA0B34F))
+        InstallmentCategory.MISC -> listOf(Color(0xFF087D8A), Color(0xFF28B6B0))
+        InstallmentCategory.CAR_INSURANCE -> listOf(Color(0xFF176448), Color(0xFF39A878))
+    }
+    val cardShape = RoundedCornerShape(RadiusMD)
+
     Layered3DCard(
-        modifier = modifier,
-        shape = RoundedCornerShape(RadiusMD),
+        modifier = modifier.border(
+            BorderStroke(
+                width = 1.4.dp,
+                brush = Brush.linearGradient(
+                    colors = categoryBorderColors.map { it.copy(alpha = 0.88f) }
+                )
+            ),
+            shape = cardShape
+        ),
+        shape = cardShape,
         backgroundColor = MaterialTheme.colorScheme.surface,
         elevation = 2.dp,
         contentPadding = PaddingValues(12.dp),
