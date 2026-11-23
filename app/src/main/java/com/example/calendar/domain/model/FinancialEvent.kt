@@ -114,7 +114,8 @@ data class FinancialEvent(
     val isOverdue: Boolean = false,
     val reminderLabel: String? = reminderBefore.takeUnless { it == ReminderBeforeOption.NONE || it == ReminderBeforeOption.CUSTOM }?.label,
     val customReminderAt: Long? = null,
-    val amountUnit: AppCurrency = AppCurrency.TOMAN
+    val amountUnit: AppCurrency = AppCurrency.TOMAN,
+    val checkNumber: String? = null
 ) {
     val formattedAmount: String?
         get() = amount?.let {
