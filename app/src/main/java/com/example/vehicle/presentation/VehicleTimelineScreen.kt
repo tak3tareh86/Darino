@@ -385,10 +385,7 @@ private fun TimelineItemRow(
         }
 
         Layered3DCard(
-            modifier = Modifier.weight(1f).height(cardHeight).padding(bottom = 12.dp).border(
-                androidx.compose.foundation.BorderStroke(1.dp, eventColor.copy(alpha = 0.32f)),
-                RoundedCornerShape(16.dp)
-            ),
+            modifier = Modifier.weight(1f).height(cardHeight).padding(bottom = 12.dp),
             elevation = 2.dp,
             borderColor = eventColor.copy(alpha = 0.32f)
         ) {
