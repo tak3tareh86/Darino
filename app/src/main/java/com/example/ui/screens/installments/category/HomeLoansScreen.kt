@@ -179,7 +179,7 @@ fun HomeLoansScreen(
             itemsIndexed(loans, key = { _, loan -> loan.id }) { index, loan ->
                 InstallmentCard(
                     item = loan,
-                    onClick = { onLoanClick(loan) }
+                    onClick = { onLoanClick(loan) },
                     borderPaletteIndex = index
                 )
             }

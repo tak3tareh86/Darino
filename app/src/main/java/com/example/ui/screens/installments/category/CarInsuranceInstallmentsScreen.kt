@@ -226,7 +226,7 @@ fun CarInsuranceInstallmentsScreen(
             itemsIndexed(filteredInstallments, key = { _, item -> item.id }) { index, item ->
                 InstallmentCard(
                     item = item,
-                    onClick = { onItemClick(item) }
+                    onClick = { onItemClick(item) },
                     borderPaletteIndex = index
                 )
             }
