@@ -1083,6 +1083,90 @@ class CheckManagementTest {
     }
 
     @Test
+    fun `test replacement pauses and restores only previously active legacy check reminders`() = runBlocking {
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        val now = System.currentTimeMillis()
+        val original = Check(
+            id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 11000,
+            checkNumber = "LEGACY-PAUSE-ORIGINAL", bankName = "Bank",
+            holderName = "Holder", receiverName = "Receiver", issueDate = now,
+            dueDate = now + 86400000, status = CheckStatus.BOUNCED
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(original))
+        val savedOriginal = repository.getChecks().first().single {
+            it.checkNumber == "LEGACY-PAUSE-ORIGINAL"
+        }
+
+        fun legacyReminder(
+            title: String,
+            sourceId: Int,
+            enabled: Boolean,
+            completedAt: Long? = null
+        ) = com.example.data.database.ReminderEntity(
+            userId = "user_1",
+            type = "GENERAL",
+            title = title,
+            description = "",
+            sourceId = sourceId,
+            sourceType = "CHECK",
+            scheduledDateTime = now + 300000,
+            enabled = enabled,
+            notificationEnabled = true,
+            completedAt = completedAt
+        )
+
+        val activeId = database.reminderDao().insertReminder(
+            legacyReminder("legacy-active", savedOriginal.id, enabled = true)
+        ).toInt()
+        val disabledId = database.reminderDao().insertReminder(
+            legacyReminder("legacy-disabled", savedOriginal.id, enabled = false)
+        ).toInt()
+        val completedId = database.reminderDao().insertReminder(
+            legacyReminder("legacy-completed", savedOriginal.id, enabled = false, completedAt = now)
+        ).toInt()
+        val unrelatedId = database.reminderDao().insertReminder(
+            legacyReminder("legacy-other-check", savedOriginal.id + 100000, enabled = true)
+        ).toInt()
+
+        val replacement = savedOriginal.copy(
+            id = 0,
+            checkNumber = "LEGACY-PAUSE-REPLACEMENT",
+            status = CheckStatus.REGISTERED,
+            reminderDateTime = null
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.replaceCheck(savedOriginal.id, replacement))
+
+        assertFalse(database.reminderDao().getReminderById("user_1", activeId)!!.enabled)
+        assertFalse(database.reminderDao().getReminderById("user_1", disabledId)!!.enabled)
+        assertFalse(database.reminderDao().getReminderById("user_1", completedId)!!.enabled)
+        assertTrue(database.reminderDao().getReminderById("user_1", unrelatedId)!!.enabled)
+        assertEquals(
+            listOf(activeId),
+            database.checkReminderReplacementPauseDao()
+                .getForCheck("user_1", savedOriginal.id)
+                .map { it.legacyReminderId }
+        )
+
+        val savedReplacement = repository.getChecks().first().single {
+            it.checkNumber == "LEGACY-PAUSE-REPLACEMENT"
+        }
+        assertEquals(
+            CheckOperationResult.SUCCESS,
+            repository.deleteCheck(savedReplacement.id, deleteLinkedTransaction = false)
+        )
+
+        assertTrue(database.reminderDao().getReminderById("user_1", activeId)!!.enabled)
+        assertFalse(database.reminderDao().getReminderById("user_1", disabledId)!!.enabled)
+        assertFalse(database.reminderDao().getReminderById("user_1", completedId)!!.enabled)
+        assertTrue(database.reminderDao().getReminderById("user_1", unrelatedId)!!.enabled)
+        assertTrue(
+            database.checkReminderReplacementPauseDao()
+                .getForCheck("user_1", savedOriginal.id)
+                .isEmpty()
+        )
+    }
+
+    @Test
     fun `test deleting replacement restores original check reminder and future schedules`() = runBlocking {
         setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         val now = System.currentTimeMillis()
