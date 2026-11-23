@@ -1,7 +1,9 @@
 package com.example.ui.screens.finance.components
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -110,7 +112,12 @@ fun FinancialSummaryCard(
     val unselectedTabColor = if (isYearSelected && !isDark) Color.Transparent else Color.White.copy(alpha = 0.07f)
 
     Layered3DCard(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(
+                BorderStroke(1.dp, Color(0xFF2DD4BF).copy(alpha = 0.28f)),
+                RoundedCornerShape(RadiusLG)
+            ),
         shape = RoundedCornerShape(RadiusLG),
         backgroundColor = Color.Transparent,
         elevation = 4.dp,
