@@ -52,29 +52,37 @@ fun InstallmentCard(
                         drawContent()
                         val borderColors = when (borderPaletteIndex % 4) {
                             0 -> listOf(
-                                androidx.compose.ui.graphics.Color(0xFF315B78).copy(alpha = 0.38f),
-                                androidx.compose.ui.graphics.Color(0xFF8CB8D0).copy(alpha = 0.38f),
-                                androidx.compose.ui.graphics.Color(0xFF315B78).copy(alpha = 0.38f)
+                                androidx.compose.ui.graphics.Color(0xFF385F7B).copy(alpha = 0.52f),
+                                androidx.compose.ui.graphics.Color(0xFFA2C8DC).copy(alpha = 0.58f),
+                                androidx.compose.ui.graphics.Color(0xFF527F9C).copy(alpha = 0.52f),
+                                androidx.compose.ui.graphics.Color(0xFF82B3D0).copy(alpha = 0.58f),
+                                androidx.compose.ui.graphics.Color(0xFF385F7B).copy(alpha = 0.52f)
                             )
                             1 -> listOf(
-                                androidx.compose.ui.graphics.Color(0xFF465F39).copy(alpha = 0.38f),
-                                androidx.compose.ui.graphics.Color(0xFF9FB77C).copy(alpha = 0.38f),
-                                androidx.compose.ui.graphics.Color(0xFF465F39).copy(alpha = 0.38f)
+                                androidx.compose.ui.graphics.Color(0xFF526B3D).copy(alpha = 0.52f),
+                                androidx.compose.ui.graphics.Color(0xFFC0D09B).copy(alpha = 0.58f),
+                                androidx.compose.ui.graphics.Color(0xFF718C52).copy(alpha = 0.52f),
+                                androidx.compose.ui.graphics.Color(0xFFA1B77B).copy(alpha = 0.58f),
+                                androidx.compose.ui.graphics.Color(0xFF526B3D).copy(alpha = 0.52f)
                             )
                             2 -> listOf(
-                                androidx.compose.ui.graphics.Color(0xFF754C35).copy(alpha = 0.38f),
-                                androidx.compose.ui.graphics.Color(0xFFC49A72).copy(alpha = 0.38f),
-                                androidx.compose.ui.graphics.Color(0xFF754C35).copy(alpha = 0.38f)
+                                androidx.compose.ui.graphics.Color(0xFF76513A).copy(alpha = 0.52f),
+                                androidx.compose.ui.graphics.Color(0xFFD6B28E).copy(alpha = 0.58f),
+                                androidx.compose.ui.graphics.Color(0xFF936A4C).copy(alpha = 0.52f),
+                                androidx.compose.ui.graphics.Color(0xFFC39A70).copy(alpha = 0.58f),
+                                androidx.compose.ui.graphics.Color(0xFF76513A).copy(alpha = 0.52f)
                             )
                             else -> listOf(
-                                androidx.compose.ui.graphics.Color(0xFF3F3975).copy(alpha = 0.38f),
-                                androidx.compose.ui.graphics.Color(0xFF8982BC).copy(alpha = 0.38f),
-                                androidx.compose.ui.graphics.Color(0xFF3F3975).copy(alpha = 0.38f)
+                                androidx.compose.ui.graphics.Color(0xFF403B79).copy(alpha = 0.52f),
+                                androidx.compose.ui.graphics.Color(0xFFAAA4D7).copy(alpha = 0.58f),
+                                androidx.compose.ui.graphics.Color(0xFF5D5597).copy(alpha = 0.52f),
+                                androidx.compose.ui.graphics.Color(0xFF8982C3).copy(alpha = 0.58f),
+                                androidx.compose.ui.graphics.Color(0xFF403B79).copy(alpha = 0.52f)
                             )
                         }
                         drawRoundRect(
                             brush = Brush.linearGradient(colors = borderColors),
-                            style = Stroke(width = 1.dp.toPx()),
+                            style = Stroke(width = 1.2.dp.toPx()),
                             cornerRadius = CornerRadius(RadiusLG.toPx())
                         )
                     }

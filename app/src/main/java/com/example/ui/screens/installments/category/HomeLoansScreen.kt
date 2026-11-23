@@ -180,7 +180,7 @@ fun HomeLoansScreen(
                 InstallmentCard(
                     item = loan,
                     onClick = { onLoanClick(loan) },
-                    borderPaletteIndex = index
+                    borderPaletteIndex = 1
                 )
             }
 

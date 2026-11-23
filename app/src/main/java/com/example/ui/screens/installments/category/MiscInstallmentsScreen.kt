@@ -191,7 +191,7 @@ fun MiscInstallmentsScreen(
                 InstallmentCard(
                     item = item,
                     onClick = { onItemClick(item) },
-                    borderPaletteIndex = index
+                    borderPaletteIndex = 3
                 )
             }
 

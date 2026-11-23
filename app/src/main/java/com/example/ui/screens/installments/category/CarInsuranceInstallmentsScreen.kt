@@ -227,7 +227,7 @@ fun CarInsuranceInstallmentsScreen(
                 InstallmentCard(
                     item = item,
                     onClick = { onItemClick(item) },
-                    borderPaletteIndex = index
+                    borderPaletteIndex = 2
                 )
             }
     
