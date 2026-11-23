@@ -25,7 +25,8 @@ fun CheckDetailDialog(
     accounts: List<com.example.ui.screens.finance.model.Account>,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit,
+    onDelete: (Boolean) -> Unit,
+    hasActiveSettlementTransaction: (Int, (Boolean) -> Unit) -> Unit,
     onSettle: (com.example.ui.screens.finance.model.Account) -> Unit,
     onSettleWithoutTransaction: () -> Unit,
     onReplace: () -> Unit,
@@ -35,6 +36,10 @@ fun CheckDetailDialog(
     var showSettleDialog by remember { mutableStateOf(false) }
     var showAccountSelectionDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var hasLinkedFinancialTransaction by remember(check.id) { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(check.id) {
+        hasActiveSettlementTransaction(check.id) { hasLinkedFinancialTransaction = it }
+    }
     var selectedAccount by remember { mutableStateOf<com.example.ui.screens.finance.model.Account?>(null) }
 
     ModalBottomSheet(
@@ -159,62 +164,29 @@ fun CheckDetailDialog(
                 }
             }
 
-            if (check.status != CheckStatus.CLEARED && check.status != CheckStatus.REPLACED) {
-                if (check.replacesCheckId != null) {
-                    OutlinedButton(
-                        onClick = onEdit,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("ویرایش چک جایگزین")
-                    }
-                    Text(
-                        "برای حفظ سابقه ارتباط با چک قبلی، حذف مستقیم این چک غیرفعال است؛ در صورت نیاز می‌توانید وضعیت آن را لغو کنید.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onEdit,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("ویرایش")
-                        }
-
-                        OutlinedButton(
-                            onClick = { showDeleteConfirmation = true },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                        ) {
-                            Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("حذف")
-                        }
-                    }
+            if (check.status != CheckStatus.CLEARED && check.status != CheckStatus.REPLACED &&
+                check.replacesCheckId == null) {
+                OutlinedButton(
+                    onClick = onEdit,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("ویرایش")
                 }
-            } else {
-                Text(
-                    when {
-                        check.status == CheckStatus.REPLACED ->
-                            "این چک با چک دیگری جایگزین شده است؛ برای جلوگیری از دوباره‌شماری مبلغ، ویرایش و حذف مستقیم آن غیرفعال است."
-                        check.accountId == null ->
-                            "این چک تسویه شده و طبق انتخاب شما تراکنش مالی جداگانه‌ای برای آن ثبت نشده است؛ ویرایش و حذف مستقیم غیرفعال است."
-                        else ->
-                            "این چک تسویه شده و تراکنش آن در حساب مالی ثبت است؛ برای جلوگیری از مغایرت مالی، ویرایش و حذف مستقیم غیرفعال است."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            }
+
+            OutlinedButton(
+                onClick = { if (hasLinkedFinancialTransaction != null) showDeleteConfirmation = true },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = hasLinkedFinancialTransaction != null,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(if (hasLinkedFinancialTransaction == null) "بررسی تراکنش مرتبط…" else "حذف چک")
             }
         }
     }
@@ -225,19 +197,42 @@ fun CheckDetailDialog(
             icon = { Icon(Icons.Rounded.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             title = { Text("حذف این چک؟") },
             text = {
-                Text("چک شماره ${check.checkNumber} از فهرست شما حذف می‌شود. این کار قابل بازگشت نیست.")
+                Text(
+                    if (hasLinkedFinancialTransaction == true)
+                        "برای این چک تراکنش مالی ثبت شده است. مشخص کنید تراکنش هم حذف شود یا در سوابق مالی باقی بماند."
+                    else
+                        "چک شماره ${check.checkNumber} از فهرست شما حذف می‌شود. تراکنش مالی فعالی برای این چک ثبت نشده است."
+                )
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
+                if (hasLinkedFinancialTransaction == true) {
+                    TextButton(onClick = {
                         showDeleteConfirmation = false
-                        onDelete()
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("حذف چک") }
+                        onDelete(true)
+                    }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                        Text("حذف چک و تراکنش")
+                    }
+                } else {
+                    TextButton(onClick = {
+                        showDeleteConfirmation = false
+                        onDelete(false)
+                    }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                        Text("حذف چک")
+                    }
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+                if (hasLinkedFinancialTransaction == true) {
+                    Row {
+                        TextButton(onClick = {
+                            showDeleteConfirmation = false
+                            onDelete(false)
+                        }) { Text("فقط حذف چک") }
+                        TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+                    }
+                } else {
+                    TextButton(onClick = { showDeleteConfirmation = false }) { Text("انصراف") }
+                }
             }
         )
     }
