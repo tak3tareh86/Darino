@@ -98,7 +98,8 @@ fun VehicleExpenseInsightsSection(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF168B83).copy(alpha = 0.78f))
         ) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionHeading("مقایسه با ماه قبل", "هزینه‌ها تا روز متناظر هر ماه", Icons.Rounded.CompareArrows)
@@ -119,7 +120,8 @@ fun VehicleExpenseInsightsSection(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF8061C9).copy(alpha = 0.78f))
         ) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionHeading("مقایسه دلخواه ماه‌ها", "انتخاب مستقل ماه و سال برای هر بازه", Icons.Rounded.CompareArrows)
