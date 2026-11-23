@@ -155,8 +155,8 @@ class CalendarManager(private val context: Context) {
                     val displayTitle = if (checkNumber != null) {
                         rem.title
                             .replace(checkNumber, "")
-                            .replace(Regex("""شماره\\s*چک\\s*[:：#.\\-]*"""), "")
-                            .replace(Regex("""[\\s\\-–—|،,:：]+$"""), "")
+                            .replace(Regex("""شماره\s*چک\s*[:：#.\-]*"""), "")
+                            .replace(Regex("""[\s\-–—|،,:：]+$"""), "")
                             .trim()
                     } else rem.title
 
