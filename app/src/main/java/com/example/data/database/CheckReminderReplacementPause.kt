@@ -27,6 +27,9 @@ interface CheckReminderReplacementPauseDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(items: List<CheckReminderReplacementPauseEntity>)
 
+    @Query("SELECT * FROM check_reminder_replacement_pauses WHERE userId = :userId ORDER BY checkId, legacyReminderId ASC")
+    suspend fun getForUser(userId: String): List<CheckReminderReplacementPauseEntity>
+
     @Query("""
         SELECT * FROM check_reminder_replacement_pauses
         WHERE userId = :userId AND checkId = :checkId
