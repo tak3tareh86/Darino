@@ -50,6 +50,14 @@ interface TransactionDao {
     @Query("UPDATE transactions SET deletedAt = :deletedAt, updatedAt = :updatedAt, syncState = 'PENDING_DELETE' WHERE userId = :userId AND (stringId = :stringId OR CAST(id AS TEXT) = :stringId)")
     suspend fun softDeleteByStringId(userId: String, stringId: String, deletedAt: Long, updatedAt: Long)
 
+    /** Soft-deletes only active ledger entries created by settling this exact check. */
+    @Query("""
+        UPDATE transactions
+        SET deletedAt = :deletedAt, updatedAt = :updatedAt, syncState = 'PENDING_DELETE'
+        WHERE userId = :userId AND sourceType = 'CHECK' AND sourceId = :checkId AND deletedAt IS NULL
+    """)
+    suspend fun softDeleteSettlementTransactionsForCheck(userId: String, checkId: String, deletedAt: Long, updatedAt: Long): Int
+
     @Query("SELECT * FROM transactions WHERE userId = :userId AND (stringId = :stringId OR CAST(id AS TEXT) = :stringId) ORDER BY CASE WHEN stringId = :stringId THEN 0 ELSE 1 END LIMIT 1")
     suspend fun getTransactionIncludingDeleted(userId: String, stringId: String): TransactionEntity?
 
@@ -724,6 +732,21 @@ interface CheckDao {
 
     @Query("UPDATE checks SET status = 'BOUNCED', replacedByCheckId = NULL, reminderDateTime = :reminderDateTime, updatedAt = :updatedAt WHERE userId = :userId AND id = :originalId AND status = 'REPLACED'")
     suspend fun updateOriginalAfterReplacementRollback(userId: String, originalId: Int, reminderDateTime: Long?, updatedAt: Long): Int
+
+    // If a replacement is deleted, release its original check back to BOUNCED.
+    @Query("""
+        UPDATE checks SET status = 'BOUNCED', replacedByCheckId = NULL, updatedAt = :updatedAt
+        WHERE userId = :userId AND replacedByCheckId = :deletedCheckId
+          AND status = 'REPLACED' AND deletedAt IS NULL
+    """)
+    suspend fun detachOriginalFromDeletedReplacement(userId: String, deletedCheckId: Int, updatedAt: Long): Int
+
+    // If an original check is deleted, keep its replacement but clear the stale back-reference.
+    @Query("""
+        UPDATE checks SET replacesCheckId = NULL, updatedAt = :updatedAt
+        WHERE userId = :userId AND replacesCheckId = :deletedCheckId AND deletedAt IS NULL
+    """)
+    suspend fun detachReplacementFromDeletedOriginal(userId: String, deletedCheckId: Int, updatedAt: Long): Int
 
     @Query("UPDATE checks SET deletedAt = :deletedAt, updatedAt = :updatedAt WHERE userId = :userId AND id = :checkId")
     suspend fun softDeleteCheck(userId: String, checkId: Int, deletedAt: Long, updatedAt: Long): Int
