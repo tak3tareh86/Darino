@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -68,6 +69,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -897,9 +899,22 @@ fun TransactionCard(
         TransactionType.TRANSFER -> InfoIndigoLight
     }
 
+    val transactionBorderColors = when (transaction.type) {
+        TransactionType.EXPENSE -> listOf(Color(0xFF9F3448), Color(0xFFE06A78))
+        TransactionType.INCOME -> listOf(Color(0xFF176B4B), Color(0xFF42B883))
+        TransactionType.TRANSFER -> listOf(Color(0xFF176B86), Color(0xFF4A9BC0))
+    }
+    val transactionCardShape = RoundedCornerShape(RadiusMD)
+
     Layered3DCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(RadiusMD),
+        modifier = modifier.fillMaxWidth().border(
+            BorderStroke(
+                width = 2.dp,
+                brush = Brush.linearGradient(transactionBorderColors)
+            ),
+            shape = transactionCardShape
+        ),
+        shape = transactionCardShape,
         backgroundColor = MaterialTheme.colorScheme.surface,
         elevation = 2.dp,
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
