@@ -1164,6 +1164,17 @@ class CheckManagementTest {
                 .getForCheck("user_1", savedOriginal.id)
                 .isEmpty()
         )
+
+        val localReminderRepository = com.example.reminder.data.LocalReminderRepository(context)
+        localReminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())?.let {
+            localReminderRepository.deleteReminderWithSchedules(it.id)
+        }
+        val legacyScheduler = com.example.data.receiver.ReminderScheduler(context)
+        listOf(activeId, disabledId, completedId, unrelatedId).forEach { legacyId ->
+            legacyScheduler.cancel(legacyId)
+            database.reminderDao().deleteSchedulesForReminder("user_1", legacyId)
+            database.reminderDao().hardDeleteReminder("user_1", legacyId)
+        }
     }
 
     @Test
