@@ -148,10 +148,22 @@ class CalendarManager(private val context: Context) {
                         else -> FinancialEventStatus.PENDING
                     }
 
+                    val linkedCheck = if (rem.sourceType.equals("CHECK", ignoreCase = true)) {
+                        activeChecks.firstOrNull { it.id.toString() == rem.sourceId }
+                    } else null
+                    val checkNumber = linkedCheck?.checkNumber?.takeIf { it.isNotBlank() }
+                    val displayTitle = if (checkNumber != null) {
+                        rem.title
+                            .replace(checkNumber, "")
+                            .replace(Regex("""شماره\\s*چک\\s*[:：#.\\-]*"""), "")
+                            .replace(Regex("""[\\s\\-–—|،,:：]+$"""), "")
+                            .trim()
+                    } else rem.title
+
                     allEvents.add(
                         FinancialEvent(
                             id = eventId,
-                            title = rem.title,
+                            title = displayTitle,
                             description = rem.description,
                             type = when (rem.type.uppercase()) {
                                 "INSTALLMENT", "LOAN" -> FinancialEventType.INSTALLMENT
@@ -168,10 +180,8 @@ class CalendarManager(private val context: Context) {
                             reminderLabel = if (rem.notificationEnabled || rem.fullScreenAlarmEnabled || rem.smsEnabled) "هشدار تنظیم شده" else null,
                             sourceId = rem.id.toString(),
                             status = status,
-                            checkNumber = if (rem.sourceType.equals("CHECK", ignoreCase = true)) {
-                                activeChecks.firstOrNull { it.id.toString() == rem.sourceId }?.checkNumber
-                                    ?.takeIf { it.isNotBlank() }
-                            } else null
+                            checkNumber = checkNumber,
+                            checkHolderName = linkedCheck?.holderName?.takeIf { it.isNotBlank() }
                         )
                     )
                 }
