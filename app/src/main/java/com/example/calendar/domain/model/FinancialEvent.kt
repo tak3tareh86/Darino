@@ -115,7 +115,8 @@ data class FinancialEvent(
     val reminderLabel: String? = reminderBefore.takeUnless { it == ReminderBeforeOption.NONE || it == ReminderBeforeOption.CUSTOM }?.label,
     val customReminderAt: Long? = null,
     val amountUnit: AppCurrency = AppCurrency.TOMAN,
-    val checkNumber: String? = null
+    val checkNumber: String? = null,
+    val checkHolderName: String? = null
 ) {
     val formattedAmount: String?
         get() = amount?.let {
