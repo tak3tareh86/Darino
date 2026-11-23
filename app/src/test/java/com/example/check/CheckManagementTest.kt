@@ -1140,6 +1140,15 @@ class CheckManagementTest {
         assertFalse(database.reminderDao().getReminderById("user_1", disabledId)!!.enabled)
         assertFalse(database.reminderDao().getReminderById("user_1", completedId)!!.enabled)
         assertTrue(database.reminderDao().getReminderById("user_1", unrelatedId)!!.enabled)
+        com.example.reminder.data.LocalReminderRepository(context)
+            .resumePendingLegacyCheckReminders("user_1")
+        assertFalse(database.reminderDao().getReminderById("user_1", activeId)!!.enabled)
+        assertTrue(
+            database.checkReminderReplacementPauseDao()
+                .getForCheck("user_1", savedOriginal.id)
+                .map { it.legacyReminderId }
+                .contains(activeId)
+        )
         assertEquals(
             listOf(activeId),
             database.checkReminderReplacementPauseDao()
@@ -1254,6 +1263,8 @@ class CheckManagementTest {
         val savedReplacement = repository.getChecks().first().single {
             it.checkNumber == "RESTORE-REMINDER-REPLACEMENT"
         }
+        // Simulate a fresh-session recovery after the replacement transaction committed.
+        reminderRepository.resumePendingLegacyCheckReminders("user_1")
         val pausedOriginalReminder = reminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())
         assertEquals("COMPLETED", pausedOriginalReminder?.status)
         assertNotNull(pausedOriginalReminder?.cancelledAt)

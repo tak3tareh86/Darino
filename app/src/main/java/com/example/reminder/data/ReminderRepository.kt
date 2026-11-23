@@ -310,6 +310,50 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
             val scheduler = com.example.data.receiver.ReminderScheduler(appContext)
             val now = System.currentTimeMillis()
 
+            // A process may die after the check transaction commits but before the
+            // smart reminder's platform alarms are cancelled. Reconcile every replaced
+            // check on login; ACTIVE rows are paused, while rows carrying our durable
+            // COMPLETED/cancelledAt marker have their OS alarms cancelled idempotently.
+            db.checkDao().getAllChecksList(userId)
+                .filter { it.deletedAt == null && (it.status == "REPLACED" || it.replacedByCheckId != null) }
+                .forEach { check ->
+                    val smart = dao.getCheckReminderBySource(userId, check.id.toString())
+                        ?: return@forEach
+                    val schedules = dao.getCheckSchedulesForReminderSync(userId, smart.id)
+                    val shouldCancelPlatformAlarm = when {
+                        smart.status.equals("ACTIVE", ignoreCase = true) -> {
+                            val pausedAt = System.currentTimeMillis()
+                            db.withTransaction {
+                                val current = dao.getCheckReminderBySource(userId, check.id.toString())
+                                    ?: return@withTransaction false
+                                if (!current.status.equals("ACTIVE", ignoreCase = true)) {
+                                    return@withTransaction current.status.equals("COMPLETED", ignoreCase = true) &&
+                                        current.cancelledAt != null
+                                }
+                                val updated = dao.updateReminder(
+                                    current.copy(
+                                        status = "COMPLETED",
+                                        completedAt = pausedAt,
+                                        cancelledAt = pausedAt,
+                                        updatedAt = pausedAt
+                                    )
+                                )
+                                if (updated == 1) {
+                                    schedules.forEach { schedule -> dao.updateSchedule(schedule.copy(enabled = false)) }
+                                }
+                                updated == 1
+                            }
+                        }
+                        smart.status.equals("COMPLETED", ignoreCase = true) && smart.cancelledAt != null -> true
+                        else -> false
+                    }
+                    if (shouldCancelPlatformAlarm) {
+                        smartScheduler.cancel(smart.id, schedules)
+                        com.example.reminder.domain.NotificationDispatcher(appContext)
+                            .cancelReminderNotifications(smart.id, schedules)
+                    }
+                }
+
             pauseDao.getForUser(userId).groupBy { it.checkId }.forEach { (checkId, pauses) ->
                 val check = db.checkDao().getCheckById(userId, checkId)
                 if (check == null || check.deletedAt != null) {
@@ -317,6 +361,28 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
                     return@forEach
                 }
                 if (check.status == "REPLACED" || check.replacedByCheckId != null) {
+                    // The process may have stopped after the database pause but before
+                    // AlarmManager cancellation. Keep the snapshot and retry cancellation
+                    // on every authenticated recovery until the original check is released.
+                    pauses.forEach { pause ->
+                        runCatching { scheduler.cancel(pause.legacyReminderId) }
+                            .onFailure {
+                                android.util.Log.e(
+                                    "LocalReminderRepository",
+                                    "Could not cancel legacy reminder ${pause.legacyReminderId} for replaced check $checkId.",
+                                    it
+                                )
+                            }
+                        runCatching {
+                            notificationManager.cancel("legacy_reminder:${pause.legacyReminderId}", pause.legacyReminderId)
+                        }.onFailure {
+                            android.util.Log.e(
+                                "LocalReminderRepository",
+                                "Could not cancel legacy notification ${pause.legacyReminderId} for replaced check $checkId.",
+                                it
+                            )
+                        }
+                    }
                     return@forEach
                 }
                 if (check.status != "BOUNCED") {
