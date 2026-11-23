@@ -85,9 +85,9 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
                     .onFailure {
                         android.util.Log.e("LocalReminderRepository", "Pending check reminder cleanup recovery failed for the authenticated user.", it)
                     }
-                runCatching { migrateLegacyReminders(userId) }
+                runCatching { resumePendingLegacyCheckReminders(userId) }
                     .onFailure {
-                        android.util.Log.e("LocalReminderRepository", "Legacy reminder migration failed for the authenticated user.", it)
+                        android.util.Log.e("LocalReminderRepository", "Paused legacy check reminder recovery failed for the authenticated user.", it)
                     }
             }
         }
@@ -175,8 +175,11 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
     }
 
     private suspend fun migrateLegacyReminders(userId: String) = migrationMutex.withLock {
+        val pausedLegacyReminderIds = db.checkReminderReplacementPauseDao()
+            .getForUser(userId)
+            .mapTo(mutableSetOf()) { it.legacyReminderId }
         val legacyList = db.reminderDao().getAllRemindersForBackup(userId)
-            .filter { it.deletedAt == null }
+            .filter { it.deletedAt == null && it.id !in pausedLegacyReminderIds }
         if (legacyList.isEmpty()) return@withLock
 
         val existing = dao.getAllRemindersList(userId)
@@ -293,6 +296,64 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
                 migrationMutex.unlock()
             }
         }
+    }
+
+    /**
+     * Restores only legacy reminders that this app paused for a replaced check.
+     * The check must have returned to BOUNCED; user edits, completion and deletion
+     * invalidate the snapshot and are never overwritten.
+     */
+    suspend fun resumePendingLegacyCheckReminders(userId: String) {
+        withLegacyMigrationLock {
+            val pauseDao = db.checkReminderReplacementPauseDao()
+            val legacyDao = db.reminderDao()
+            val scheduler = com.example.data.receiver.ReminderScheduler(appContext)
+            val now = System.currentTimeMillis()
+
+            pauseDao.getForUser(userId).groupBy { it.checkId }.forEach { (checkId, pauses) ->
+                val check = db.checkDao().getCheckById(userId, checkId)
+                if (check == null || check.deletedAt != null) {
+                    pauseDao.deleteForCheck(userId, checkId)
+                    return@forEach
+                }
+                if (check.status != "BOUNCED" || check.replacedByCheckId != null) {
+                    return@forEach
+                }
+
+                val restored = db.withTransaction {
+                    pauses.mapNotNull { pause ->
+                        val current = legacyDao.getReminderById(userId, pause.legacyReminderId)
+                            ?: return@mapNotNull null
+                        if (!current.sourceType.equals("CHECK", ignoreCase = true) ||
+                            current.sourceId != checkId ||
+                            current.deletedAt != null ||
+                            current.completedAt != null ||
+                            current.enabled ||
+                            current.updatedAt != pause.pausedAt
+                        ) return@mapNotNull null
+
+                        current.copy(
+                            enabled = true,
+                            updatedAt = now,
+                            syncState = "PENDING_UPDATE"
+                        ).also { legacyDao.updateReminder(it) }
+                    }
+                }
+
+                restored.forEach { reminder ->
+                    if (reminder.notificationEnabled && reminder.scheduledDateTime > now) {
+                        scheduler.schedule(reminder)
+                    }
+                }
+                // The database state is now authoritative. A reboot will also
+                // rebuild enabled legacy alarms from the restored reminder rows.
+                pauseDao.deleteForCheck(userId, checkId)
+            }
+        }
+
+        // If the legacy rows were intentionally withheld from migration while the
+        // check was replaced, import them now that the original check is active again.
+        migrateLegacyReminders(userId)
     }
 
     override fun getAllReminders(): Flow<List<ReminderEntity>> =
