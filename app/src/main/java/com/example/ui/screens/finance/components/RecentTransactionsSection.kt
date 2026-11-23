@@ -61,27 +61,7 @@ fun RecentTransactionsSection(
     onSeeAllClick: () -> Unit = {}
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .drawWithContent {
-                drawContent()
-                val borderColors = if (borderPaletteIndex % 2 == 0) {
-                    listOf(
-                        Color(0xFF9A6700).copy(alpha = 0.28f),
-                        Color(0xFFB45309).copy(alpha = 0.28f)
-                    )
-                } else {
-                    listOf(
-                        Color(0xFF7F1D3F).copy(alpha = 0.28f),
-                        Color(0xFF6B245F).copy(alpha = 0.28f)
-                    )
-                }
-                drawRoundRect(
-                    brush = Brush.linearGradient(colors = borderColors),
-                    style = Stroke(width = 1.dp.toPx()),
-                    cornerRadius = CornerRadius(RadiusMD.toPx())
-                )
-            },
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
@@ -171,7 +151,27 @@ fun TransactionRowItem(
     }
 
     Layered3DCard(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .drawWithContent {
+                drawContent()
+                val borderColors = if (borderPaletteIndex % 2 == 0) {
+                    listOf(
+                        Color(0xFF9A6700).copy(alpha = 0.28f),
+                        Color(0xFFB45309).copy(alpha = 0.28f)
+                    )
+                } else {
+                    listOf(
+                        Color(0xFF7F1D3F).copy(alpha = 0.28f),
+                        Color(0xFF6B245F).copy(alpha = 0.28f)
+                    )
+                }
+                drawRoundRect(
+                    brush = Brush.linearGradient(colors = borderColors),
+                    style = Stroke(width = 1.dp.toPx()),
+                    cornerRadius = CornerRadius(RadiusMD.toPx())
+                )
+            },
         shape = RoundedCornerShape(RadiusMD),
         backgroundColor = MaterialTheme.colorScheme.surface,
         elevation = 2.dp,
