@@ -307,13 +307,36 @@ class LocalCheckRepository private constructor() : CheckRepository {
             accountId = null
         ).toEntity(userId)
 
+        val reminderController = reminderManager
+            ?: return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
+
+        // Persist the original reminder pause BEFORE changing the check relationship.
+        // If the process dies here, session recovery sees the original check still BOUNCED
+        // and safely restores only the rows captured by this pause snapshot.
+        try {
+            reminderController.pauseCheckReminderForReplacement(originalCheckId.toString())
+        } catch (e: Exception) {
+            e.printStackTrace()
+            runCatching {
+                reminderController.restoreCheckReminderAfterFailedReplacement(originalCheckId.toString())
+            }.onFailure { restoreError ->
+                e.addSuppressed(restoreError)
+            }
+            return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
+        }
+
         try {
             val newId = database.checkDao().replaceBouncedCheck(userId, originalCheckId, replacementEntity)
-            if (newId <= 0) return@withContext CheckOperationResult.VALIDATION_ERROR
+            if (newId <= 0) {
+                runCatching {
+                    reminderController.restoreCheckReminderAfterFailedReplacement(originalCheckId.toString())
+                }.onFailure { restoreError -> restoreError.printStackTrace() }
+                return@withContext CheckOperationResult.VALIDATION_ERROR
+            }
 
             try {
                 if (replacement.reminderDateTime != null) {
-                    (reminderManager ?: throw IllegalStateException("مدیر یادآور مقداردهی نشده است.")).syncCheckReminder(
+                    reminderController.syncCheckReminder(
                         checkId = newId.toString(),
                         title = "${replacement.bankName} - ${replacement.checkNumber}",
                         amount = replacement.amount,
@@ -325,22 +348,30 @@ class LocalCheckRepository private constructor() : CheckRepository {
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                database.checkDao().rollbackCheckReplacement(userId, originalCheckId, newId, original.reminderDateTime)
-                try { reminderManager?.onCheckSettled(newId.toString()) } catch (cancelError: Exception) { cancelError.printStackTrace() }
+                try {
+                    database.checkDao().rollbackCheckReplacement(
+                        userId, originalCheckId, newId, original.reminderDateTime
+                    )
+                } catch (rollbackError: Exception) {
+                    e.addSuppressed(rollbackError)
+                }
+                runCatching { reminderController.onCheckSettled(newId.toString()) }
+                    .onFailure { e.addSuppressed(it) }
+                runCatching {
+                    reminderController.restoreCheckReminderAfterFailedReplacement(originalCheckId.toString())
+                }.onFailure { e.addSuppressed(it) }
                 return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
             }
 
-            try {
-                reminderManager?.pauseCheckReminderForReplacement(originalCheckId.toString())
-            } catch (e: Exception) {
-                e.printStackTrace()
-                database.checkDao().rollbackCheckReplacement(userId, originalCheckId, newId, original.reminderDateTime)
-                try { reminderManager?.onCheckSettled(newId.toString()) } catch (cancelError: Exception) { cancelError.printStackTrace() }
-                return@withContext CheckOperationResult.REMINDER_SETUP_ERROR
-            }
             CheckOperationResult.SUCCESS
         } catch (e: Exception) {
             e.printStackTrace()
+            // The DAO replacement transaction either committed fully or rolled back.
+            // Restore only when the original check is still BOUNCED; the recovery
+            // routine deliberately leaves the pause snapshot intact if it is REPLACED.
+            runCatching {
+                reminderController.restoreCheckReminderAfterFailedReplacement(originalCheckId.toString())
+            }.onFailure { e.addSuppressed(it) }
             CheckOperationResult.PERSISTENCE_ERROR
         }
     }

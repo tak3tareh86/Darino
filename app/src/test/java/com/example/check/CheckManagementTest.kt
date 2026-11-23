@@ -1178,6 +1178,58 @@ class CheckManagementTest {
     }
 
     @Test
+    fun `test failed replacement restores only previously active legacy check reminders`() = runBlocking {
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        val now = System.currentTimeMillis()
+        val original = Check(
+            id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 12000,
+            checkNumber = "FAILED-REPLACE-ORIGINAL", bankName = "Bank",
+            holderName = "Holder", receiverName = "Receiver", issueDate = now,
+            dueDate = now + 86400000, status = CheckStatus.BOUNCED
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(original))
+        val saved = repository.getChecks().first().single {
+            it.checkNumber == "FAILED-REPLACE-ORIGINAL"
+        }
+        val activeId = database.reminderDao().insertReminder(
+            com.example.data.database.ReminderEntity(
+                userId = "user_1", type = "GENERAL", title = "active-before-failure",
+                description = "", sourceId = saved.id, sourceType = "CHECK",
+                scheduledDateTime = now + 300000, enabled = true, notificationEnabled = true
+            )
+        ).toInt()
+        val disabledId = database.reminderDao().insertReminder(
+            com.example.data.database.ReminderEntity(
+                userId = "user_1", type = "GENERAL", title = "disabled-before-failure",
+                description = "", sourceId = saved.id, sourceType = "CHECK",
+                scheduledDateTime = now + 300000, enabled = false, notificationEnabled = true
+            )
+        ).toInt()
+
+        val reminderManager = com.example.reminder.domain.ReminderManager(context)
+        reminderManager.pauseCheckReminderForReplacement(saved.id.toString())
+        assertFalse(database.reminderDao().getReminderById("user_1", activeId)!!.enabled)
+        assertFalse(database.reminderDao().getReminderById("user_1", disabledId)!!.enabled)
+
+        reminderManager.restoreCheckReminderAfterFailedReplacement(saved.id.toString())
+
+        assertTrue(database.reminderDao().getReminderById("user_1", activeId)!!.enabled)
+        assertFalse(database.reminderDao().getReminderById("user_1", disabledId)!!.enabled)
+        assertTrue(
+            database.checkReminderReplacementPauseDao()
+                .getForCheck("user_1", saved.id)
+                .isEmpty()
+        )
+
+        val legacyScheduler = com.example.data.receiver.ReminderScheduler(context)
+        listOf(activeId, disabledId).forEach { legacyId ->
+            legacyScheduler.cancel(legacyId)
+            database.reminderDao().deleteSchedulesForReminder("user_1", legacyId)
+            database.reminderDao().hardDeleteReminder("user_1", legacyId)
+        }
+    }
+
+    @Test
     fun `test deleting replacement restores original check reminder and future schedules`() = runBlocking {
         setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         val now = System.currentTimeMillis()

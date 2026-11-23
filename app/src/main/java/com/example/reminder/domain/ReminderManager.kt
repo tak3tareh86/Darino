@@ -1345,6 +1345,25 @@ class ReminderManager(
     }
 
     /**
+     * Rolls back a reminder pause when check replacement did not commit.
+     * The legacy recovery path verifies that the original check is still BOUNCED
+     * and that each reminder row has not been edited, completed or deleted.
+     */
+    suspend fun restoreCheckReminderAfterFailedReplacement(checkId: String) = withContext(Dispatchers.IO) {
+        val userId = SessionManager.userId
+            ?: throw IllegalStateException("Authenticated user is required to restore a check reminder")
+        val smartReminder = repository.getReminderBySource("CHECK", checkId)
+        if (smartReminder != null &&
+            smartReminder.status.equals("COMPLETED", ignoreCase = true) &&
+            smartReminder.cancelledAt != null
+        ) {
+            restoreReminder(smartReminder.id)
+        }
+        (repository as? LocalReminderRepository ?: LocalReminderRepository(context))
+            .resumePendingLegacyCheckReminders(userId)
+    }
+
+    /**
      * Triggered when a check is cleared, paid or canceled.
      */
     suspend fun onCheckSettled(checkId: String) = withContext(Dispatchers.IO) {
