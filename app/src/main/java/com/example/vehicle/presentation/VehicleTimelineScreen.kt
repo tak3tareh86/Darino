@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.ui.components.Layered3DCard
+import com.example.ui.theme.RadiusLG
 import com.example.ui.components.Soft3DIcon
 import com.example.util.IranianPhoneUtils
 import com.example.vehicle.data.VehicleTimelineEvent
@@ -385,7 +386,16 @@ private fun TimelineItemRow(
         }
 
         Layered3DCard(
-            modifier = Modifier.weight(1f).height(cardHeight).padding(bottom = 12.dp),
+            modifier = Modifier.weight(1f)
+                .height(cardHeight)
+                .padding(bottom = 12.dp)
+                .border(
+                    androidx.compose.foundation.BorderStroke(
+                        width = 1.4.dp,
+                        color = eventColor.copy(alpha = 0.65f)
+                    ),
+                    shape = RoundedCornerShape(RadiusLG)
+                ),
             elevation = 2.dp,
             borderColor = eventColor.copy(alpha = 0.32f)
         ) {
