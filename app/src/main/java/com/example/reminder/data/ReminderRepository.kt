@@ -316,7 +316,11 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
                     pauseDao.deleteForCheck(userId, checkId)
                     return@forEach
                 }
-                if (check.status != "BOUNCED" || check.replacedByCheckId != null) {
+                if (check.status == "REPLACED" || check.replacedByCheckId != null) {
+                    return@forEach
+                }
+                if (check.status != "BOUNCED") {
+                    pauseDao.deleteForCheck(userId, checkId)
                     return@forEach
                 }
 
@@ -327,16 +331,21 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
                         if (!current.sourceType.equals("CHECK", ignoreCase = true) ||
                             current.sourceId != checkId ||
                             current.deletedAt != null ||
-                            current.completedAt != null ||
-                            current.enabled ||
-                            current.updatedAt != pause.pausedAt
+                            current.completedAt != null
                         ) return@mapNotNull null
 
-                        current.copy(
-                            enabled = true,
-                            updatedAt = now,
-                            syncState = "PENDING_UPDATE"
-                        ).also { legacyDao.updateReminder(it) }
+                        when {
+                            // A previously restored or manually re-enabled reminder
+                            // still needs its future platform alarm armed.
+                            current.enabled -> current
+                            // Restore only if no user edit changed the paused row.
+                            current.updatedAt == pause.pausedAt -> current.copy(
+                                enabled = true,
+                                updatedAt = now,
+                                syncState = "PENDING_UPDATE"
+                            ).also { legacyDao.updateReminder(it) }
+                            else -> null
+                        }
                     }
                 }
 
