@@ -497,14 +497,16 @@ fun MonthlySummaryCard(
     onNextMonth: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+    // Match the active-subscription card's dark navy / deep teal palette in both themes.
+    val cardTextColor = Color(0xFFF8FAFC)
+    val cardMutedTextColor = Color(0xFFCBD5E1)
 
     Layered3DCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag("monthly_summary_card"),
-        backgroundColor = if (isDark) Color(0xFF141F32) else Color(0xFFEFF6FF),
-        borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+        backgroundColor = Color(0xFF112240),
+        borderColor = Color(0xFF0D9488).copy(alpha = 0.7f),
         elevation = 2.dp,
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
     ) {
@@ -526,7 +528,7 @@ fun MonthlySummaryCard(
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                         contentDescription = "ماه بعد",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = Color(0xFF5EEAD4),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -538,7 +540,7 @@ fun MonthlySummaryCard(
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 15.5.sp
                     ),
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = cardTextColor
                 )
 
                 // Previous Month (Chevron Left in RTL)
@@ -556,7 +558,7 @@ fun MonthlySummaryCard(
             }
 
             HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
+                color = cardMutedTextColor.copy(alpha = 0.18f),
                 thickness = 1.dp
             )
 
@@ -571,12 +573,12 @@ fun MonthlySummaryCard(
                     Text(
                         text = "تعداد رویدادها",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = cardMutedTextColor
                     )
                     Text(
                         text = eventCountText,
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
-                        color = MaterialTheme.colorScheme.primary
+                        color = Color(0xFF5EEAD4)
                     )
                 }
 
@@ -585,12 +587,12 @@ fun MonthlySummaryCard(
                     Text(
                         text = "مجموع پرداختی‌های ماه",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = cardMutedTextColor
                     )
                     Text(
                         text = totalPaymentsText,
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold, fontSize = 13.5.sp),
-                        color = EmeraldPrimaryLight
+                        color = Color(0xFF5EEAD4)
                     )
                 }
             }
