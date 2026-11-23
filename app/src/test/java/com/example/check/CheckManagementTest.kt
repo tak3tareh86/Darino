@@ -1140,8 +1140,9 @@ class CheckManagementTest {
         assertFalse(database.reminderDao().getReminderById("user_1", disabledId)!!.enabled)
         assertFalse(database.reminderDao().getReminderById("user_1", completedId)!!.enabled)
         assertTrue(database.reminderDao().getReminderById("user_1", unrelatedId)!!.enabled)
-        com.example.reminder.data.LocalReminderRepository(context)
-            .resumePendingLegacyCheckReminders("user_1")
+        val recoveredReminderRepository = com.example.reminder.data.LocalReminderRepository(context)
+        recoveredReminderRepository.resumePendingLegacyCheckReminders("user_1")
+        assertNull(recoveredReminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString()))
         assertFalse(database.reminderDao().getReminderById("user_1", activeId)!!.enabled)
         assertTrue(
             database.checkReminderReplacementPauseDao()
