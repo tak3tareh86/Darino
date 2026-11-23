@@ -499,6 +499,10 @@ fun FinancialScreen(
                             scope.launch { snackbarHostState.showSnackbar(errorMsg) }
                         }
                     }
+                } else {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("مبلغ انتقال معتبر نیست یا با واحد پول انتخاب‌شده سازگار نیست.")
+                    }
                 }
             }
         )
