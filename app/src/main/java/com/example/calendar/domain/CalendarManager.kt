@@ -120,6 +120,15 @@ class CalendarManager(private val context: Context) {
             ).toSet()
 
             reminders.forEach { rem ->
+                // A check reminder is visible in the calendar only while its owning
+                // check still exists. This also hides orphaned reminders left by older
+                // app versions or duplicate legacy rows without touching reminder
+                // schedules, notification delivery, or reminders for active checks.
+                if (
+                    rem.sourceType.equals("CHECK", ignoreCase = true) &&
+                    rem.sourceId !in activeCheckIds
+                ) return@forEach
+
                 // Installment schedule rows above are the calendar source of truth.
                 // Vehicle expiry records are also represented by their dossier entities.
                 if (rem.sourceType.equals("INSTALLMENT", ignoreCase = true)) return@forEach
