@@ -31,9 +31,10 @@ import androidx.room.RoomDatabase
         UserPreferenceEntity::class,
         CheckEntity::class,
         VehicleReminderCleanupQueueEntity::class,
-        CheckReminderCleanupQueueEntity::class
+        CheckReminderCleanupQueueEntity::class,
+        CheckReminderReplacementPauseEntity::class
     ],
-    version = 51,
+    version = 52,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -54,6 +55,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun checkDao(): CheckDao
     abstract fun vehicleReminderCleanupQueueDao(): VehicleReminderCleanupQueueDao
     abstract fun checkReminderCleanupQueueDao(): CheckReminderCleanupQueueDao
+    abstract fun checkReminderReplacementPauseDao(): CheckReminderReplacementPauseDao
 
     companion object {
         @Volatile
@@ -970,6 +972,21 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_51_52 = object : androidx.room.migration.Migration(51, 52) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Stores only legacy reminder IDs that were active before a check replacement.
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS check_reminder_replacement_pauses (
+                        userId TEXT NOT NULL,
+                        checkId INTEGER NOT NULL,
+                        legacyReminderId INTEGER NOT NULL,
+                        pausedAt INTEGER NOT NULL,
+                        PRIMARY KEY(userId, checkId, legacyReminderId)
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -983,7 +1000,7 @@ abstract class AppDatabase : RoomDatabase() {
                          MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
                          MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25,
                          MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30,
-                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44, MIGRATION_44_45, MIGRATION_45_46, MIGRATION_46_47, MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50, MIGRATION_50_51
+                         MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35, MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41, MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44, MIGRATION_44_45, MIGRATION_45_46, MIGRATION_46_47, MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50, MIGRATION_50_51, MIGRATION_51_52
                      )
                     .build()
                 INSTANCE = instance
