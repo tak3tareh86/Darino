@@ -164,8 +164,7 @@ fun CheckDetailDialog(
                 }
             }
 
-            if (check.status != CheckStatus.CLEARED && check.status != CheckStatus.REPLACED &&
-                check.replacesCheckId == null) {
+            if (check.status != CheckStatus.CLEARED && check.status != CheckStatus.REPLACED) {
                 OutlinedButton(
                     onClick = onEdit,
                     modifier = Modifier.fillMaxWidth(),
@@ -173,7 +172,7 @@ fun CheckDetailDialog(
                 ) {
                     Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("ویرایش")
+                    Text(if (check.replacesCheckId != null) "ویرایش چک جایگزین" else "ویرایش")
                 }
             }
 
