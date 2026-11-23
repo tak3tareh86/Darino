@@ -1381,7 +1381,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                         Layered3DCard(
                             modifier = Modifier.fillMaxWidth(),
                             elevation = 3.dp,
-                            borderColor = insuranceStatusColor.copy(alpha = 0.3f)
+                            borderColor = insuranceStatusColor.copy(alpha = 0.78f)
                         ) {
                             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -1463,7 +1463,7 @@ private fun VehicleInsuranceDocumentsTabContent(
                             inspectionStatusApproved -> Color(0xFF10B981)
                             else -> MaterialTheme.colorScheme.tertiary
                         }
-                        Layered3DCard(modifier = Modifier.fillMaxWidth(), elevation = 2.dp, borderColor = inspectionStatusColor.copy(alpha = 0.35f)) {
+                        Layered3DCard(modifier = Modifier.fillMaxWidth(), elevation = 2.dp, borderColor = inspectionStatusColor.copy(alpha = 0.82f)) {
                             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text(insp.centerName.ifBlank { "مرکز معاینه فنی ثبت نشده" }, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
