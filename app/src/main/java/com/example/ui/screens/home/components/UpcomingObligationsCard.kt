@@ -39,12 +39,16 @@ import com.example.util.MoneyFormatter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.Layered3DCard
 import com.example.ui.screens.home.domain.UpcomingObligationItem
@@ -90,6 +94,19 @@ fun UpcomingObligationsCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(210.dp)
+                .drawWithContent {
+                    drawContent()
+                    drawRoundRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF009688).copy(alpha = 0.28f),
+                                Color(0xFF00E5BD).copy(alpha = 0.28f)
+                            )
+                        ),
+                        style = Stroke(width = 1.dp.toPx()),
+                        cornerRadius = CornerRadius(20.dp.toPx())
+                    )
+                }
                 .pointerInput(obligationIds, selectedIndex) {
                     var totalHorizontalDrag = 0f
                     detectHorizontalDragGestures(
