@@ -317,6 +317,8 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
             val legacyDao = db.reminderDao()
             val scheduler = com.example.data.receiver.ReminderScheduler(appContext)
             val smartScheduler = ReminderScheduler(appContext)
+            val notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE)
+                as android.app.NotificationManager
             val now = System.currentTimeMillis()
 
             // A process may die after the check transaction commits but before the
