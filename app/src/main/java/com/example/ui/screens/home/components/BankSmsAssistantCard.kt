@@ -36,6 +36,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -50,6 +52,7 @@ import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material.icons.rounded.TrendingDown
@@ -67,6 +70,8 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -1104,7 +1109,9 @@ fun EditSmsTransactionDialog(
     var error by remember { mutableStateOf<String?>(null) }
     var accountMenuExpanded by remember(suggestion.id) { mutableStateOf(false) }
     var destinationMenuExpanded by remember(suggestion.id) { mutableStateOf(false) }
-    var categoryMenuExpanded by remember(suggestion.id) { mutableStateOf(false) }
+    var categoryPickerExpanded by remember(suggestion.id) { mutableStateOf(false) }
+    var categoryDraft by remember(suggestion.id) { mutableStateOf(suggestion.category) }
+    var categorySearchQuery by remember(suggestion.id) { mutableStateOf("") }
     val cats = remember(activeCategories, selectedType) {
         when (selectedType) {
             TransactionType.EXPENSE, TransactionType.INCOME ->
@@ -1216,7 +1223,11 @@ fun EditSmsTransactionDialog(
                                 label = { Text("دسته‌بندی", maxLines = 1) },
                                 placeholder = { Text("انتخاب یا ورود دستی", maxLines = 1) },
                                 trailingIcon = {
-                                    IconButton(onClick = { categoryMenuExpanded = true }) {
+                                    IconButton(onClick = {
+                                        categoryDraft = category
+                                        categorySearchQuery = ""
+                                        categoryPickerExpanded = true
+                                    }) {
                                         Icon(Icons.Rounded.ArrowDropDown, contentDescription = "انتخاب دسته‌بندی")
                                     }
                                 },
@@ -1224,22 +1235,6 @@ fun EditSmsTransactionDialog(
                                 shape = RoundedCornerShape(9.dp),
                                 textStyle = MaterialTheme.typography.bodySmall
                             )
-                            DropdownMenu(
-                                expanded = categoryMenuExpanded,
-                                onDismissRequest = { categoryMenuExpanded = false },
-                                modifier = Modifier.widthIn(min = 150.dp, max = 230.dp)
-                            ) {
-                                cats.forEach { item ->
-                                    DropdownMenuItem(
-                                        text = { Text(item, maxLines = 1) },
-                                        onClick = {
-                                            category = item
-                                            categoryMenuExpanded = false
-                                            error = null
-                                        }
-                                    )
-                                }
-                            }
                         }
                     }
                     if (accounts.isEmpty()) {
@@ -1364,6 +1359,136 @@ fun EditSmsTransactionDialog(
                         colors=ButtonDefaults.buttonColors(containerColor=when(selectedType){TransactionType.EXPENSE->ExpenseRoseLight;TransactionType.INCOME->EmeraldPrimaryLight;TransactionType.TRANSFER->Color(0xFF3B82F6);null->Color.Gray})
                     ){
                         if(submitting) CircularProgressIndicator(Modifier.size(16.dp),strokeWidth=2.dp,color=Color.White) else Text("تأیید و ثبت",fontWeight=FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        if (categoryPickerExpanded) {
+            ModalBottomSheet(
+                onDismissRequest = { categoryPickerExpanded = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = if (MaterialTheme.colorScheme.background.red < 0.2f) Color(0xFF0B1320) else MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                dragHandle = {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 10.dp, bottom = 4.dp)
+                            .size(width = 48.dp, height = 5.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                    )
+                }
+            ) {
+                val filteredCategories = cats.filter { it.contains(categorySearchQuery.trim(), ignoreCase = true) }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 560.dp)
+                        .padding(horizontal = 20.dp)
+                        .padding(bottom = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Spacer(modifier = Modifier.size(40.dp))
+                        Text(
+                            "انتخاب دسته‌بندی",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        IconButton(onClick = { categoryPickerExpanded = false }) {
+                            Icon(Icons.Rounded.Close, contentDescription = "بستن")
+                        }
+                    }
+                    OutlinedTextField(
+                        value = categorySearchQuery,
+                        onValueChange = { categorySearchQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text("جستجو در دسته‌بندی‌ها...") },
+                        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    if (filteredCategories.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().height(140.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                if (cats.isEmpty()) "دسته‌بندی فعالی برای این نوع تراکنش وجود ندارد."
+                                else "دسته‌بندی موردنظر پیدا نشد.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 300.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(filteredCategories.size) { index ->
+                                val item = filteredCategories[index]
+                                val selected = categoryDraft == item
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 58.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .clickable { categoryDraft = item },
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (selected) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            item,
+                                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 2
+                                        )
+                                        if (selected) {
+                                            Spacer(modifier = Modifier.width(5.dp))
+                                            Icon(Icons.Rounded.Check, contentDescription = "انتخاب‌شده", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { categoryPickerExpanded = false },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("لغو") }
+                        Button(
+                            onClick = {
+                                category = categoryDraft
+                                categoryPickerExpanded = false
+                                error = null
+                            },
+                            enabled = categoryDraft in cats,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("تأیید انتخاب") }
                     }
                 }
             }
