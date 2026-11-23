@@ -1214,7 +1214,7 @@ class ReminderManager(
                     cancellationErrors.add(error)
                     Log.e("ReminderManager", "Could not cancel legacy check reminder alarm ${legacy.id}.", error)
                 }
-            runCatching { platformNotificationManager.cancel(legacy.id) }
+            runCatching { platformNotificationManager.cancel("legacy_reminder:${legacy.id}", legacy.id) }
                 .onFailure { error ->
                     cancellationErrors.add(error)
                     Log.e("ReminderManager", "Could not cancel legacy check reminder notification ${legacy.id}.", error)
@@ -1319,7 +1319,7 @@ class ReminderManager(
         pausedLegacyReminders.forEach { legacy ->
             runCatching { legacyScheduler.cancel(legacy.id) }
                 .onFailure { Log.e("ReminderManager", "Could not cancel legacy check alarm ${legacy.id} during replacement.", it) }
-            runCatching { platformNotificationManager.cancel(legacy.id) }
+            runCatching { platformNotificationManager.cancel("legacy_reminder:${legacy.id}", legacy.id) }
                 .onFailure { Log.e("ReminderManager", "Could not cancel legacy check notification ${legacy.id} during replacement.", it) }
         }
 
