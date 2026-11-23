@@ -201,7 +201,13 @@ class LocalCheckRepository private constructor() : CheckRepository {
     override suspend fun hasActiveSettlementTransaction(id: Int): Boolean = withContext(Dispatchers.IO) {
         val userId = SessionManager.userId ?: return@withContext false
         val database = db ?: return@withContext false
-        database.checkDao().hasSettlementTransactionForCheck(userId, id.toString())
+        try {
+            database.checkDao().hasSettlementTransactionForCheck(userId, id.toString())
+        } catch (e: Exception) {
+            // Fail closed: if the lookup fails, do not silently assume there is no ledger entry.
+            e.printStackTrace()
+            true
+        }
     }
 
     override suspend fun deleteCheck(id: Int, deleteLinkedTransaction: Boolean): CheckOperationResult = withContext(Dispatchers.IO) {
