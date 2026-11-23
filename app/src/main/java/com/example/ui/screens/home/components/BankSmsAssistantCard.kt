@@ -1049,6 +1049,7 @@ private fun TransactionTypeChip(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditSmsTransactionDialog(
     suggestion: BankSmsSuggestion,
