@@ -114,9 +114,13 @@ class CheckViewModel : ViewModel() {
         }
     }
 
-    fun deleteCheck(id: Int, onResult: (CheckOperationResult) -> Unit = {}) {
+    fun hasActiveSettlementTransaction(id: Int, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch { onResult(repository.hasActiveSettlementTransaction(id)) }
+    }
+
+    fun deleteCheck(id: Int, deleteLinkedTransaction: Boolean, onResult: (CheckOperationResult) -> Unit = {}) {
         viewModelScope.launch {
-            val result = repository.deleteCheck(id)
+            val result = repository.deleteCheck(id, deleteLinkedTransaction)
             onResult(result)
         }
     }
