@@ -94,19 +94,18 @@ fun UpcomingObligationsCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(210.dp)
-                .drawWithContent {
-                    drawContent()
-                    drawRoundRect(
+                .border(
+                    BorderStroke(
+                        width = 1.dp,
                         brush = Brush.linearGradient(
                             colors = listOf(
                                 Color(0xFF009688).copy(alpha = 0.28f),
                                 Color(0xFF00E5BD).copy(alpha = 0.28f)
                             )
-                        ),
-                        style = Stroke(width = 1.dp.toPx()),
-                        cornerRadius = CornerRadius(20.dp.toPx())
-                    )
-                }
+                        )
+                    ),
+                    RoundedCornerShape(20.dp)
+                )
                 .pointerInput(obligationIds, selectedIndex) {
                     var totalHorizontalDrag = 0f
                     detectHorizontalDragGestures(
@@ -126,6 +125,7 @@ fun UpcomingObligationsCard(
                     )
                 },
             elevation = 2.dp,
+            shape = RoundedCornerShape(20.dp),
             contentPadding = PaddingValues(12.dp)
         ) {
             Column(
