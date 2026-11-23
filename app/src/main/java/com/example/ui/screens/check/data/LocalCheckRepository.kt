@@ -224,6 +224,9 @@ class LocalCheckRepository private constructor() : CheckRepository {
                         if (rowsAffected != 1) {
                             throw IllegalStateException("Check deletion did not update exactly one row.")
                         }
+                        // Remove only legacy calendar rows explicitly linked to this check.
+                        // Financial ledger transactions and all reminder state remain untouched.
+                        database.checkDao().deleteCalendarEventsForCheck(userId, id.toString())
                     }
             } catch (e: Exception) {
                 e.printStackTrace()
