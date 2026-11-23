@@ -59,6 +59,7 @@ class CalendarManager(private val context: Context) {
         val vehicleInsurancesFlow = VehicleRepository.instance.insurances
         val vehicleInspectionsFlow = VehicleRepository.instance.inspections
         val vehicleExpensesFlow = VehicleRepository.instance.expenses
+        val activeChecksFlow = database.checkDao().getAllChecks(userId)
 
         return combine(
             dbEventsFlow,
@@ -71,8 +72,9 @@ class CalendarManager(private val context: Context) {
                 vehicleExpensesFlow
             ) { svcs, ins, insp, exp ->
                 Quadruple(svcs, ins, insp, exp)
-            }
-        ) { dbEvents, reminders, installmentData, vehicleData ->
+            },
+            activeChecksFlow
+        ) { dbEvents, reminders, installmentData, vehicleData, activeChecks ->
             val allEvents = mutableListOf<FinancialEvent>()
             val seenIds = mutableSetOf<String>()
 
@@ -88,8 +90,21 @@ class CalendarManager(private val context: Context) {
             // Smart Reminders are configured.
 
             // 1. Add DB events that have not yet been adopted into the reminder store.
+            val activeCheckIds = activeChecks.map { it.id.toString() }.toSet()
+
             for (ev in dbEvents) {
-                if (ev.id !in linkedCalendarEventIds && seenIds.add(ev.id)) {
+                // Older app versions could leave a persisted calendar event linked to a
+                // check after that check was soft-deleted. Hide only clearly check-linked
+                // events whose numeric sourceId no longer belongs to an active check.
+                val linkedCheckId = ev.sourceId?.takeIf {
+                    it.isNotBlank() && it.all(Char::isDigit) && ev.title.contains("چک")
+                }
+                val belongsToDeletedCheck = linkedCheckId != null && linkedCheckId !in activeCheckIds
+
+                if (!belongsToDeletedCheck &&
+                    ev.id !in linkedCalendarEventIds &&
+                    seenIds.add(ev.id)
+                ) {
                     allEvents.add(ev)
                 }
             }
