@@ -551,7 +551,7 @@ fun MonthlySummaryCard(
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
                         contentDescription = "ماه قبل",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = Color(0xFF5EEAD4),
                         modifier = Modifier.size(20.dp)
                     )
                 }
