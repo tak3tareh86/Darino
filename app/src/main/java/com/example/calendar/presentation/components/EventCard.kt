@@ -317,10 +317,30 @@ fun EventCard(
                 }
             }
 
+            // Check number is rendered from the linked active Check record, never parsed from title/description.
+            event.checkNumber?.takeIf { it.isNotBlank() }?.let { number ->
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "شماره چک: $number",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
             // Read the computed property once so Kotlin can safely smart-cast the local value.
             val formattedAmount = event.formattedAmount
 
-            // Centered event amount below the title row
+            // Centered event amount below the check-number row
             if (formattedAmount != null) {
                 Box(
                     modifier = Modifier.fillMaxWidth(),
