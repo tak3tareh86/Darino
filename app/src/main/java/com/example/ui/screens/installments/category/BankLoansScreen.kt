@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -181,10 +181,11 @@ fun BankLoansScreen(
                 }
             }
 
-            items(loans, key = { it.id }) { loan ->
+            itemsIndexed(loans, key = { _, loan -> loan.id }) { index, loan ->
                 InstallmentCard(
                     item = loan,
                     onClick = { onLoanClick(loan) }
+                    borderPaletteIndex = index
                 )
             }
 

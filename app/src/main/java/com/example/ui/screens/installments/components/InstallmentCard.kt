@@ -18,6 +18,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.collectAsState
@@ -33,13 +37,51 @@ import com.example.ui.theme.RadiusMD
 fun InstallmentCard(
     item: InstallmentItem,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    borderPaletteIndex: Int? = null
 ) {
     val numberMode by AppNumberFormatter.modeFlow.collectAsState()
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
 
     Layered3DCard(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(
+                if (borderPaletteIndex != null) {
+                    Modifier.drawWithContent {
+                        drawContent()
+                        val borderColors = when (borderPaletteIndex % 4) {
+                            0 -> listOf(
+                                androidx.compose.ui.graphics.Color(0xFF315B78).copy(alpha = 0.38f),
+                                androidx.compose.ui.graphics.Color(0xFF8CB8D0).copy(alpha = 0.38f),
+                                androidx.compose.ui.graphics.Color(0xFF315B78).copy(alpha = 0.38f)
+                            )
+                            1 -> listOf(
+                                androidx.compose.ui.graphics.Color(0xFF465F39).copy(alpha = 0.38f),
+                                androidx.compose.ui.graphics.Color(0xFF9FB77C).copy(alpha = 0.38f),
+                                androidx.compose.ui.graphics.Color(0xFF465F39).copy(alpha = 0.38f)
+                            )
+                            2 -> listOf(
+                                androidx.compose.ui.graphics.Color(0xFF754C35).copy(alpha = 0.38f),
+                                androidx.compose.ui.graphics.Color(0xFFC49A72).copy(alpha = 0.38f),
+                                androidx.compose.ui.graphics.Color(0xFF754C35).copy(alpha = 0.38f)
+                            )
+                            else -> listOf(
+                                androidx.compose.ui.graphics.Color(0xFF3F3975).copy(alpha = 0.38f),
+                                androidx.compose.ui.graphics.Color(0xFF8982BC).copy(alpha = 0.38f),
+                                androidx.compose.ui.graphics.Color(0xFF3F3975).copy(alpha = 0.38f)
+                            )
+                        }
+                        drawRoundRect(
+                            brush = Brush.linearGradient(colors = borderColors),
+                            style = Stroke(width = 1.dp.toPx()),
+                            cornerRadius = CornerRadius(RadiusLG.toPx())
+                        )
+                    }
+                } else {
+                    Modifier
+                }
+            ),
         shape = RoundedCornerShape(RadiusLG),
         backgroundColor = MaterialTheme.colorScheme.surface,
         elevation = 2.5.dp,
