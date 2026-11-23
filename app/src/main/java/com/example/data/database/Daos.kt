@@ -735,11 +735,17 @@ interface CheckDao {
 
     // If a replacement is deleted, release its original check back to BOUNCED.
     @Query("""
-        UPDATE checks SET status = 'BOUNCED', replacedByCheckId = NULL, updatedAt = :updatedAt
+        UPDATE checks SET status = 'BOUNCED', replacedByCheckId = NULL,
+            reminderDateTime = :reminderDateTime, updatedAt = :updatedAt
         WHERE userId = :userId AND replacedByCheckId = :deletedCheckId
           AND status = 'REPLACED' AND deletedAt IS NULL
     """)
-    suspend fun detachOriginalFromDeletedReplacement(userId: String, deletedCheckId: Int, updatedAt: Long): Int
+    suspend fun detachOriginalFromDeletedReplacement(
+        userId: String,
+        deletedCheckId: Int,
+        reminderDateTime: Long?,
+        updatedAt: Long
+    ): Int
 
     // If an original check is deleted, keep its replacement but clear the stale back-reference.
     @Query("""

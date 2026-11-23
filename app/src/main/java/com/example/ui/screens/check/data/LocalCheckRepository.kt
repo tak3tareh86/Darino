@@ -221,7 +221,10 @@ class LocalCheckRepository private constructor() : CheckRepository {
             try {
                 (reminderManager
                     ?: throw IllegalStateException("مدیر یادآور مقداردهی نشده است."))
-                    .deleteCheckReminder(id.toString()) {
+                    .deleteCheckReminder(
+                        checkId = id.toString(),
+                        restoreCheckReminderId = existing.replacesCheckId?.toString()
+                    ) { restoredReminderDateTime ->
                         val rowsAffected = database.checkDao().softDeleteCheck(
                             userId = userId,
                             checkId = id,
@@ -232,7 +235,12 @@ class LocalCheckRepository private constructor() : CheckRepository {
                             throw IllegalStateException("Check deletion did not update exactly one row.")
                         }
                         // Detach replacement links so surviving checks never reference this deleted row.
-                        database.checkDao().detachOriginalFromDeletedReplacement(userId, id, deletionTimestamp)
+                        database.checkDao().detachOriginalFromDeletedReplacement(
+                            userId = userId,
+                            deletedCheckId = id,
+                            reminderDateTime = restoredReminderDateTime,
+                            updatedAt = deletionTimestamp
+                        )
                         database.checkDao().detachReplacementFromDeletedOriginal(userId, id, deletionTimestamp)
 
                         // Soft-delete only this check's ledger entries, and only after explicit user consent.

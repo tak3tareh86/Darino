@@ -1153,7 +1153,8 @@ class ReminderManager(
      */
     suspend fun deleteCheckReminder(
         checkId: String,
-        deleteCheckRecord: suspend () -> Unit = {}
+        restoreCheckReminderId: String? = null,
+        deleteCheckRecord: suspend (Long?) -> Unit = {}
     ) = withContext(Dispatchers.IO) {
         val userId = SessionManager.userId
             ?: throw IllegalStateException("Authenticated user is required to delete a check reminder")
@@ -1169,14 +1170,21 @@ class ReminderManager(
                 val legacy = checkId.toIntOrNull()?.let { numericId ->
                     database.reminderDao().getCheckRemindersForCheck(userId, numericId)
                 }.orEmpty()
-                deleteCheckRecord()
+                val restoreReminder = restoreCheckReminderId?.let {
+                    repository.getReminderBySource("CHECK", it)
+                }
+                val restoreReminderDateTime = restoreReminder?.let {
+                    runCatching { parsePersianDateTimeToMillis(it.date, it.time) }.getOrNull()
+                }
+                deleteCheckRecord(restoreReminderDateTime)
                 repository.deleteCheckReminderWithSchedulesAndLogs(checkId)
-                Triple(smart, schedules, legacy)
+                Triple(Pair(smart, schedules), legacy, restoreReminder?.id)
             }
         }
-        val smartReminder = cleanupSnapshot.first
-        val smartSchedules = cleanupSnapshot.second
-        val legacyReminders = cleanupSnapshot.third
+        val smartReminder = cleanupSnapshot.first.first
+        val smartSchedules = cleanupSnapshot.first.second
+        val legacyReminders = cleanupSnapshot.second
+        val restoreReminderId = cleanupSnapshot.third
 
         // Platform alarms and visible notifications are cancelled only after commit.
         val legacyRepository = com.example.data.repository.ReminderRepository(context)
@@ -1218,6 +1226,16 @@ class ReminderManager(
             }.onFailure { error ->
                 Log.w("ReminderManager", "Could not clear completed check reminder cleanup entry $checkId; it will be replayed safely.", error)
             }
+        }
+
+        // Deleting a replacement releases its original bounced check. Restore only
+        // that original check's persisted reminder; restoreReminder re-arms only
+        // saved future triggers and never invents a new notification schedule.
+        restoreReminderId?.let { reminderId ->
+            runCatching { restoreReminder(reminderId) }
+                .onFailure { error ->
+                    Log.e("ReminderManager", "Could not reactivate the original check reminder $reminderId after replacement deletion.", error)
+                }
         }
     }
 

@@ -921,7 +921,7 @@ class CheckManagementTest {
         assertEquals(CheckOperationResult.SUCCESS, result)
     }
     @Test
-    fun `test settled check cannot be edited or deleted directly`() = runBlocking {
+    fun `test settled check can be deleted without deleting ledger history`() = runBlocking {
         setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
         val check = Check(
             id = 0,
@@ -954,10 +954,10 @@ class CheckManagementTest {
         )
         assertEquals(CheckOperationResult.SUCCESS, repository.settleCheck(saved, account))
         assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.updateCheck(saved.copy(checkNumber = "CHANGED")))
-        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.deleteCheck(saved.id))
-        assertNotNull(repository.getCheckById(saved.id))
+        assertEquals(CheckOperationResult.SUCCESS, repository.deleteCheck(saved.id, deleteLinkedTransaction = false))
+        assertFalse(repository.getChecks().first().any { it.id == saved.id })
         assertTrue(database.transactionDao().getAllTransactionsList("user_1").any {
-            it.stringId == "check_settle_${saved.id}"
+            it.stringId == "check_settle_${saved.id}" && it.deletedAt == null
         })
     }
 
@@ -1041,10 +1041,87 @@ class CheckManagementTest {
         assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.updateCheck(newCheck.copy(type = CheckType.PAID)))
         assertEquals(CheckType.RECEIVED, repository.getCheckById(newCheck.id)?.type)
         assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.updateCheck(updatedOriginal!!))
-        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.deleteCheck(saved.id))
-        assertEquals(CheckOperationResult.VALIDATION_ERROR, repository.deleteCheck(newCheck.id))
-        assertNotNull(repository.getCheckById(saved.id))
-        assertNotNull(repository.getCheckById(newCheck.id))
+        assertEquals(CheckOperationResult.SUCCESS, repository.deleteCheck(newCheck.id, deleteLinkedTransaction = false))
+        val restoredOriginal = repository.getCheckById(saved.id)
+        assertEquals(CheckStatus.BOUNCED, restoredOriginal?.status)
+        assertNull(restoredOriginal?.replacedByCheckId)
+        assertFalse(repository.getChecks().first().any { it.id == newCheck.id })
+        assertEquals(CheckOperationResult.SUCCESS, repository.deleteCheck(saved.id, deleteLinkedTransaction = false))
+        assertFalse(repository.getChecks().first().any { it.id == saved.id })
+    }
+
+
+    @Test
+    fun `test deleting settled check with consent soft deletes only its linked transaction`() = runBlocking {
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        val check = Check(
+            id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 9000,
+            checkNumber = "DELETE-WITH-TX", bankName = "Bank", holderName = "Holder",
+            receiverName = "Receiver", issueDate = System.currentTimeMillis(),
+            dueDate = System.currentTimeMillis() + 86400000, status = CheckStatus.REGISTERED
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(check))
+        val saved = repository.getChecks().first().single { it.checkNumber == "DELETE-WITH-TX" }
+        val account = com.example.ui.screens.finance.model.Account(
+            id = "delete_with_tx_account", userId = "user_1", name = "Main",
+            type = com.example.ui.screens.finance.model.AccountType.BANK
+        )
+        database.accountDao().insertAccount(
+            com.example.data.database.AccountEntity(
+                userId = "user_1", stringId = account.id, name = account.name, type = "BANK"
+            )
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.settleCheck(saved, account))
+        val transactionId = "check_settle_${saved.id}"
+        assertNotNull(database.transactionDao().getTransactionIncludingDeleted("user_1", transactionId))
+
+        assertEquals(CheckOperationResult.SUCCESS, repository.deleteCheck(saved.id, deleteLinkedTransaction = true))
+        assertFalse(repository.getChecks().first().any { it.id == saved.id })
+        val deletedTransaction = database.transactionDao().getTransactionIncludingDeleted("user_1", transactionId)
+        assertNotNull(deletedTransaction)
+        assertNotNull(deletedTransaction?.deletedAt)
+    }
+
+    @Test
+    fun `test deleting replacement restores original check reminder and future schedules`() = runBlocking {
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        val now = System.currentTimeMillis()
+        val original = Check(
+            id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 10000,
+            checkNumber = "RESTORE-REMINDER-ORIGINAL", bankName = "Bank",
+            holderName = "Holder", receiverName = "Receiver", issueDate = now,
+            dueDate = now + 86400000, status = CheckStatus.BOUNCED,
+            reminderDateTime = now + 180000
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(original))
+        val savedOriginal = repository.getChecks().first().single { it.checkNumber == "RESTORE-REMINDER-ORIGINAL" }
+        val reminderRepository = com.example.reminder.data.LocalReminderRepository(context)
+        val originalReminder = reminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())
+        assertNotNull(originalReminder)
+        assertEquals("ACTIVE", originalReminder?.status)
+        val replacement = savedOriginal.copy(
+            id = 0, checkNumber = "RESTORE-REMINDER-REPLACEMENT",
+            status = CheckStatus.REGISTERED, reminderDateTime = null
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.replaceCheck(savedOriginal.id, replacement))
+        val savedReplacement = repository.getChecks().first().single {
+            it.checkNumber == "RESTORE-REMINDER-REPLACEMENT"
+        }
+        assertEquals("COMPLETED", reminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())?.status)
+
+        assertEquals(CheckOperationResult.SUCCESS, repository.deleteCheck(savedReplacement.id, deleteLinkedTransaction = false))
+        val restoredCheck = repository.getCheckById(savedOriginal.id)
+        assertEquals(CheckStatus.BOUNCED, restoredCheck?.status)
+        assertNull(restoredCheck?.replacedByCheckId)
+        assertNotNull(restoredCheck?.reminderDateTime)
+        val restoredReminder = reminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())
+        assertEquals("ACTIVE", restoredReminder?.status)
+        val restoredSchedules = restoredReminder?.let {
+            reminderRepository.getCheckSchedulesSync(it.id)
+        }.orEmpty()
+        assertTrue(restoredSchedules.any {
+            it.enabled && it.triggerDateTime > System.currentTimeMillis()
+        })
     }
 
     @Test
