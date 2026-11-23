@@ -1277,8 +1277,12 @@ class ReminderManager(
             ),
             schedules.map { it.copy(enabled = false) }
         )
-        scheduler.cancel(reminder.id, schedules)
-        NotificationDispatcher(context).cancelReminderNotifications(reminder.id, schedules)
+        // Room state is authoritative. Platform cancellation is best-effort and
+        // must not make replaceCheck roll back after the persisted pause has committed.
+        runCatching { scheduler.cancel(reminder.id, schedules) }
+            .onFailure { Log.e("ReminderManager", "Could not cancel original check alarms during replacement.", it) }
+        runCatching { NotificationDispatcher(context).cancelReminderNotifications(reminder.id, schedules) }
+            .onFailure { Log.e("ReminderManager", "Could not cancel original check notifications during replacement.", it) }
     }
 
     /**
