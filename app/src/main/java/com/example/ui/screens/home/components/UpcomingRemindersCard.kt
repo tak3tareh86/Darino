@@ -30,7 +30,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,7 +64,20 @@ fun UpcomingRemindersCard(
         Layered3DCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(210.dp),
+                .height(210.dp)
+                .drawWithContent {
+                    drawContent()
+                    drawRoundRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF00B8D9).copy(alpha = 0.28f),
+                                Color(0xFF7040E8).copy(alpha = 0.28f)
+                            )
+                        ),
+                        style = Stroke(width = 1.dp.toPx()),
+                        cornerRadius = CornerRadius(20.dp.toPx())
+                    )
+                },
             elevation = 2.dp,
             contentPadding = PaddingValues(12.dp)
         ) {
