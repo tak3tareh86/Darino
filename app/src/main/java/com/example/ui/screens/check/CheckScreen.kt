@@ -450,11 +450,14 @@ fun CheckScreen(
                 selectedCheckForEdit = selectedCheckForDetail
                 selectedCheckForDetail = null
             },
-            onDelete = {
-                viewModel.deleteCheck(selectedCheckForDetail!!.id) { result ->
+            onDelete = { deleteLinkedTransaction ->
+                viewModel.deleteCheck(selectedCheckForDetail!!.id, deleteLinkedTransaction) { result ->
                     showOperationResult(result, "چک حذف شد.")
                     if (result == com.example.ui.screens.check.data.CheckOperationResult.SUCCESS) selectedCheckForDetail = null
                 }
+            },
+            hasActiveSettlementTransaction = { id, onResult ->
+                viewModel.hasActiveSettlementTransaction(id, onResult)
             },
             onSettle = { account ->
                 viewModel.settleCheck(selectedCheckForDetail!!, account, true) { result ->
