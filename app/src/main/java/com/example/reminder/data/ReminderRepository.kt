@@ -178,8 +178,16 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
         val pausedLegacyReminderIds = db.checkReminderReplacementPauseDao()
             .getForUser(userId)
             .mapTo(mutableSetOf()) { it.legacyReminderId }
+        val replacedCheckIds = db.checkDao().getAllChecksList(userId)
+            .filter { it.deletedAt == null && (it.status == "REPLACED" || it.replacedByCheckId != null) }
+            .mapTo(mutableSetOf()) { it.id }
         val legacyList = db.reminderDao().getAllRemindersForBackup(userId)
-            .filter { it.deletedAt == null && it.id !in pausedLegacyReminderIds }
+            .filter { legacy ->
+                legacy.deletedAt == null &&
+                    legacy.id !in pausedLegacyReminderIds &&
+                    !(legacy.sourceType.equals("CHECK", ignoreCase = true) &&
+                        legacy.sourceId?.let { it in replacedCheckIds } == true)
+            }
         if (legacyList.isEmpty()) return@withLock
 
         val existing = dao.getAllRemindersList(userId)
