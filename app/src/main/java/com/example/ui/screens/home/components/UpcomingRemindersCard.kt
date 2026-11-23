@@ -65,20 +65,20 @@ fun UpcomingRemindersCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(210.dp)
-                .drawWithContent {
-                    drawContent()
-                    drawRoundRect(
+                .border(
+                    BorderStroke(
+                        width = 1.dp,
                         brush = Brush.linearGradient(
                             colors = listOf(
                                 Color(0xFF00B8D9).copy(alpha = 0.28f),
                                 Color(0xFF7040E8).copy(alpha = 0.28f)
                             )
-                        ),
-                        style = Stroke(width = 1.dp.toPx()),
-                        cornerRadius = CornerRadius(20.dp.toPx())
-                    )
-                },
+                        )
+                    ),
+                    RoundedCornerShape(20.dp)
+                ),
             elevation = 2.dp,
+            shape = RoundedCornerShape(20.dp),
             contentPadding = PaddingValues(12.dp)
         ) {
             Column(
