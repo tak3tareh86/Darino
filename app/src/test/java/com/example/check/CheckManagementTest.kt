@@ -1116,6 +1116,8 @@ class CheckManagementTest {
         assertNotNull(restoredCheck?.reminderDateTime)
         val restoredReminder = reminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())
         assertEquals("ACTIVE", restoredReminder?.status)
+        assertNull(restoredReminder?.completedAt)
+        assertNull(restoredReminder?.cancelledAt)
         val restoredSchedules = restoredReminder?.let {
             reminderRepository.getCheckSchedulesSync(it.id)
         }.orEmpty()

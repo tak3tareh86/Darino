@@ -532,11 +532,21 @@ class ReminderManager(
         val reminder = repository.getReminderById(reminderId)
             ?: throw NoSuchElementException("یادآور با شناسه $reminderId یافت نشد.")
         val storedSchedules = repository.getSchedulesSync(reminderId)
+        // A completed reminder must lose its completion/cancellation timestamps when
+        // restored; otherwise an ACTIVE reminder would retain contradictory lifecycle data.
+        val reopenedReminder = reminder.copy(
+            status = "ACTIVE",
+            completedAt = null,
+            cancelledAt = null,
+            updatedAt = System.currentTimeMillis()
+        )
+        repository.updateReminder(reopenedReminder)
+
         // Cancel temporary alarms before restoring only the original schedule series.
-        val baseSchedules = removeSnoozeSchedules(reminder, storedSchedules)
-        val reminderRequiresDelivery = reminder.notificationEnabled ||
-            reminder.fullScreenAlarmEnabled ||
-            reminder.sourceType.equals("VEHICLE", ignoreCase = true)
+        val baseSchedules = removeSnoozeSchedules(reopenedReminder, storedSchedules)
+        val reminderRequiresDelivery = reopenedReminder.notificationEnabled ||
+            reopenedReminder.fullScreenAlarmEnabled ||
+            reopenedReminder.sourceType.equals("VEHICLE", ignoreCase = true)
         if (reminderRequiresDelivery) {
             if (baseSchedules.isEmpty() && !reminder.sourceType.equals("CALENDAR", ignoreCase = true)) {
                 repository.updateStatus(reminderId, "DISABLED")
