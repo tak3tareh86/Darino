@@ -167,7 +167,11 @@ class CalendarManager(private val context: Context) {
                             reminderBefore = ReminderBeforeOption.NONE,
                             reminderLabel = if (rem.notificationEnabled || rem.fullScreenAlarmEnabled || rem.smsEnabled) "هشدار تنظیم شده" else null,
                             sourceId = rem.id.toString(),
-                            status = status
+                            status = status,
+                            checkNumber = if (rem.sourceType.equals("CHECK", ignoreCase = true)) {
+                                activeChecks.firstOrNull { it.id.toString() == rem.sourceId }?.checkNumber
+                                    ?.takeIf { it.isNotBlank() }
+                            } else null
                         )
                     )
                 }
