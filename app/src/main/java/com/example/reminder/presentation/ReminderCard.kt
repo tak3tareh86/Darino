@@ -1,5 +1,6 @@
 package com.example.reminder.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -108,17 +109,17 @@ fun ReminderCard(
     Layered3DCard(
         modifier = modifier
             .fillMaxWidth()
-            .drawWithContent {
-                drawContent()
-                drawRoundRect(
+            .border(
+                BorderStroke(
+                    width = 1.dp,
                     brush = Brush.linearGradient(
                         colors = reminderBorderPalette[reminderBorderIndex].map { it.copy(alpha = 0.33f) }
-                    ),
-                    style = Stroke(width = 1.dp.toPx()),
-                    cornerRadius = CornerRadius(20.dp.toPx())
-                )
-            }
+                    )
+                ),
+                RoundedCornerShape(20.dp)
+            )
             .testTag("reminder_card_${reminder.id}"),
+        shape = RoundedCornerShape(20.dp),
         onClick = onClick
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
