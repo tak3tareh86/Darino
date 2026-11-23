@@ -824,6 +824,35 @@ fun AddTransactionSheet(
                         errorMessage = "لطفاً عنوان دقیق تراکنش را وارد کنید."
                         return@Button
                     }
+
+                    // Expense and income transactions must be linked to a real active account.
+                    // Keep the existing payment-method UI and resolve its matching default account.
+                    val transactionAccount = if (selectedType != TransactionType.TRANSFER) {
+                        activeAccounts.firstOrNull { it.id == initialTransaction?.accountId }
+                            ?: when (paymentMethod) {
+                                PaymentMethod.BANK_CARD, PaymentMethod.BANK_TRANSFER ->
+                                    activeAccounts.firstOrNull {
+                                        it.type == com.example.ui.screens.finance.model.AccountType.CARD ||
+                                            it.name.startsWith("کارت بانکی")
+                                    } ?: activeAccounts.firstOrNull()
+                                PaymentMethod.CASH ->
+                                    activeAccounts.firstOrNull {
+                                        it.type == com.example.ui.screens.finance.model.AccountType.CASH ||
+                                            it.name.contains("نقد")
+                                    } ?: activeAccounts.firstOrNull()
+                                PaymentMethod.WALLET ->
+                                    activeAccounts.firstOrNull { it.name.contains("کیف پول") }
+                                        ?: activeAccounts.firstOrNull { it.type == com.example.ui.screens.finance.model.AccountType.OTHER }
+                                        ?: activeAccounts.firstOrNull()
+                                PaymentMethod.OTHER -> activeAccounts.firstOrNull()
+                            }
+                    } else null
+
+                    if (selectedType != TransactionType.TRANSFER && transactionAccount == null) {
+                        errorMessage = "برای ثبت هزینه یا درآمد، حداقل یک حساب فعال لازم است."
+                        return@Button
+                    }
+
                     if (selectedType != TransactionType.TRANSFER &&
                         availableCategories.none { it.id == selectedCategory.id && it.type == selectedType }
                     ) {
@@ -882,8 +911,8 @@ fun AddTransactionSheet(
                         accountName = if (selectedType == TransactionType.TRANSFER)
                             (selectedSourceAccount?.name ?: "کارت بانکی")
                         else
-                            paymentMethod.title,
-                        accountId = null,
+                            (transactionAccount?.name ?: paymentMethod.title),
+                        accountId = if (selectedType == TransactionType.TRANSFER) null else transactionAccount?.id,
                         transferSourceAccountId = if (selectedType == TransactionType.TRANSFER) selectedSourceAccount?.id else null,
                         transferDestinationAccountId = null,
                         transferRecipientName = if (selectedType == TransactionType.TRANSFER) transferRecipientName.trim().takeIf { it.isNotEmpty() } else null,
