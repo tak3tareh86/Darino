@@ -49,6 +49,7 @@ import androidx.compose.ui.window.Dialog
 import com.example.ui.theme.InfoIndigoLight
 import com.example.ui.theme.RadiusMD
 import com.example.ui.components.PersianDateInputField
+import com.example.calendar.domain.CalendarDateUtils
 import com.example.util.PersianCalendarHelper
 
 @Composable
@@ -256,6 +257,10 @@ fun TransferSheet(
                         val src = selectedSource
                         if (src == null) {
                             errorMessage = "لطفاً حساب مبدأ را انتخاب کنید."
+                            return@Button
+                        }
+                        if (!CalendarDateUtils.isValidJalaliDate(transferDate)) {
+                            errorMessage = "لطفاً تاریخ معتبر وارد کنید."
                             return@Button
                         }
                         errorMessage = null
