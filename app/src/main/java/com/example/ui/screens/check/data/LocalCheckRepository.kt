@@ -198,18 +198,19 @@ class LocalCheckRepository private constructor() : CheckRepository {
         }
     }
 
-    override suspend fun deleteCheck(id: Int): CheckOperationResult = withContext(Dispatchers.IO) {
+    override suspend fun hasActiveSettlementTransaction(id: Int): Boolean = withContext(Dispatchers.IO) {
+        val userId = SessionManager.userId ?: return@withContext false
+        val database = db ?: return@withContext false
+        database.checkDao().hasSettlementTransactionForCheck(userId, id.toString())
+    }
+
+    override suspend fun deleteCheck(id: Int, deleteLinkedTransaction: Boolean): CheckOperationResult = withContext(Dispatchers.IO) {
         val userId = SessionManager.userId ?: return@withContext CheckOperationResult.NO_AUTHENTICATED_USER
         val database = db ?: return@withContext CheckOperationResult.PERSISTENCE_ERROR
         try {
             val existing = database.checkDao().getCheckById(userId, id)
                 ?: return@withContext CheckOperationResult.NOT_FOUND
             if (existing.deletedAt != null) return@withContext CheckOperationResult.NOT_FOUND
-            // Do not orphan a financial transaction by deleting its settled check.
-            if (existing.status == CheckStatus.CLEARED.name || existing.status == CheckStatus.REPLACED.name ||
-                existing.replacedByCheckId != null || existing.replacesCheckId != null) {
-                return@withContext CheckOperationResult.VALIDATION_ERROR
-            }
             val deletionTimestamp = System.currentTimeMillis()
             try {
                 (reminderManager
@@ -224,8 +225,17 @@ class LocalCheckRepository private constructor() : CheckRepository {
                         if (rowsAffected != 1) {
                             throw IllegalStateException("Check deletion did not update exactly one row.")
                         }
-                        // Remove only legacy calendar rows explicitly linked to this check.
-                        // Financial ledger transactions and all reminder state remain untouched.
+                        // Detach replacement links so surviving checks never reference this deleted row.
+                        database.checkDao().detachOriginalFromDeletedReplacement(userId, id, deletionTimestamp)
+                        database.checkDao().detachReplacementFromDeletedOriginal(userId, id, deletionTimestamp)
+
+                        // Soft-delete only this check's ledger entries, and only after explicit user consent.
+                        if (deleteLinkedTransaction) {
+                            database.transactionDao().softDeleteSettlementTransactionsForCheck(
+                                userId, id.toString(), deletionTimestamp, deletionTimestamp
+                            )
+                        }
+                        // Calendar cleanup remains scoped to this check only.
                         database.checkDao().deleteCalendarEventsForCheck(userId, id.toString())
                     }
             } catch (e: Exception) {
