@@ -12,8 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -316,8 +314,8 @@ fun FinancialCalendarScreen(
             item {
                 MonthlySummaryCard(
                     monthTitle = state.currentMonthFormatted,
-                    eventCountText = state.formattedEventCount,
-                    totalPaymentsText = state.formattedMonthlyTotal,
+                    completedCount = state.monthlyCompletedCount,
+                    remainingCount = state.monthlyRemainingCount,
                     onPreviousMonth = { viewModel.previousMonth() },
                     onNextMonth = { viewModel.nextMonth() }
                 )
@@ -491,15 +489,26 @@ fun FinancialCalendarScreen(
 @Composable
 fun MonthlySummaryCard(
     monthTitle: String,
-    eventCountText: String,
-    totalPaymentsText: String,
+    completedCount: Int,
+    remainingCount: Int,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Match the active-subscription card's dark navy / deep teal palette in both themes.
+    // Keep the existing compact navy/teal card treatment.
     val cardTextColor = Color(0xFFF8FAFC)
     val cardMutedTextColor = Color(0xFFCBD5E1)
+    val totalCount = completedCount + remainingCount
+    val progress = if (totalCount > 0) {
+        (completedCount.toFloat() / totalCount.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val progressPercent = (progress * 100).toInt()
+    val persianCompleted = com.example.util.IranianPhoneUtils.convertDigitsToPersian(completedCount.toString())
+    val persianRemaining = com.example.util.IranianPhoneUtils.convertDigitsToPersian(remainingCount.toString())
+    val persianTotal = com.example.util.IranianPhoneUtils.convertDigitsToPersian(totalCount.toString())
+    val persianPercent = com.example.util.IranianPhoneUtils.convertDigitsToPersian(progressPercent.toString())
 
     Layered3DCard(
         modifier = modifier
@@ -514,26 +523,24 @@ fun MonthlySummaryCard(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Month Switcher Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Next Month (Chevron Right in RTL)
+                // In RTL layout the first control is physically on the right.
                 IconButton(
                     onClick = onNextMonth,
                     modifier = Modifier.size(32.dp).testTag("calendar_next_month_button")
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        imageVector = Icons.Rounded.KeyboardArrowRight,
                         contentDescription = "ماه بعد",
                         tint = Color(0xFF5EEAD4),
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
-                // Month Title
                 Text(
                     text = monthTitle,
                     style = MaterialTheme.typography.titleMedium.copy(
@@ -543,16 +550,15 @@ fun MonthlySummaryCard(
                     color = cardTextColor
                 )
 
-                // Previous Month (Chevron Left in RTL)
                 IconButton(
                     onClick = onPreviousMonth,
                     modifier = Modifier.size(32.dp).testTag("calendar_prev_month_button")
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
+                        imageVector = Icons.Rounded.KeyboardArrowLeft,
                         contentDescription = "ماه قبل",
                         tint = Color(0xFF5EEAD4),
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -562,39 +568,74 @@ fun MonthlySummaryCard(
                 thickness = 1.dp
             )
 
-            // Stats Row: Event Count + Total Monthly Payments
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Event Count
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = "تعداد رویدادها",
+                        text = "انجام‌شده",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                         color = cardMutedTextColor
                     )
                     Text(
-                        text = eventCountText,
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
+                        text = "$persianCompleted از $persianTotal رویداد",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        ),
                         color = Color(0xFF5EEAD4)
                     )
                 }
 
-                // Total Payments
-                Column(horizontalAlignment = Alignment.End) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
                     Text(
-                        text = "مجموع پرداختی‌های ماه",
+                        text = "باقی‌مانده",
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                         color = cardMutedTextColor
                     )
                     Text(
-                        text = totalPaymentsText,
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold, fontSize = 13.5.sp),
-                        color = Color(0xFF5EEAD4)
+                        text = "$persianRemaining رویداد",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 13.sp
+                        ),
+                        color = cardTextColor
                     )
                 }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(cardMutedTextColor.copy(alpha = 0.20f))
+            ) {
+                if (progress > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progress)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(50))
+                            .background(Color(0xFF2DD4BF))
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = "$persianPercent٪ تکمیل",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = cardMutedTextColor
+                )
             }
         }
     }
