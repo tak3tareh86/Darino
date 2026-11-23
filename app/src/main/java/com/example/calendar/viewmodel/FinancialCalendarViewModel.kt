@@ -7,6 +7,7 @@ import com.example.calendar.domain.CalendarDateUtils
 import com.example.calendar.domain.CalendarManager
 import com.example.calendar.domain.model.FinancialEvent
 import com.example.calendar.domain.model.FinancialEventType
+import com.example.calendar.domain.model.FinancialEventStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -63,6 +64,8 @@ class FinancialCalendarViewModel(application: Application) : AndroidViewModel(ap
             Math.addExact(total, amountRials)
         }
         val count = monthEvents.size
+        val completedCount = monthEvents.count { it.status == FinancialEventStatus.PAID }
+        val remainingCount = count - completedCount
 
         // Now filter allEvents for display according to search, filterType
         val filteredEvents = allEvents.filter { event ->
@@ -92,6 +95,8 @@ class FinancialCalendarViewModel(application: Application) : AndroidViewModel(ap
             events = filteredEvents,
             monthlyTotal = totalAmount,
             eventCount = count,
+            monthlyCompletedCount = completedCount,
+            monthlyRemainingCount = remainingCount,
             isLoading = filter.isLoading,
             errorMessage = filter.errorMessage,
             searchQuery = filter.searchQuery,
