@@ -147,7 +147,7 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
             legacyIds.forEach { reminderId ->
                 runCatching { legacyScheduler.cancel(reminderId) }
                     .onFailure { errors.add(it) }
-                runCatching { notificationManager.cancel(reminderId) }
+                runCatching { notificationManager.cancel("legacy_reminder:${reminderId}", reminderId) }
                     .onFailure { errors.add(it) }
             }
 
