@@ -15,7 +15,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -91,9 +95,29 @@ fun ReminderCard(
         )
     }
 
+    val reminderBorderPalette = listOf(
+        listOf(Color(0xFF287C83), Color(0xFF3D9C98)),
+        listOf(Color(0xFF93602F), Color(0xFFB17A45)),
+        listOf(Color(0xFF65458D), Color(0xFF8966AE)),
+        listOf(Color(0xFF52713E), Color(0xFF78965B)),
+        listOf(Color(0xFFA17A24), Color(0xFFD0AA55))
+    )
+    val reminderBorderIndex = ((reminder.id.hashCode() % reminderBorderPalette.size) +
+        reminderBorderPalette.size) % reminderBorderPalette.size
+
     Layered3DCard(
         modifier = modifier
             .fillMaxWidth()
+            .drawWithContent {
+                drawContent()
+                drawRoundRect(
+                    brush = Brush.linearGradient(
+                        colors = reminderBorderPalette[reminderBorderIndex].map { it.copy(alpha = 0.33f) }
+                    ),
+                    style = Stroke(width = 1.dp.toPx()),
+                    cornerRadius = CornerRadius(20.dp.toPx())
+                )
+            }
             .testTag("reminder_card_${reminder.id}"),
         onClick = onClick
     ) {
