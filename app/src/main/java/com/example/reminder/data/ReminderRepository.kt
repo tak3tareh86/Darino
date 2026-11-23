@@ -443,7 +443,10 @@ class LocalReminderRepository(context: Context) : ReminderRepository {
             .forEach { check ->
                 val smart = dao.getCheckReminderBySource(userId, check.id.toString())
                     ?: return@forEach
-                if (smart.status.equals("COMPLETED", ignoreCase = true) && smart.cancelledAt != null) {
+                if (smart.status.equals("COMPLETED", ignoreCase = true) &&
+                    smart.cancelledAt != null &&
+                    smart.updatedAt == smart.cancelledAt
+                ) {
                     runCatching { smartReminderManager.restoreReminder(smart.id) }
                         .onFailure {
                             android.util.Log.e(

@@ -1191,7 +1191,9 @@ class ReminderManager(
                 // Only reminders that were ACTIVE immediately before replacement carry
                 // this marker. Previously disabled/completed/cancelled reminders stay so.
                 val shouldRestoreOriginalReminder = restoreReminder?.let {
-                    it.status.equals("COMPLETED", ignoreCase = true) && it.cancelledAt != null
+                    it.status.equals("COMPLETED", ignoreCase = true) &&
+                        it.cancelledAt != null &&
+                        it.updatedAt == it.cancelledAt
                 } == true
                 Triple(Pair(smart, schedules), legacy, restoreReminder?.id?.takeIf {
                     shouldRestoreOriginalReminder
@@ -1355,7 +1357,8 @@ class ReminderManager(
         val smartReminder = repository.getReminderBySource("CHECK", checkId)
         if (smartReminder != null &&
             smartReminder.status.equals("COMPLETED", ignoreCase = true) &&
-            smartReminder.cancelledAt != null
+            smartReminder.cancelledAt != null &&
+            smartReminder.updatedAt == smartReminder.cancelledAt
         ) {
             restoreReminder(smartReminder.id)
         }

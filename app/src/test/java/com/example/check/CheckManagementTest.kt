@@ -1323,6 +1323,47 @@ class CheckManagementTest {
     }
 
     @Test
+    fun `test completing paused original reminder while replaced is not undone on replacement deletion`() = runBlocking {
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        val now = System.currentTimeMillis()
+        val original = Check(
+            id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 9000,
+            checkNumber = "COMPLETED-WHILE-REPLACED", bankName = "Bank",
+            holderName = "Holder", receiverName = "Receiver", issueDate = now,
+            dueDate = now + 86400000, status = CheckStatus.BOUNCED,
+            reminderDateTime = now + 240000
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(original))
+        val savedOriginal = repository.getChecks().first().single {
+            it.checkNumber == "COMPLETED-WHILE-REPLACED"
+        }
+        val reminderRepository = com.example.reminder.data.LocalReminderRepository(context)
+        val reminder = reminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())
+        assertNotNull(reminder)
+
+        val replacement = savedOriginal.copy(
+            id = 0, checkNumber = "COMPLETED-WHILE-REPLACED-NEW",
+            status = CheckStatus.REGISTERED, reminderDateTime = null
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.replaceCheck(savedOriginal.id, replacement))
+        val savedReplacement = repository.getChecks().first().single {
+            it.checkNumber == "COMPLETED-WHILE-REPLACED-NEW"
+        }
+
+        Thread.sleep(5)
+        com.example.reminder.domain.ReminderManager(context).completeReminder(reminder!!.id)
+        val completedWhileReplaced = reminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())
+        assertEquals("COMPLETED", completedWhileReplaced?.status)
+        assertTrue(completedWhileReplaced?.updatedAt != completedWhileReplaced?.cancelledAt)
+
+        assertEquals(CheckOperationResult.SUCCESS, repository.deleteCheck(savedReplacement.id, deleteLinkedTransaction = false))
+        val stillCompleted = reminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())
+        assertEquals("COMPLETED", stillCompleted?.status)
+        assertNotNull(stillCompleted?.completedAt)
+        assertTrue(reminderRepository.getCheckSchedulesSync(reminder!!.id).none { it.enabled })
+    }
+
+    @Test
     fun `test replaced original cannot be settled or create a ledger transaction`() = runBlocking {
         val now = System.currentTimeMillis()
         val original = Check(
