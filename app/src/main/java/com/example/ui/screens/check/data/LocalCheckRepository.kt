@@ -331,7 +331,7 @@ class LocalCheckRepository private constructor() : CheckRepository {
             }
 
             try {
-                reminderManager?.onCheckSettled(originalCheckId.toString())
+                reminderManager?.pauseCheckReminderForReplacement(originalCheckId.toString())
             } catch (e: Exception) {
                 e.printStackTrace()
                 database.checkDao().rollbackCheckReplacement(userId, originalCheckId, newId, original.reminderDateTime)

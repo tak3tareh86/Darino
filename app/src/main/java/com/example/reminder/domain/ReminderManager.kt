@@ -1188,7 +1188,14 @@ class ReminderManager(
                 }
                 deleteCheckRecord(restoreReminderDateTime)
                 repository.deleteCheckReminderWithSchedulesAndLogs(checkId)
-                Triple(Pair(smart, schedules), legacy, restoreReminder?.id)
+                // Only reminders that were ACTIVE immediately before replacement carry
+                // this marker. Previously disabled/completed/cancelled reminders stay so.
+                val shouldRestoreOriginalReminder = restoreReminder?.let {
+                    it.status.equals("COMPLETED", ignoreCase = true) && it.cancelledAt != null
+                } == true
+                Triple(Pair(smart, schedules), legacy, restoreReminder?.id?.takeIf {
+                    shouldRestoreOriginalReminder
+                })
             }
         }
         val smartReminder = cleanupSnapshot.first.first
@@ -1247,6 +1254,31 @@ class ReminderManager(
                     Log.e("ReminderManager", "Could not reactivate the original check reminder $reminderId after replacement deletion.", error)
                 }
         }
+    }
+
+    /**
+     * Pauses only an active check reminder while its check is replaced.
+     * The cancellation timestamp is a durable marker allowing a later deletion
+     * of the replacement to restore this reminder without reactivating one the
+     * user had already disabled or completed.
+     */
+    suspend fun pauseCheckReminderForReplacement(checkId: String) = withContext(Dispatchers.IO) {
+        val reminder = repository.getReminderBySource("CHECK", checkId) ?: return@withContext
+        if (!reminder.status.equals("ACTIVE", ignoreCase = true)) return@withContext
+
+        val schedules = repository.getCheckSchedulesSync(reminder.id)
+        val now = System.currentTimeMillis()
+        repository.updateReminderWithSchedules(
+            reminder.copy(
+                status = "COMPLETED",
+                completedAt = now,
+                cancelledAt = now,
+                updatedAt = now
+            ),
+            schedules.map { it.copy(enabled = false) }
+        )
+        scheduler.cancel(reminder.id, schedules)
+        NotificationDispatcher(context).cancelReminderNotifications(reminder.id, schedules)
     }
 
     /**

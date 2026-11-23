@@ -1107,7 +1107,9 @@ class CheckManagementTest {
         val savedReplacement = repository.getChecks().first().single {
             it.checkNumber == "RESTORE-REMINDER-REPLACEMENT"
         }
-        assertEquals("COMPLETED", reminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())?.status)
+        val pausedOriginalReminder = reminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())
+        assertEquals("COMPLETED", pausedOriginalReminder?.status)
+        assertNotNull(pausedOriginalReminder?.cancelledAt)
 
         assertEquals(CheckOperationResult.SUCCESS, repository.deleteCheck(savedReplacement.id, deleteLinkedTransaction = false))
         val restoredCheck = repository.getCheckById(savedOriginal.id)
@@ -1124,6 +1126,41 @@ class CheckManagementTest {
         assertTrue(restoredSchedules.any {
             it.enabled && it.triggerDateTime > System.currentTimeMillis()
         })
+    }
+
+
+    @Test
+    fun `test deleting replacement does not reactivate a manually disabled original reminder`() = runBlocking {
+        setTestAuthenticatedUser(com.example.data.api.NetworkUserDto(id = "user_1", fullName = "U1", phoneVerified = true))
+        val now = System.currentTimeMillis()
+        val original = Check(
+            id = 0, userId = "user_1", type = CheckType.RECEIVED, amount = 7000,
+            checkNumber = "DISABLED-ORIGINAL", bankName = "Bank",
+            holderName = "Holder", receiverName = "Receiver", issueDate = now,
+            dueDate = now + 86400000, status = CheckStatus.BOUNCED,
+            reminderDateTime = now + 240000
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.addCheck(original))
+        val savedOriginal = repository.getChecks().first().single { it.checkNumber == "DISABLED-ORIGINAL" }
+        val reminderRepository = com.example.reminder.data.LocalReminderRepository(context)
+        val reminder = reminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())
+        assertNotNull(reminder)
+        com.example.reminder.domain.ReminderManager(context).disableReminder(reminder!!.id)
+
+        val replacement = savedOriginal.copy(
+            id = 0, checkNumber = "DISABLED-REPLACEMENT",
+            status = CheckStatus.REGISTERED, reminderDateTime = null
+        )
+        assertEquals(CheckOperationResult.SUCCESS, repository.replaceCheck(savedOriginal.id, replacement))
+        assertEquals("DISABLED", reminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())?.status)
+        val savedReplacement = repository.getChecks().first().single {
+            it.checkNumber == "DISABLED-REPLACEMENT"
+        }
+
+        assertEquals(CheckOperationResult.SUCCESS, repository.deleteCheck(savedReplacement.id, deleteLinkedTransaction = false))
+        val stillDisabled = reminderRepository.getReminderBySource("CHECK", savedOriginal.id.toString())
+        assertEquals("DISABLED", stillDisabled?.status)
+        assertTrue(reminderRepository.getCheckSchedulesSync(reminder!!.id).none { it.enabled })
     }
 
     @Test
