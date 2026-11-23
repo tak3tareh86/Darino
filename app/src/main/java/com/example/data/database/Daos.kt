@@ -626,6 +626,14 @@ interface CheckDao {
     @Query("DELETE FROM checks WHERE userId = :userId AND id = :checkId")
     suspend fun deleteCheckById(userId: String, checkId: Int): Int
 
+    @Query("""
+        DELETE FROM financial_events
+        WHERE userId = :userId
+          AND sourceId = :checkId
+          AND (title LIKE '%چک%' OR description LIKE '%چک%')
+    """)
+    suspend fun deleteCalendarEventsForCheck(userId: String, checkId: String): Int
+
     @Update
     suspend fun updateCheck(check: CheckEntity)
 
