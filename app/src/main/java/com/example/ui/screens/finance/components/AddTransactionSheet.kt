@@ -448,6 +448,7 @@ fun AddTransactionSheet(
                         androidx.compose.foundation.layout.BoxWithConstraints(
                             modifier = Modifier.fillMaxWidth()
                         ) {
+                            val sheetMaxHeight = maxHeight
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -531,7 +532,7 @@ fun AddTransactionSheet(
                                         columns = GridCells.Fixed(2),
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .heightIn(min = 180.dp, max = maxHeight * 0.44f)
+                                            .heightIn(min = 180.dp, max = sheetMaxHeight * 0.44f)
                                             .testTag("category_picker_grid"),
                                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                                         verticalArrangement = Arrangement.spacedBy(10.dp)
