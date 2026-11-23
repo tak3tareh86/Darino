@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.border
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -74,6 +75,10 @@ fun CalendarView(
     Layered3DCard(
         modifier = modifier
             .fillMaxWidth()
+            .border(
+                BorderStroke(1.dp, Color(0xFF2DD4BF).copy(alpha = 0.28f)),
+                RoundedCornerShape(RadiusLG)
+            )
             .testTag("calendar_month_grid_card"),
         backgroundColor = if (isDark) Color(0xFF131B2B) else Color(0xFFFFFFFF),
         borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
