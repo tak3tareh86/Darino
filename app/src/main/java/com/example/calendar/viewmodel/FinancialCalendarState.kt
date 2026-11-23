@@ -10,6 +10,8 @@ data class FinancialCalendarState(
     val events: List<FinancialEvent> = emptyList(),
     val monthlyTotal: Long = 0L,
     val eventCount: Int = 0,
+    val monthlyCompletedCount: Int = 0,
+    val monthlyRemainingCount: Int = 0,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val searchQuery: String = "",
