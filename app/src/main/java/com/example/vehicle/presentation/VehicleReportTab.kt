@@ -106,7 +106,8 @@ fun VehicleReportTab(
         item {
             Layered3DCard(
                 modifier = Modifier.fillMaxWidth(),
-                elevation = 3.dp
+                elevation = 3.dp,
+                borderColor = Color(0xFF2878C8).copy(alpha = 0.82f)
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -126,7 +127,7 @@ fun VehicleReportTab(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+                            border = androidx.compose.foundation.BorderStroke(1.3.dp, Color(0xFF3B82F6).copy(alpha = 0.72f))
                         ) {
                             Column(
                                 modifier = Modifier.padding(10.dp),
@@ -152,7 +153,7 @@ fun VehicleReportTab(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+                            border = androidx.compose.foundation.BorderStroke(1.3.dp, Color(0xFF0D9488).copy(alpha = 0.72f))
                         ) {
                             Column(
                                 modifier = Modifier.padding(10.dp),
@@ -183,7 +184,7 @@ fun VehicleReportTab(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+                            border = androidx.compose.foundation.BorderStroke(1.3.dp, Color(0xFF16A34A).copy(alpha = 0.72f))
                         ) {
                             Column(
                                 modifier = Modifier.padding(10.dp),
@@ -209,7 +210,7 @@ fun VehicleReportTab(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+                            border = androidx.compose.foundation.BorderStroke(1.3.dp, Color(0xFFC0842D).copy(alpha = 0.72f))
                         ) {
                             Column(
                                 modifier = Modifier.padding(10.dp),
@@ -265,7 +266,8 @@ fun VehicleReportTab(
         item {
             Layered3DCard(
                 modifier = Modifier.fillMaxWidth(),
-                elevation = 3.dp
+                elevation = 3.dp,
+                borderColor = Color(0xFF168B83).copy(alpha = 0.82f)
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -329,7 +331,8 @@ fun VehicleReportTab(
         item {
             Layered3DCard(
                 modifier = Modifier.fillMaxWidth(),
-                elevation = 3.dp
+                elevation = 3.dp,
+                borderColor = Color(0xFF8061C9).copy(alpha = 0.82f)
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
