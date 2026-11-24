@@ -17,6 +17,12 @@ class WeeklyBackupWorker(
         val preferenceKey = if (frequency == FREQUENCY_DAILY) "auto_backup_daily" else "auto_backup_weekly"
         val isEnabled = prefs.getBoolean(preferenceKey, false)
 
+        if (!com.example.data.subscription.BackupSubscriptionAccess.hasActiveYearlySubscription(applicationContext)) {
+            recordExecution(frequency, "skipped", "اشتراک سالیانه معتبر و تأییدشده وجود ندارد.")
+            Log.i(TAG, "$frequency auto-backup skipped: no active paid yearly entitlement.")
+            return Result.success()
+        }
+
         if (!isEnabled) {
             recordExecution(frequency, "skipped")
             Log.i(TAG, "$frequency auto-backup is disabled in settings. Skipping.")
@@ -118,9 +124,11 @@ class WeeklyBackupWorker(
             val dailyEnabled = prefs.getBoolean("auto_backup_daily", false)
             val weeklyEnabled = prefs.getBoolean("auto_backup_weekly", false)
             val folderAvailable = BackupFolderStorage.hasWritableSelectedFolder(context)
+            val hasPaidEntitlement = com.example.data.subscription.BackupSubscriptionAccess
+                .hasActiveYearlySubscription(context)
 
-            if (folderAvailable && dailyEnabled) enqueueDaily(context) else cancelDaily(context)
-            if (folderAvailable && weeklyEnabled) enqueueWeekly(context) else cancelWeekly(context)
+            if (hasPaidEntitlement && folderAvailable && dailyEnabled) enqueueDaily(context) else cancelDaily(context)
+            if (hasPaidEntitlement && folderAvailable && weeklyEnabled) enqueueWeekly(context) else cancelWeekly(context)
         }
 
         fun enqueueWeekly(context: Context) {
