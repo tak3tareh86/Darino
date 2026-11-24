@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -39,7 +38,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,11 +45,8 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.screens.installments.model.InstallmentSummaryData
 import com.example.util.AppNumberFormatter
 
-private val FinanceNavy = Color(0xFF061A35)
-private val FinanceDeepBlue = Color(0xFF08264A)
 private val FinanceTeal = Color(0xFF12DCC5)
 private val FinanceMint = Color(0xFF25E0B0)
-private val FinanceBlue = Color(0xFF2675F2)
 private val FinanceText = Color(0xFFF5FAFF)
 private val FinanceMuted = Color(0xFFB9D0E5)
 
@@ -197,6 +192,31 @@ fun InstallmentsSummaryCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // In RTL layout the first child is placed at the right edge.
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = FinanceTeal.copy(alpha = 0.13f),
+                        contentColor = FinanceTeal
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Wallet,
+                                contentDescription = null,
+                                modifier = Modifier.size(17.dp),
+                                tint = FinanceTeal
+                            )
+                            Text(
+                                text = "${AppNumberFormatter.formatDigits(summary.activeCount.toString(), numberMode)} مورد فعال",
+                                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
+                                color = FinanceTeal
+                            )
+                        }
+                    }
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -225,30 +245,6 @@ fun InstallmentsSummaryCard(
                                 text = "خلاصه اقساط",
                                 color = FinanceMuted.copy(alpha = 0.82f),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
-                            )
-                        }
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = FinanceTeal.copy(alpha = 0.13f),
-                        contentColor = FinanceTeal
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Wallet,
-                                contentDescription = null,
-                                modifier = Modifier.size(17.dp),
-                                tint = FinanceTeal
-                            )
-                            Text(
-                                text = "${AppNumberFormatter.formatDigits(summary.activeCount.toString(), numberMode)} مورد فعال",
-                                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
-                                color = FinanceTeal
                             )
                         }
                     }
@@ -332,16 +328,7 @@ fun InstallmentsSummaryCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    SummaryMetricPanel(
-                        title = "مبلغ باقی‌مانده",
-                        amount = summary.displayRemaining,
-                        icon = Icons.Rounded.Payments,
-                        accent = Color(0xFF75A9FF),
-                        background = Brush.linearGradient(
-                            listOf(Color(0xFF123E87).copy(alpha = 0.94f), Color(0xFF092B60).copy(alpha = 0.96f))
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
+                    // RTL: paid panel is first (right), remaining panel is second (left).
                     SummaryMetricPanel(
                         title = "مبلغ پرداخت‌شده",
                         amount = summary.displayPaid,
@@ -349,6 +336,16 @@ fun InstallmentsSummaryCard(
                         accent = FinanceMint,
                         background = Brush.linearGradient(
                             listOf(Color(0xFF087A68).copy(alpha = 0.94f), Color(0xFF064C4B).copy(alpha = 0.96f))
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                    SummaryMetricPanel(
+                        title = "مبلغ باقی‌مانده",
+                        amount = summary.displayRemaining,
+                        icon = Icons.Rounded.Payments,
+                        accent = Color(0xFF75A9FF),
+                        background = Brush.linearGradient(
+                            listOf(Color(0xFF123E87).copy(alpha = 0.94f), Color(0xFF092B60).copy(alpha = 0.96f))
                         ),
                         modifier = Modifier.weight(1f)
                     )
