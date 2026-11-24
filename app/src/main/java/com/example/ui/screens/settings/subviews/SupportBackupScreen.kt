@@ -95,12 +95,8 @@ fun SupportBackupScreen(
     val subscriptionViewModel: SubscriptionViewModel = viewModel()
     val subscriptionState by subscriptionViewModel.uiState.collectAsState()
     val hasPaidYearlySubscription =
-        subscriptionState.info.subscriptionStatus == SubscriptionStatus.ACTIVE &&
-            subscriptionState.info.productId == com.example.data.subscription.MarketConfig.YEARLY_PRODUCT_ID &&
-            subscriptionState.info.marketAccountState == "MARKET_ACTIVE" &&
-            !subscriptionState.info.purchaseTokenReference.isNullOrBlank() &&
-            (subscriptionState.info.subscriptionPurchaseAt ?: 0L) > 0L &&
-            subscriptionState.info.lastMarketVerificationAt > 0L
+        com.example.data.subscription.BackupSubscriptionAccess
+            .hasActiveYearlySubscription(subscriptionState.info)
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val backupRepo = remember { com.example.data.backup.LocalBackupRepository(context) }
     val backupManager = remember { com.example.domain.backup.BackupManager(backupRepo) }
