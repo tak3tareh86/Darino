@@ -734,11 +734,21 @@ fun TransactionCard(
         TransactionType.TRANSFER -> InfoIndigoLight
     }
 
-    val transactionBorderColors = when (transaction.type) {
-        TransactionType.EXPENSE -> listOf(Color(0xFF4A0D1B), Color(0xFF801B32))
-        TransactionType.INCOME -> listOf(Color(0xFF063B2B), Color(0xFF0B6245))
-        TransactionType.TRANSFER -> listOf(Color(0xFF102447), Color(0xFF173D70))
+    // Give every transaction card its own dark four-stop gradient.
+    // The transaction ID keeps the palette stable when the list is reordered or filtered.
+    val hueOffset = Math.floorMod(transaction.id.hashCode(), 36).toFloat()
+    val baseHue = when (transaction.type) {
+        TransactionType.EXPENSE -> 334f
+        TransactionType.INCOME -> 132f
+        TransactionType.TRANSFER -> 214f
     }
+    val cardHue = (baseHue + hueOffset) % 360f
+    val transactionBorderColors = listOf(
+        Color.hsv(cardHue, 0.82f, 0.24f),
+        Color.hsv((cardHue + 8f) % 360f, 0.86f, 0.34f),
+        Color.hsv((cardHue + 17f) % 360f, 0.88f, 0.43f),
+        Color.hsv((cardHue + 27f) % 360f, 0.84f, 0.31f)
+    )
     val transactionCardShape = RoundedCornerShape(RadiusMD)
 
     Layered3DCard(
