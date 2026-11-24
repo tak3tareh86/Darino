@@ -96,7 +96,9 @@ fun SupportBackupScreen(
         subscriptionState.info.subscriptionStatus == SubscriptionStatus.ACTIVE &&
             subscriptionState.info.productId == com.example.data.subscription.MarketConfig.YEARLY_PRODUCT_ID &&
             subscriptionState.info.marketAccountState == "MARKET_ACTIVE" &&
-            !subscriptionState.info.purchaseTokenReference.isNullOrBlank()
+            !subscriptionState.info.purchaseTokenReference.isNullOrBlank() &&
+            (subscriptionState.info.subscriptionPurchaseAt ?: 0L) > 0L &&
+            subscriptionState.info.lastMarketVerificationAt > 0L
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val backupRepo = remember { com.example.data.backup.LocalBackupRepository(context) }
     val backupManager = remember { com.example.domain.backup.BackupManager(backupRepo) }
@@ -181,6 +183,13 @@ fun SupportBackupScreen(
     // A screen opened while the Activity is already RESUMED will not receive a new
     // ON_RESUME event, so load the status once when this composable enters composition.
     androidx.compose.runtime.LaunchedEffect(Unit) {
+        refreshAutomaticBackupStatus()
+    }
+
+    // Preserve the user's daily/weekly preferences, but only schedule work while the
+    // yearly Market entitlement is valid. The Worker and repository also enforce access.
+    androidx.compose.runtime.LaunchedEffect(hasPaidYearlySubscription) {
+        com.example.data.backup.WeeklyBackupWorker.syncAutomaticBackups(context)
         refreshAutomaticBackupStatus()
     }
 
