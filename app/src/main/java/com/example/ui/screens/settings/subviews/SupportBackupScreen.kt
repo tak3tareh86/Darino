@@ -187,7 +187,11 @@ fun SupportBackupScreen(
     // Preserve the user's daily/weekly preferences, but only schedule work while the
     // yearly Market entitlement is valid. The Worker and repository also enforce access.
     androidx.compose.runtime.LaunchedEffect(hasPaidYearlySubscription) {
-        com.example.data.backup.WeeklyBackupWorker.syncAutomaticBackups(context)
+        runCatching {
+            com.example.data.backup.WeeklyBackupWorker.syncAutomaticBackups(context)
+        }.onFailure { error ->
+            Log.w("SupportBackupScreen", "Could not reconcile automatic backup scheduling", error)
+        }
         refreshAutomaticBackupStatus()
     }
 
