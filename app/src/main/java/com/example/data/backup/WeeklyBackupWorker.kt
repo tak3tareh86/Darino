@@ -19,7 +19,12 @@ class WeeklyBackupWorker(
 
         if (!com.example.data.subscription.BackupSubscriptionAccess.hasActiveYearlySubscription(applicationContext)) {
             recordExecution(frequency, "skipped", "اشتراک سالیانه معتبر و تأییدشده وجود ندارد.")
-            Log.i(TAG, "$frequency auto-backup skipped: no active paid yearly entitlement.")
+            Log.i(TAG, "$frequency auto-backup skipped: no active paid yearly entitlement; removing its periodic schedule.")
+            if (frequency == FREQUENCY_DAILY) {
+                cancelDaily(applicationContext)
+            } else {
+                cancelWeekly(applicationContext)
+            }
             return Result.success()
         }
 
