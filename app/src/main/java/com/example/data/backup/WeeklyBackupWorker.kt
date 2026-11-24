@@ -132,6 +132,14 @@ class WeeklyBackupWorker(
         }
 
         fun enqueueWeekly(context: Context) {
+            if (!com.example.data.subscription.BackupSubscriptionAccess
+                    .hasActiveYearlySubscription(context)
+            ) {
+                cancelWeekly(context)
+                Log.i(TAG, "Weekly auto-backup scheduling rejected: no active paid yearly entitlement.")
+                return
+            }
+
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
                 .build()
@@ -156,6 +164,14 @@ class WeeklyBackupWorker(
         }
 
         fun enqueueDaily(context: Context) {
+            if (!com.example.data.subscription.BackupSubscriptionAccess
+                    .hasActiveYearlySubscription(context)
+            ) {
+                cancelDaily(context)
+                Log.i(TAG, "Daily auto-backup scheduling rejected: no active paid yearly entitlement.")
+                return
+            }
+
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
                 .build()
