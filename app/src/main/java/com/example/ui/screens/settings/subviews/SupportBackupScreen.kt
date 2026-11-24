@@ -78,6 +78,10 @@ import com.example.ui.screens.settings.components.SettingsSectionCard
 import com.example.ui.theme.EmeraldPrimaryLight
 import com.example.ui.theme.RadiusMD
 import com.example.ui.theme.RadiusSM
+import com.example.ui.screens.subscription.SubscriptionViewModel
+import com.example.domain.subscription.SubscriptionStatus
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
 
 @Composable
 fun SupportBackupScreen(
@@ -86,6 +90,13 @@ fun SupportBackupScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val subscriptionViewModel: SubscriptionViewModel = viewModel()
+    val subscriptionState by subscriptionViewModel.uiState.collectAsState()
+    val hasPaidYearlySubscription =
+        subscriptionState.info.subscriptionStatus == SubscriptionStatus.ACTIVE &&
+            subscriptionState.info.productId == com.example.data.subscription.MarketConfig.YEARLY_PRODUCT_ID &&
+            subscriptionState.info.marketAccountState == "MARKET_ACTIVE" &&
+            !subscriptionState.info.purchaseTokenReference.isNullOrBlank()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val backupRepo = remember { com.example.data.backup.LocalBackupRepository(context) }
     val backupManager = remember { com.example.domain.backup.BackupManager(backupRepo) }
@@ -769,6 +780,49 @@ fun SupportBackupScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 if (selectedTabIndex == 0) {
+                    if (!hasPaidYearlySubscription) {
+                        item {
+                            SettingsSectionCard(title = "قابلیت ویژه اشتراک سالیانه") {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CloudDone,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(48.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "پشتیبان‌گیری داده‌ها قفل است",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = when (subscriptionState.info.subscriptionStatus) {
+                                            SubscriptionStatus.CHECKING -> "در حال بررسی وضعیت اشتراک شما هستیم."
+                                            SubscriptionStatus.ERROR -> "بررسی اشتراک ناموفق بود. اتصال به بازار را بررسی و دوباره تلاش کنید."
+                                            else -> "این قابلیت فقط برای خریداران اشتراک سالیانه فعال است. دوره آزمایشی شامل این قابلیت نمی‌شود."
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    OutlinedButton(
+                                        onClick = { subscriptionViewModel.manualRestorePurchase() },
+                                        enabled = !subscriptionState.isSyncing,
+                                        shape = RoundedCornerShape(RadiusMD)
+                                    ) {
+                                        if (subscriptionState.isSyncing) {
+                                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                        }
+                                        Text(if (subscriptionState.isSyncing) "در حال بررسی..." else "بررسی مجدد اشتراک در بازار")
+                                    }
+                                }
+                            }
+                        }
+                    } else {
                     // Full-width backup history card; display only timestamps recorded after successful backups.
                     item {
                         Surface(
@@ -1080,6 +1134,7 @@ fun SupportBackupScreen(
                                 }
                             }
                         }
+                    }
                     }
                 } else {
                     // Support contact tab.
