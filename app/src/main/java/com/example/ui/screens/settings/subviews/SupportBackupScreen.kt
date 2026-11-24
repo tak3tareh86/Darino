@@ -1,6 +1,8 @@
 package com.example.ui.screens.settings.subviews
 
 import android.content.Intent
+import android.content.Context
+import android.content.ContextWrapper
 import android.net.Uri
 import android.widget.Toast
 import android.util.Log
@@ -817,16 +819,37 @@ fun SupportBackupScreen(
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    Button(
+                                        onClick = {
+                                            val activity = context.findBackupComponentActivity()
+                                            if (activity == null) {
+                                                subscriptionViewModel.showActionError("امکان باز کردن درگاه خرید در این صفحه وجود ندارد. لطفاً برنامه را دوباره باز کنید.")
+                                            } else {
+                                                subscriptionViewModel.startPurchaseFlow(activity.activityResultRegistry) {
+                                                    Toast.makeText(context, "اشتراک سالیانه با موفقیت فعال شد.", Toast.LENGTH_LONG).show()
+                                                }
+                                            }
+                                        },
+                                        enabled = !subscriptionState.isLoading && !subscriptionState.isSyncing,
+                                        shape = RoundedCornerShape(RadiusMD),
+                                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimaryLight)
+                                    ) {
+                                        if (subscriptionState.isLoading) {
+                                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                        }
+                                        Text(if (subscriptionState.isLoading) "در حال انتقال به بازار..." else "خرید اشتراک سالیانه")
+                                    }
                                     OutlinedButton(
                                         onClick = { subscriptionViewModel.manualRestorePurchase() },
-                                        enabled = !subscriptionState.isSyncing,
+                                        enabled = !subscriptionState.isSyncing && !subscriptionState.isLoading,
                                         shape = RoundedCornerShape(RadiusMD)
                                     ) {
                                         if (subscriptionState.isSyncing) {
                                             CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                                             Spacer(modifier = Modifier.width(8.dp))
                                         }
-                                        Text(if (subscriptionState.isSyncing) "در حال بررسی..." else "بررسی مجدد اشتراک در بازار")
+                                        Text(if (subscriptionState.isSyncing) "در حال بررسی..." else "بررسی / بازیابی خرید از بازار")
                                     }
                                 }
                             }
@@ -1263,4 +1286,11 @@ private fun SupportContactRow(
             }
         }
     }
+}
+
+
+private tailrec fun Context.findBackupComponentActivity(): androidx.activity.ComponentActivity? = when (this) {
+    is androidx.activity.ComponentActivity -> this
+    is ContextWrapper -> baseContext.findBackupComponentActivity()
+    else -> null
 }
