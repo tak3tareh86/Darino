@@ -59,6 +59,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -254,6 +255,22 @@ fun CategoryItemCard(
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+    val categoryBorderBase = if (category.isActive) {
+        category.accentColor
+    } else {
+        if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
+    }
+    val borderFactors = if (isDark) listOf(0.42f, 0.68f, 0.5f) else listOf(0.58f, 0.76f, 0.62f)
+    val categoryBorderGradient = Brush.linearGradient(
+        borderFactors.map { factor ->
+            Color(
+                red = categoryBorderBase.red * factor,
+                green = categoryBorderBase.green * factor,
+                blue = categoryBorderBase.blue * factor,
+                alpha = 1f
+            )
+        }
+    )
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -261,10 +278,7 @@ fun CategoryItemCard(
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF0F172A) else Color(0xFFFFFFFF)
         ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
-        )
+        border = BorderStroke(width = 2.dp, brush = categoryBorderGradient)
     ) {
         Column(
             modifier = Modifier
