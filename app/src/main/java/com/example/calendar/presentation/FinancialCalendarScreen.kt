@@ -316,8 +316,6 @@ fun FinancialCalendarScreen(
             item {
                 MonthlySummaryCard(
                     monthTitle = state.currentMonthFormatted,
-                    eventCountText = state.formattedEventCount,
-                    totalPaymentsText = state.formattedMonthlyTotal,
                     onPreviousMonth = { viewModel.previousMonth() },
                     onNextMonth = { viewModel.nextMonth() }
                 )
@@ -491,8 +489,6 @@ fun FinancialCalendarScreen(
 @Composable
 fun MonthlySummaryCard(
     monthTitle: String,
-    eventCountText: String,
-    totalPaymentsText: String,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
     modifier: Modifier = Modifier
@@ -557,45 +553,7 @@ fun MonthlySummaryCard(
                 }
             }
 
-            HorizontalDivider(
-                color = cardMutedTextColor.copy(alpha = 0.18f),
-                thickness = 1.dp
-            )
 
-            // Stats Row: Event Count + Total Monthly Payments
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Event Count
-                Column {
-                    Text(
-                        text = "تعداد رویدادها",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                        color = cardMutedTextColor
-                    )
-                    Text(
-                        text = eventCountText,
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
-                        color = Color(0xFF5EEAD4)
-                    )
-                }
-
-                // Total Payments
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "مجموع پرداختی‌های ماه",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
-                        color = cardMutedTextColor
-                    )
-                    Text(
-                        text = totalPaymentsText,
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold, fontSize = 13.5.sp),
-                        color = Color(0xFF5EEAD4)
-                    )
-                }
-            }
         }
     }
 }
