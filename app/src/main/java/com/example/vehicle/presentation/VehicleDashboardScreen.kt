@@ -1256,6 +1256,17 @@ private fun VehicleInsuranceDocumentsTabContent(
         1 -> insurances.filter { it.type.contains("بدنه") }
         else -> emptyList()
     }
+    val isDark = MaterialTheme.colorScheme.background.red < 0.2f
+    val documentCardShape = RoundedCornerShape(16.dp)
+    val documentBorderColors = when (selectedDocumentTab) {
+        0 -> if (isDark) listOf(Color(0xFF102A43), Color(0xFF1B5275), Color(0xFF0B354D))
+             else listOf(Color(0xFF174A6E), Color(0xFF286B8E), Color(0xFF31536F))
+        1 -> if (isDark) listOf(Color(0xFF2B1745), Color(0xFF56306F), Color(0xFF351D50))
+             else listOf(Color(0xFF45245F), Color(0xFF69417D), Color(0xFF3D2857))
+        else -> if (isDark) listOf(Color(0xFF103B38), Color(0xFF17685D), Color(0xFF124450))
+             else listOf(Color(0xFF15564F), Color(0xFF28776A), Color(0xFF1B4E62))
+    }
+    val documentCardBorder = BorderStroke(2.dp, Brush.linearGradient(documentBorderColors))
 
     Column(
         modifier = Modifier.fillMaxSize().testTag("vehicle_insurance_tab"),
@@ -1379,7 +1390,8 @@ private fun VehicleInsuranceDocumentsTabContent(
                             else -> Color(0xFF10B981)
                         }
                         Layered3DCard(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().border(documentCardBorder, documentCardShape),
+                            shape = documentCardShape,
                             elevation = 3.dp,
                             borderColor = insuranceStatusColor.copy(alpha = 0.78f)
                         ) {
@@ -1463,7 +1475,12 @@ private fun VehicleInsuranceDocumentsTabContent(
                             inspectionStatusApproved -> Color(0xFF10B981)
                             else -> MaterialTheme.colorScheme.tertiary
                         }
-                        Layered3DCard(modifier = Modifier.fillMaxWidth(), elevation = 2.dp, borderColor = inspectionStatusColor.copy(alpha = 0.82f)) {
+                        Layered3DCard(
+                            modifier = Modifier.fillMaxWidth().border(documentCardBorder, documentCardShape),
+                            shape = documentCardShape,
+                            elevation = 2.dp,
+                            borderColor = inspectionStatusColor.copy(alpha = 0.82f)
+                        ) {
                             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text(insp.centerName.ifBlank { "مرکز معاینه فنی ثبت نشده" }, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
