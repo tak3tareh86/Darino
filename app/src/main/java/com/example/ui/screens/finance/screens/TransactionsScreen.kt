@@ -30,7 +30,6 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.ArrowDropUp
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.Calculate
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Delete
@@ -38,8 +37,6 @@ import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.SwapHoriz
-import androidx.compose.material.icons.rounded.TrendingDown
-import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -130,15 +127,6 @@ fun TransactionsScreen(
     var transactionToDelete by remember { mutableStateOf<TransactionItemData?>(null) }
 
     val tabTitles = listOf("همه تراکنش‌ها", "هزینه‌ها", "درآمدها", "انتقال وجه")
-
-    // Calculations for All Transactions Summary Box
-    val totalExpenseAmount = remember(transactions) {
-        transactions.filter { it.type == TransactionType.EXPENSE }.fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact()) }
-    }
-    val totalIncomeAmount = remember(transactions) {
-        transactions.filter { it.type == TransactionType.INCOME }.fold(0L) { total, tx -> Math.addExact(total, MoneyAmount.of(tx.amount, tx.amountUnit).asRialsLongExact()) }
-    }
-    val netBalance = Math.subtractExact(totalIncomeAmount, totalExpenseAmount)
 
     // All Expense Categories list for Dropdown
     val expenseCategories = remember(categories, transactions) {
@@ -338,159 +326,6 @@ fun TransactionsScreen(
                 when (selectedTabIndex) {
                     0 -> {
                         // ================= TAB 0: همه تراکنش‌ها =================
-                        // Summary Card (کارت جمع هزینه‌ها و درآمدها)
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(RadiusMD),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isDark) Color(0xFF161E2E) else Color(0xFFF8FAFC)
-                            ),
-                            border = BorderStroke(1.dp, if (isDark) Color(0xFF232D42) else Color(0xFFE2E8F0))
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Calculate,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Text(
-                                        text = "خلاصه کل هزینه‌ها و درآمدها",
-                                        style = MaterialTheme.typography.titleSmall.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp
-                                        )
-                                    )
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    // Total Income Box
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .background(
-                                                if (isDark) Color(0xFF0F3A22) else Color(0xFFE6F9EE),
-                                                RoundedCornerShape(RadiusSM)
-                                            )
-                                            .padding(10.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.TrendingUp,
-                                                contentDescription = null,
-                                                tint = EmeraldPrimaryLight,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                            Text(
-                                                text = "جمع درآمدها",
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 10.sp
-                                                ),
-                                                color = EmeraldPrimaryLight
-                                            )
-                                        }
-                                        Text(
-                                            text = MoneyFormatter.formatExact(MoneyAmount.of(totalIncomeAmount, AppCurrency.RIAL)),
-                                            style = MaterialTheme.typography.titleSmall.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 13.sp
-                                            ),
-                                            color = EmeraldPrimaryLight,
-                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(8.dp))
-
-                                    // Total Expense Box
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .background(
-                                                if (isDark) Color(0xFF3F161C) else Color(0xFFFFECEE),
-                                                RoundedCornerShape(RadiusSM)
-                                            )
-                                            .padding(10.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.TrendingDown,
-                                                contentDescription = null,
-                                                tint = ExpenseRoseLight,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                            Text(
-                                                text = "جمع هزینه‌ها",
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 10.sp
-                                                ),
-                                                color = ExpenseRoseLight
-                                            )
-                                        }
-                                        Text(
-                                            text = MoneyFormatter.formatExact(MoneyAmount.of(totalExpenseAmount, AppCurrency.RIAL)),
-                                            style = MaterialTheme.typography.titleSmall.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 13.sp
-                                            ),
-                                            color = ExpenseRoseLight,
-                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                        )
-                                    }
-                                }
-
-                                // Net Balance Row
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "خالص درآمد و هزینه:",
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            fontWeight = FontWeight.Medium,
-                                            fontSize = 11.5.sp
-                                        ),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = MoneyFormatter.formatExact(MoneyAmount.of(netBalance, AppCurrency.RIAL)),
-                                        style = MaterialTheme.typography.titleSmall.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp
-                                        ),
-                                        color = if (netBalance >= 0) EmeraldPrimaryLight else ExpenseRoseLight
-                                    )
-                                }
-                            }
-                        }
-
                         // Search Box for All Transactions
                         OutlinedTextField(
                             value = allSearchQuery,
