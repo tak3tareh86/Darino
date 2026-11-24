@@ -96,12 +96,15 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val unreadCount = triple.third
         val todayCalendar = java.util.Calendar.getInstance().apply { timeInMillis = now }
         val todayPersian = PersianCalendarHelper.fromEpochMillis(now).toFormattedDate()
-        val tomorrowStartCalendar = (todayCalendar.clone() as java.util.Calendar).apply {
-            add(java.util.Calendar.DAY_OF_YEAR, 1)
+        val todayStartCalendar = (todayCalendar.clone() as java.util.Calendar).apply {
             set(java.util.Calendar.HOUR_OF_DAY, 0)
             set(java.util.Calendar.MINUTE, 0)
             set(java.util.Calendar.SECOND, 0)
             set(java.util.Calendar.MILLISECOND, 0)
+        }
+        val todayStartMillis = todayStartCalendar.timeInMillis
+        val tomorrowStartCalendar = (todayStartCalendar.clone() as java.util.Calendar).apply {
+            add(java.util.Calendar.DAY_OF_YEAR, 1)
         }
         val dayAfterTomorrowCalendar = (tomorrowStartCalendar.clone() as java.util.Calendar).apply {
             add(java.util.Calendar.DAY_OF_YEAR, 1)
@@ -264,30 +267,35 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             .map { it.first }
         val todayReminders = activeList.filter { it.date == todayPersian }
 
-        // Count the reminder's actual trigger day, not the underlying obligation's
-        // due date. Installment reminders can have several payment/offset schedules,
-        // but each reminder card is counted only once.
-        val tomorrowCount = activeList.count { reminder ->
+        // Count by the reminder's own execution/trigger day, never by the
+        // underlying obligation's due date. A reminder is counted once even when
+        // it has multiple offsets or installment-payment schedules.
+        fun hasReminderOnDay(reminder: ReminderEntity, dayStart: Long, nextDayStart: Long): Boolean {
             val reminderSchedules = schedulesByReminder[reminder.id].orEmpty()
-            if (reminderSchedules.isNotEmpty()) {
+            return if (reminderSchedules.isNotEmpty()) {
                 reminderSchedules.any { schedule ->
                     schedule.enabled &&
                         !schedule.triggerType.equals("COMPLETED", ignoreCase = true) &&
-                        schedule.triggerDateTime >= tomorrowStartMillis &&
-                        schedule.triggerDateTime < dayAfterTomorrowMillis
+                        schedule.triggerDateTime >= dayStart &&
+                        schedule.triggerDateTime < nextDayStart
                 }
             } else if (reminder.sourceType.equals("INSTALLMENT", ignoreCase = true)) {
-                // ReminderEntity.date is the installment due date, not a reminder trigger.
+                // ReminderEntity.date is the installment due date, not its reminder trigger.
                 false
             } else {
-                // Reminders without offset schedules use their own configured date/time.
+                // Without offset schedules, the reminder's configured date/time is its trigger.
                 val reminderAt = runCatching {
                     ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
                 }.getOrNull()
-                reminderAt != null &&
-                    reminderAt >= tomorrowStartMillis &&
-                    reminderAt < dayAfterTomorrowMillis
+                reminderAt != null && reminderAt >= dayStart && reminderAt < nextDayStart
             }
+        }
+
+        val todayCount = activeList.count { reminder ->
+            hasReminderOnDay(reminder, todayStartMillis, tomorrowStartMillis)
+        }
+        val tomorrowCount = activeList.count { reminder ->
+            hasReminderOnDay(reminder, tomorrowStartMillis, dayAfterTomorrowMillis)
         }
 
         val visibleReminders = allReminders.filterNot { it.status.equals("CANCELLED", ignoreCase = true) } +
