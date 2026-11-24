@@ -363,7 +363,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             selectedFilterChip = filters.filterChip,
             searchQuery = filters.searchQuery,
             notificationCount = unreadCount,
-            todayCount = todayReminders.size,
+            todayCount = todayCount,
             tomorrowCount = tomorrowCount,
             nearestReminder = nearestDueReminder?.first,
             nearestReminderDueAt = nearestDueReminder?.second,
