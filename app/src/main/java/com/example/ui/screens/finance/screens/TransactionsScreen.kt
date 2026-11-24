@@ -735,9 +735,9 @@ fun TransactionCard(
     }
 
     val transactionBorderColors = when (transaction.type) {
-        TransactionType.EXPENSE -> listOf(Color(0xFF9F3448), Color(0xFFE06A78))
-        TransactionType.INCOME -> listOf(Color(0xFF176B4B), Color(0xFF42B883))
-        TransactionType.TRANSFER -> listOf(Color(0xFF176B86), Color(0xFF4A9BC0))
+        TransactionType.EXPENSE -> listOf(Color(0xFF4A0D1B), Color(0xFF801B32))
+        TransactionType.INCOME -> listOf(Color(0xFF063B2B), Color(0xFF0B6245))
+        TransactionType.TRANSFER -> listOf(Color(0xFF102447), Color(0xFF173D70))
     }
     val transactionCardShape = RoundedCornerShape(RadiusMD)
 
