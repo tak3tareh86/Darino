@@ -7,6 +7,7 @@ import androidx.room.withTransaction
 import com.example.data.database.AppDatabase
 import com.example.data.security.SessionManager
 import com.example.data.preferences.AppPreferencesRepository
+import com.example.data.subscription.BackupSubscriptionAccess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.withLock
@@ -101,6 +102,7 @@ class LocalBackupRepository(
 
     /** Restores the newest daily or weekly device-bound automatic backup for the active user. */
     suspend fun restoreLatestAutomaticBackup() {
+        BackupSubscriptionAccess.requireActiveYearlySubscription(context)
         val userTag = BackupUserScope.tag(getEffectiveUserId())
         val backup = withContext(Dispatchers.IO) {
             val selectedFolder = BackupFolderStorage.selectedFolderUri(context)
@@ -159,6 +161,7 @@ class LocalBackupRepository(
 
     /** Restores the newest device-bound emergency snapshot, retaining another snapshot first. */
     suspend fun restoreLatestEmergencyBackup() {
+        BackupSubscriptionAccess.requireActiveYearlySubscription(context)
         val userTag = BackupUserScope.tag(getEffectiveUserId())
         val latest = withContext(Dispatchers.IO) {
             File(context.filesDir, "emergency_backups")
@@ -225,6 +228,7 @@ class LocalBackupRepository(
 
     override suspend fun createBackup(): DarinoBackup =
         withContext(Dispatchers.IO) {
+            BackupSubscriptionAccess.requireActiveYearlySubscription(context)
             val userId = getEffectiveUserId()
 
             // Keep all table reads in one SQLite snapshot so related records cannot drift mid-backup.
@@ -492,6 +496,7 @@ class LocalBackupRepository(
         backup: DarinoBackup,
         mode: RestoreMode
     ) = restoreRecoveryMutex.withLock {
+        BackupSubscriptionAccess.requireActiveYearlySubscription(context)
         restoreBackupInternal(backup, mode, recovering = false)
     }
 
