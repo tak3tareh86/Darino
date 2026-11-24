@@ -218,6 +218,17 @@ fun SupportBackupScreen(
     }
 
     fun setAutomaticBackupEnabled(frequency: String, enabled: Boolean) {
+        if (enabled && !com.example.data.subscription.BackupSubscriptionAccess
+                .hasActiveYearlySubscription(subscriptionState.info)
+        ) {
+            com.example.data.backup.WeeklyBackupWorker.syncAutomaticBackups(context)
+            Toast.makeText(
+                context,
+                "فعال‌سازی پشتیبان‌گیری خودکار فقط با اشتراک سالیانه معتبر امکان‌پذیر است.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
         if (enabled && !com.example.data.backup.BackupFolderStorage.hasWritableSelectedFolder(context)) {
             Toast.makeText(context, "برای فعال‌سازی بک‌آپ خودکار، ابتدا پوشه ذخیره را انتخاب کنید.", Toast.LENGTH_LONG).show()
             backupFolderPickerLauncher.launch(null)
