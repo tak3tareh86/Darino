@@ -96,13 +96,22 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         val unreadCount = triple.third
         val todayCalendar = java.util.Calendar.getInstance().apply { timeInMillis = now }
         val todayPersian = PersianCalendarHelper.fromEpochMillis(now).toFormattedDate()
-        val tomorrowCalendar = (todayCalendar.clone() as java.util.Calendar).apply {
+        val tomorrowStartCalendar = (todayCalendar.clone() as java.util.Calendar).apply {
+            add(java.util.Calendar.DAY_OF_YEAR, 1)
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        val dayAfterTomorrowCalendar = (tomorrowStartCalendar.clone() as java.util.Calendar).apply {
             add(java.util.Calendar.DAY_OF_YEAR, 1)
         }
-        val tomorrowPersian = PersianCalendarHelper.fromEpochMillis(tomorrowCalendar.timeInMillis).toFormattedDate()
+        val tomorrowStartMillis = tomorrowStartCalendar.timeInMillis
+        val dayAfterTomorrowMillis = dayAfterTomorrowCalendar.timeInMillis
 
         val activeList = allReminders.filter { it.status.equals("ACTIVE", ignoreCase = true) }
         val missedList = allReminders.filter { it.status.equals("MISSED", ignoreCase = true) }
+        val schedulesByReminder = allSchedules.groupBy { it.reminderId }
 
         // Installment schedules are stored per payment with stable IDs. Resolve the
         // next unpaid payment first, then read only that payment's saved trigger rows.
@@ -254,7 +263,32 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
         }.sortedWith(compareBy<Pair<ReminderEntity, Long>>({ it.second }, { it.first.id }))
             .map { it.first }
         val todayReminders = activeList.filter { it.date == todayPersian }
-        val tomorrowReminders = activeList.filter { it.date == tomorrowPersian }
+
+        // Count the reminder's actual trigger day, not the underlying obligation's
+        // due date. Installment reminders can have several payment/offset schedules,
+        // but each reminder card is counted only once.
+        val tomorrowCount = activeList.count { reminder ->
+            val reminderSchedules = schedulesByReminder[reminder.id].orEmpty()
+            if (reminderSchedules.isNotEmpty()) {
+                reminderSchedules.any { schedule ->
+                    schedule.enabled &&
+                        !schedule.triggerType.equals("COMPLETED", ignoreCase = true) &&
+                        schedule.triggerDateTime >= tomorrowStartMillis &&
+                        schedule.triggerDateTime < dayAfterTomorrowMillis
+                }
+            } else if (reminder.sourceType.equals("INSTALLMENT", ignoreCase = true)) {
+                // ReminderEntity.date is the installment due date, not a reminder trigger.
+                false
+            } else {
+                // Reminders without offset schedules use their own configured date/time.
+                val reminderAt = runCatching {
+                    ReminderManager.parsePersianDateTimeToMillis(reminder.date, reminder.time)
+                }.getOrNull()
+                reminderAt != null &&
+                    reminderAt >= tomorrowStartMillis &&
+                    reminderAt < dayAfterTomorrowMillis
+            }
+        }
 
         val visibleReminders = allReminders.filterNot { it.status.equals("CANCELLED", ignoreCase = true) } +
             completedInstallmentOccurrences
@@ -322,7 +356,7 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
             searchQuery = filters.searchQuery,
             notificationCount = unreadCount,
             todayCount = todayReminders.size,
-            tomorrowCount = tomorrowReminders.size,
+            tomorrowCount = tomorrowCount,
             nearestReminder = nearestDueReminder?.first,
             nearestReminderDueAt = nearestDueReminder?.second,
             reminderDisplayTimes = reminderDisplayTimes,
