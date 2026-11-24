@@ -250,42 +250,12 @@ fun InstallmentsSummaryCard(
                     }
                 }
 
-                // Main amount, progress ring and next due highlight.
+                // RTL order: next due on the right, total in the center, progress ring on the left.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ProgressRing(
-                        progress = progress.toFloat(),
-                        progressText = progressText,
-                        modifier = Modifier.size(94.dp)
-                    )
-
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "مجموع اقساط فعال",
-                            color = FinanceMuted,
-                            style = MaterialTheme.typography.titleSmall.copy(fontSize = 12.sp)
-                        )
-                        Text(
-                            text = summary.displayTotal,
-                            color = FinanceText,
-                            style = MaterialTheme.typography.headlineSmall.copy(fontSize = 19.sp),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "ریال",
-                            color = FinanceMuted,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
-                        )
-                    }
-
                     Surface(
                         modifier = Modifier.weight(0.82f),
                         shape = RoundedCornerShape(20.dp),
@@ -321,6 +291,36 @@ fun InstallmentsSummaryCard(
                             )
                         }
                     }
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "مجموع اقساط فعال",
+                            color = FinanceMuted,
+                            style = MaterialTheme.typography.titleSmall.copy(fontSize = 12.sp)
+                        )
+                        Text(
+                            text = summary.displayTotal,
+                            color = FinanceText,
+                            style = MaterialTheme.typography.headlineSmall.copy(fontSize = 19.sp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "ریال",
+                            color = FinanceMuted,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
+                        )
+                    }
+
+                    ProgressRing(
+                        progress = progress.toFloat(),
+                        progressText = progressText,
+                        modifier = Modifier.size(94.dp)
+                    )
                 }
 
                 // Bottom amount panels
