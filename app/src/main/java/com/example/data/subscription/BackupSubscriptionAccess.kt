@@ -14,7 +14,13 @@ import com.example.domain.subscription.SubscriptionValidator
 object BackupSubscriptionAccess {
 
     fun hasActiveYearlySubscription(context: Context, now: Long = System.currentTimeMillis()): Boolean {
-        val info = LocalSubscriptionDataSource(context).getSubscriptionInfo()
+        return hasActiveYearlySubscription(LocalSubscriptionDataSource(context).getSubscriptionInfo(), now)
+    }
+
+    fun hasActiveYearlySubscription(
+        info: com.example.domain.subscription.SubscriptionInfo,
+        now: Long = System.currentTimeMillis()
+    ): Boolean {
         return info.productId == MarketConfig.YEARLY_PRODUCT_ID &&
             info.marketAccountState == "MARKET_ACTIVE" &&
             !info.purchaseTokenReference.isNullOrBlank() &&
