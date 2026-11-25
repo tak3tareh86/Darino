@@ -42,6 +42,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.screens.installments.model.InstallmentSummaryData
+import com.example.ui.screens.settings.model.AppCurrency
+import com.example.util.MoneyAmount
+import com.example.util.MoneyFormatter
 import com.example.util.AppNumberFormatter
 
 private val FinanceTeal = Color(0xFF12DCC5)
@@ -56,6 +59,19 @@ fun InstallmentsSummaryCard(
     onClick: (() -> Unit)? = null
 ) {
     val numberMode by AppNumberFormatter.modeFlow.collectAsState()
+    val activeCurrency by MoneyFormatter.activeCurrencyFlow.collectAsState()
+    val displayTotal = MoneyFormatter.formatExact(
+        MoneyAmount.of(summary.totalRepaymentAmount, AppCurrency.RIAL),
+        targetCurrency = activeCurrency
+    )
+    val displayPaid = MoneyFormatter.formatExact(
+        MoneyAmount.of(summary.paidAmount, AppCurrency.RIAL),
+        targetCurrency = activeCurrency
+    )
+    val displayRemaining = MoneyFormatter.formatExact(
+        MoneyAmount.of(summary.remainingAmount, AppCurrency.RIAL),
+        targetCurrency = activeCurrency
+    )
     // Presentation-only ratio: all monetary values continue to come from the existing summary.
     val progress = if (summary.totalRepaymentAmount > 0L) {
         (summary.paidAmount.toDouble() / summary.totalRepaymentAmount.toDouble())
@@ -236,14 +252,16 @@ fun InstallmentsSummaryCard(
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text(
-                                text = "وضعیت مالی من",
+                                text = "قسط بعدی",
                                 color = FinanceText,
                                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp)
                             )
                             Text(
-                                text = "خلاصه اقساط",
-                                color = FinanceMuted.copy(alpha = 0.82f),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
+                                text = AppNumberFormatter.formatDigits(summary.nextDueText, numberMode),
+                                color = FinanceMuted.copy(alpha = 0.92f),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -255,42 +273,6 @@ fun InstallmentsSummaryCard(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        modifier = Modifier.weight(0.82f),
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color(0xFF062B42).copy(alpha = 0.78f),
-                        contentColor = FinanceText,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            FinanceTeal.copy(alpha = 0.30f)
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.AccessTime,
-                                contentDescription = null,
-                                tint = FinanceTeal,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = "قسط بعدی",
-                                color = FinanceMuted,
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
-                            )
-                            Text(
-                                text = AppNumberFormatter.formatDigits(summary.nextDueText, numberMode),
-                                color = FinanceText,
-                                style = MaterialTheme.typography.titleSmall.copy(fontSize = 12.sp),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(5.dp),
@@ -302,16 +284,11 @@ fun InstallmentsSummaryCard(
                             style = MaterialTheme.typography.titleSmall.copy(fontSize = 12.sp)
                         )
                         Text(
-                            text = summary.displayTotal,
+                            text = displayTotal,
                             color = FinanceText,
                             style = MaterialTheme.typography.headlineSmall.copy(fontSize = 19.sp),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "ریال",
-                            color = FinanceMuted,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
                         )
                     }
 
@@ -449,11 +426,6 @@ private fun SummaryMetricPanel(
                     style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "ریال",
-                    color = FinanceMuted,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp)
                 )
             }
         }
