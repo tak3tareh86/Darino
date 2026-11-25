@@ -38,6 +38,7 @@ class DatabaseEncryptionMigrationTest {
         }
 
         // Build a genuine version-52 plaintext Room database with a persisted user row.
+        val legacySnapshot = File(context.cacheDir, "darino-legacy-source.db")
         val plaintextRoom = Room.databaseBuilder(
             context,
             AppDatabase::class.java,
@@ -60,6 +61,7 @@ class DatabaseEncryptionMigrationTest {
         } finally {
             plaintextRoom.close()
         }
+        databaseFile.copyTo(legacySnapshot, overwrite = true)
 
         DatabaseEncryptionManager.initializeAndMigrate(context)
 
@@ -92,6 +94,40 @@ class DatabaseEncryptionMigrationTest {
             "Installed database must not retain the SQLite plaintext header.",
             header.contentEquals("SQLite format 3\u0000".toByteArray(StandardCharsets.US_ASCII))
         )
+
+        // Simulate a process death after the plaintext file was moved aside but before
+        // the encrypted temporary file was installed. Recovery must resume from the backup.
+        legacySnapshot.copyTo(plaintextBackup, overwrite = true)
+        databaseFile.copyTo(temporaryFile, overwrite = true)
+        assertTrue("Test setup must remove the main database file.", databaseFile.delete())
+        prefs.edit().putString("migration_state", "MIGRATING").commit()
+        DatabaseEncryptionManager.initializeAndMigrate(context)
+
+        val recoveredRoom = AppDatabase.buildEncrypted(
+            context,
+            databaseFile.absolutePath,
+            DatabaseEncryptionManager.requireReadyKey(context)
+        )
+        try {
+            recoveredRoom.openHelper.readableDatabase.query(
+                "SELECT numberDisplayMode FROM user_preferences WHERE userId = ?",
+                arrayOf("migration-test-user")
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("PERSIAN", cursor.getString(0))
+            }
+            recoveredRoom.openHelper.readableDatabase.query(
+                "SELECT seq FROM sqlite_sequence WHERE name = 'checks'"
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(777L, cursor.getLong(0))
+            }
+        } finally {
+            recoveredRoom.close()
+        }
+        assertFalse("Recovery must remove the plaintext backup only after Room validation.", plaintextBackup.exists())
+        assertFalse("Recovery must consume the temporary encrypted file.", temporaryFile.exists())
+        legacySnapshot.delete()
 
         // Losing the wrapped key must not recreate or replace the encrypted database.
         prefs.edit().remove("wrapped_database_key").commit()
