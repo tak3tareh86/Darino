@@ -66,12 +66,15 @@ fun InstallmentsSummaryCard(
     )
     val displayPaid = MoneyFormatter.formatExact(
         MoneyAmount.of(summary.paidAmount, AppCurrency.RIAL),
-        targetCurrency = activeCurrency
+        targetCurrency = activeCurrency,
+        includeUnit = false
     )
     val displayRemaining = MoneyFormatter.formatExact(
         MoneyAmount.of(summary.remainingAmount, AppCurrency.RIAL),
-        targetCurrency = activeCurrency
+        targetCurrency = activeCurrency,
+        includeUnit = false
     )
+    val currencyUnit = MoneyFormatter.getUnitLabel(activeCurrency)
     // Presentation-only ratio: all monetary values continue to come from the existing summary.
     val progress = if (summary.totalRepaymentAmount > 0L) {
         (summary.paidAmount.toDouble() / summary.totalRepaymentAmount.toDouble())
@@ -307,7 +310,8 @@ fun InstallmentsSummaryCard(
                     // RTL: paid panel is first (right), remaining panel is second (left).
                     SummaryMetricPanel(
                         title = "مبلغ پرداخت‌شده",
-                        amount = summary.displayPaid,
+                        amount = displayPaid,
+                        unit = currencyUnit,
                         icon = Icons.Rounded.CheckCircle,
                         accent = FinanceMint,
                         background = Brush.linearGradient(
@@ -317,7 +321,8 @@ fun InstallmentsSummaryCard(
                     )
                     SummaryMetricPanel(
                         title = "مبلغ باقی‌مانده",
-                        amount = summary.displayRemaining,
+                        amount = displayRemaining,
+                        unit = currencyUnit,
                         icon = Icons.Rounded.Payments,
                         accent = Color(0xFF75A9FF),
                         background = Brush.linearGradient(
@@ -376,6 +381,7 @@ private fun ProgressRing(
 private fun SummaryMetricPanel(
     title: String,
     amount: String,
+    unit: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     accent: Color,
     background: Brush,
@@ -388,31 +394,24 @@ private fun SummaryMetricPanel(
         border = androidx.compose.foundation.BorderStroke(1.dp, accent.copy(alpha = 0.70f)),
         shadowElevation = 3.dp
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .background(background)
                 .padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(30.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(accent.copy(alpha = 0.16f)),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = accent,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(15.dp)
                 )
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(5.dp)
-            ) {
                 Text(
                     text = title,
                     color = FinanceMuted,
@@ -420,14 +419,24 @@ private fun SummaryMetricPanel(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = amount,
-                    color = FinanceText,
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
+            Text(
+                text = amount,
+                modifier = Modifier.fillMaxWidth(),
+                color = FinanceText,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Text(
+                text = unit,
+                modifier = Modifier.fillMaxWidth(),
+                color = FinanceMuted,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                maxLines = 1,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 }
