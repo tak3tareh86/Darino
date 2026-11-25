@@ -166,6 +166,8 @@ object DatabaseEncryptionManager {
             } finally {
                 sourceDb.close()
             }
+            // Ensure the source has no residual plaintext WAL/SHM sidecars before the file swap.
+            checkpointPlaintextDatabase(sourceFile)
 
             syncFile(temporaryFile)
             validateEncryptedDatabase(appContext, temporaryFile, key)
