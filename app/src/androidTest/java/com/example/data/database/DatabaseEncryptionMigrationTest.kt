@@ -2,7 +2,7 @@ package com.example.data.database
 
 import android.content.Context
 import androidx.room.Room
-import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -20,7 +20,7 @@ class DatabaseEncryptionMigrationTest {
 
     @Test
     fun migratesExistingRoomDatabaseAndFailsClosedWhenWrappedKeyIsMissing() = runBlocking {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
         val databaseFile = context.getDatabasePath("finance_app_database")
         val temporaryFile = File(databaseFile.parentFile, "finance_app_database.encrypted.tmp")
         val plaintextBackup = File(databaseFile.parentFile, "finance_app_database.plaintext.bak")
