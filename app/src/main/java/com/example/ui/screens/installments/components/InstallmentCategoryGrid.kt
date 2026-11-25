@@ -1,5 +1,6 @@
 package com.example.ui.screens.installments.components
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -94,7 +96,11 @@ private fun CategoryGridCard(
     val cardShape = RoundedCornerShape(RadiusMD)
 
     Layered3DCard(
-        modifier = modifier,
+        modifier = modifier.border(
+            width = 0.7.dp,
+            color = Color(0xFF39E8D0).copy(alpha = 0.30f),
+            shape = cardShape
+        ),
         shape = cardShape,
         backgroundColor = MaterialTheme.colorScheme.surface,
         elevation = 2.dp,
