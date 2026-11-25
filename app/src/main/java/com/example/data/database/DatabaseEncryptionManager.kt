@@ -1,6 +1,7 @@
 package com.example.data.database
 
 import android.content.Context
+import android.database.Cursor
 import android.os.StatFs
 import android.system.Os
 import android.system.OsConstants
@@ -515,6 +516,11 @@ object DatabaseEncryptionManager {
      * Compare actual row values in both directions, not only table counts.
      * Count comparison separately protects duplicate-row multiplicity.
      */
+    /**
+     * Compare row multisets including duplicate counts and SQLite storage classes.
+     * GROUP BY uses typeof() and BINARY collation so case-folding or numeric coercion
+     * cannot make distinct stored values appear equivalent.
+     */
     private fun assertRowsEquivalent(database: CipherDatabase) {
         val tables = mutableListOf<String>()
         database.rawQuery(
@@ -531,21 +537,78 @@ object DatabaseEncryptionManager {
         if (hasSequence) tables.add("sqlite_sequence")
 
         tables.forEach { table ->
-            val quoted = "\"" + table.replace("\"", "\"\"") + "\""
-            val sourceOnly = "SELECT * FROM main." + quoted +
-                " EXCEPT SELECT * FROM encrypted." + quoted + " LIMIT 1"
-            val targetOnly = "SELECT * FROM encrypted." + quoted +
-                " EXCEPT SELECT * FROM main." + quoted + " LIMIT 1"
-            database.rawQuery(sourceOnly, null).use { cursor ->
-                check(!cursor.moveToFirst()) {
-                    "محتوای جدول " + table + " در نسخه رمزگذاری‌شده با منبع متفاوت است."
+            val quotedTable = "\"" + table.replace("\"", "\"\"") + "\""
+            val columns = database.rawQuery(
+                "SELECT * FROM main." + quotedTable + " LIMIT 0",
+                null
+            ).use { cursor ->
+                (0 until cursor.columnCount).map { cursor.getColumnName(it) }
+            }
+            check(columns.isNotEmpty()) { "جدول " + table + " ستون قابل مقایسه ندارد." }
+
+            val quotedColumns = columns.map { "\"" + it.replace("\"", "\"\"") + "\"" }
+            val groupTerms = quotedColumns.flatMap { column ->
+                listOf("typeof(" + column + ")", column + " COLLATE BINARY")
+            }.joinToString(", ")
+            val selectTerms = quotedColumns.flatMap { column ->
+                listOf("typeof(" + column + ")", column)
+            }.joinToString(", ")
+            val sourceSql = "SELECT " + selectTerms + ", COUNT(*) FROM main." + quotedTable +
+                " GROUP BY " + groupTerms + " ORDER BY " + groupTerms
+            val targetSql = "SELECT " + selectTerms + ", COUNT(*) FROM encrypted." + quotedTable +
+                " GROUP BY " + groupTerms + " ORDER BY " + groupTerms
+
+            database.rawQuery(sourceSql, null).use { sourceCursor ->
+                database.rawQuery(targetSql, null).use { targetCursor ->
+                    while (true) {
+                        val sourceHasRow = sourceCursor.moveToNext()
+                        val targetHasRow = targetCursor.moveToNext()
+                        check(sourceHasRow == targetHasRow) {
+                            "تعداد ردیف‌های متمایز جدول " + table + " پس از رمزگذاری تغییر کرده است."
+                        }
+                        if (!sourceHasRow) break
+
+                        for (index in columns.indices) {
+                            val typeIndex = index * 2
+                            val valueIndex = typeIndex + 1
+                            check(sourceCursor.getString(typeIndex) == targetCursor.getString(typeIndex)) {
+                                "نوع ذخیره‌سازی ستون " + columns[index] + " در جدول " + table + " تغییر کرده است."
+                            }
+                            check(sqliteValuesEqual(sourceCursor, valueIndex, targetCursor, valueIndex)) {
+                                "مقدار ستون " + columns[index] + " در جدول " + table + " تغییر کرده است."
+                            }
+                        }
+
+                        val countIndex = columns.size * 2
+                        check(sourceCursor.getLong(countIndex) == targetCursor.getLong(countIndex)) {
+                            "تعداد نسخه‌های تکراری یک ردیف در جدول " + table + " تغییر کرده است."
+                        }
+                    }
                 }
             }
-            database.rawQuery(targetOnly, null).use { cursor ->
-                check(!cursor.moveToFirst()) {
-                    "محتوای جدول " + table + " در نسخه اصلی با نسخه رمزگذاری‌شده متفاوت است."
-                }
+        }
+    }
+
+    private fun sqliteValuesEqual(
+        left: Cursor,
+        leftIndex: Int,
+        right: Cursor,
+        rightIndex: Int
+    ): Boolean {
+        if (left.getType(leftIndex) != right.getType(rightIndex)) return false
+        return when (left.getType(leftIndex)) {
+            Cursor.FIELD_TYPE_NULL -> true
+            Cursor.FIELD_TYPE_INTEGER -> left.getLong(leftIndex) == right.getLong(rightIndex)
+            Cursor.FIELD_TYPE_FLOAT ->
+                java.lang.Double.doubleToLongBits(left.getDouble(leftIndex)) ==
+                    java.lang.Double.doubleToLongBits(right.getDouble(rightIndex))
+            Cursor.FIELD_TYPE_STRING -> left.getString(leftIndex) == right.getString(rightIndex)
+            Cursor.FIELD_TYPE_BLOB -> {
+                val leftBlob = left.getBlob(leftIndex)
+                val rightBlob = right.getBlob(rightIndex)
+                leftBlob.contentEquals(rightBlob)
             }
+            else -> false
         }
     }
 
