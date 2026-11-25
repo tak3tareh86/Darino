@@ -89,7 +89,9 @@ object DatabaseEncryptionManager {
             plaintextSourceForPreflight?.let { checkAvailableSpace(it, temporaryFile) }
 
             val key = loadOrCreateDatabaseKey(appContext, databaseFile, temporaryFile, plaintextBackup)
-            if (databaseFile.exists() && hasPlaintextSQLiteHeader(databaseFile) && state == STATE_NEW_DATABASE) {
+            if (databaseFile.exists() && hasPlaintextSQLiteHeader(databaseFile) &&
+                (state == STATE_NEW_DATABASE_PENDING || state == STATE_NEW_DATABASE_CREATED)
+            ) {
                 throw IllegalStateException("وضعیت پایگاه داده جدید با فایل قدیمی سازگار نیست؛ هیچ فایلی تغییر نکرد.")
             }
 
