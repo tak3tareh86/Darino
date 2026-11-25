@@ -60,8 +60,13 @@ object DatabaseEncryptionManager {
             val plaintextBackup = File(databaseFile.parentFile, DATABASE_NAME + ".plaintext.bak")
             val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-            val key = loadOrCreateDatabaseKey(appContext, databaseFile, temporaryFile, plaintextBackup)
             val state = prefs.getString(PREF_STATE, null)
+            if (!databaseFile.exists() && !plaintextBackup.exists() &&
+                (state == STATE_READY || state == STATE_INSTALLED)
+            ) {
+                throw IllegalStateException("دیتابیس ثبت‌شده پیدا نشد؛ برای جلوگیری از ساخت دیتابیس خالی، برنامه متوقف شد.")
+            }
+            val key = loadOrCreateDatabaseKey(appContext, databaseFile, temporaryFile, plaintextBackup)
 
             if (databaseFile.exists() && !hasPlaintextSQLiteHeader(databaseFile)) {
                 validateEncryptedDatabase(appContext, databaseFile, key)
@@ -206,6 +211,10 @@ object DatabaseEncryptionManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val wrapped = prefs.getString(PREF_WRAPPED_KEY, null)
         if (wrapped != null) return decryptStoredKey(context)
+        val existingState = prefs.getString(PREF_STATE, null)
+        if (existingState != null && existingState != STATE_KEY_READY) {
+            throw IllegalStateException("کلید رمزگذاری دیتابیس مفقود است؛ هیچ دیتابیسی حذف یا بازسازی نشد.")
+        }
 
         // Never generate a replacement key for an encrypted or interrupted database.
         if ((databaseFile.exists() && !hasPlaintextSQLiteHeader(databaseFile)) ||
@@ -305,7 +314,7 @@ object DatabaseEncryptionManager {
 
     private fun checkAvailableSpace(file: File) {
         val stat = StatFs(file.parentFile?.absolutePath ?: file.absolutePath)
-        val required = maxOf(file.length(), file.length() / 2L) + MIN_FREE_SPACE_BYTES
+        val required = Math.addExact(Math.multiplyExact(file.length(), 2L), MIN_FREE_SPACE_BYTES)
         check(stat.availableBytes >= required) {
             "فضای خالی برای رمزگذاری امن دیتابیس کافی نیست؛ تمام اطلاعات حفظ شدند و امکان تلاش مجدد پس از آزادسازی فضا وجود دارد."
         }
