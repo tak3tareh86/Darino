@@ -11,6 +11,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: darino-security-verification-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   android:
     runs-on: ubuntu-latest
