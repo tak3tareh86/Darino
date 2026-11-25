@@ -3,8 +3,6 @@ package com.example.data.database
 import android.content.Context
 import android.os.StatFs
 import android.util.Base64
-import android.util.Log
-import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -148,6 +146,7 @@ object DatabaseEncryptionManager {
                     sourceDb.rawQuery("SELECT sqlcipher_export('encrypted')", null).use { cursor ->
                         check(cursor.moveToFirst()) { "انتقال اطلاعات به دیتابیس رمزگذاری‌شده ناموفق بود." }
                     }
+                    assertRowsEquivalent(sourceDb)
                     sourceDb.execSQL("PRAGMA encrypted.user_version = " + sourceDb.version)
                 } finally {
                     sourceDb.execSQL("DETACH DATABASE encrypted")
@@ -372,6 +371,44 @@ object DatabaseEncryptionManager {
         database.rawQuery("PRAGMA foreign_key_check", null).use { cursor ->
             check(!cursor.moveToFirst()) {
                 "رابطه کلیدهای خارجی در " + label + " ناسازگار است."
+            }
+        }
+    }
+
+    /**
+     * Compare actual row values in both directions, not only table counts.
+     * Count comparison separately protects duplicate-row multiplicity.
+     */
+    private fun assertRowsEquivalent(database: CipherDatabase) {
+        val tables = mutableListOf<String>()
+        database.rawQuery(
+            "SELECT name FROM main.sqlite_master WHERE type = 'table' " +
+                "AND name NOT LIKE 'sqlite_%' ORDER BY name",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) tables.add(cursor.getString(0))
+        }
+        val hasSequence = database.rawQuery(
+            "SELECT 1 FROM main.sqlite_master WHERE type = 'table' AND name = 'sqlite_sequence'",
+            null
+        ).use { it.moveToFirst() }
+        if (hasSequence) tables.add("sqlite_sequence")
+
+        tables.forEach { table ->
+            val quoted = "\"" + table.replace("\"", "\"\"") + "\""
+            val sourceOnly = "SELECT * FROM main." + quoted +
+                " EXCEPT SELECT * FROM encrypted." + quoted + " LIMIT 1"
+            val targetOnly = "SELECT * FROM encrypted." + quoted +
+                " EXCEPT SELECT * FROM main." + quoted + " LIMIT 1"
+            database.rawQuery(sourceOnly, null).use { cursor ->
+                check(!cursor.moveToFirst()) {
+                    "محتوای جدول " + table + " در نسخه رمزگذاری‌شده با منبع متفاوت است."
+                }
+            }
+            database.rawQuery(targetOnly, null).use { cursor ->
+                check(!cursor.moveToFirst()) {
+                    "محتوای جدول " + table + " در نسخه اصلی با نسخه رمزگذاری‌شده متفاوت است."
+                }
             }
         }
     }
