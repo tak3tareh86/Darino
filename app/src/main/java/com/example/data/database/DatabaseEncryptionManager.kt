@@ -154,7 +154,6 @@ object DatabaseEncryptionManager {
                 sourceSnapshot = snapshot(sourceDb)
                 val sourceVersion = sourceDb.version
                 val sourceAutoVacuum = readPragmaLong(sourceDb, "PRAGMA main.auto_vacuum")
-                val sourcePageSize = readPragmaLong(sourceDb, "PRAGMA main.page_size")
                 val sourceApplicationId = readPragmaLong(sourceDb, "PRAGMA main.application_id")
                 val sourceSecureDelete = readPragmaLong(sourceDb, "PRAGMA main.secure_delete")
 
@@ -167,7 +166,6 @@ object DatabaseEncryptionManager {
                     // sqlcipher_export does not copy auto_vacuum or user_version.
                     // Set target storage properties before creating the exported schema.
                     sourceDb.execSQL("PRAGMA encrypted.auto_vacuum = " + sourceAutoVacuum)
-                    sourceDb.execSQL("PRAGMA encrypted.cipher_page_size = " + sourcePageSize)
                     sourceDb.execSQL("PRAGMA encrypted.secure_delete = " + sourceSecureDelete)
                     sourceDb.rawQuery("SELECT sqlcipher_export('encrypted')", null).use { cursor ->
                         check(cursor.moveToFirst()) { "انتقال اطلاعات به دیتابیس رمزگذاری‌شده ناموفق بود." }
