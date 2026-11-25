@@ -148,6 +148,11 @@ object DatabaseEncryptionManager {
                 assertIntegrity(sourceDb, "دیتابیس اصلی")
                 assertNoForeignKeyViolations(sourceDb, "دیتابیس اصلی")
                 sourceSnapshot = snapshot(sourceDb)
+                val sourceVersion = sourceDb.version
+                val sourceAutoVacuum = readPragmaLong(sourceDb, "PRAGMA main.auto_vacuum")
+                val sourcePageSize = readPragmaLong(sourceDb, "PRAGMA main.page_size")
+                val sourceApplicationId = readPragmaLong(sourceDb, "PRAGMA main.application_id")
+                val sourceSecureDelete = readPragmaLong(sourceDb, "PRAGMA main.secure_delete")
 
                 val escapedPath = temporaryFile.absolutePath.replace("'", "''")
                 sourceDb.execSQL(
@@ -155,11 +160,17 @@ object DatabaseEncryptionManager {
                         String(key, StandardCharsets.UTF_8) + "'"
                 )
                 try {
+                    // sqlcipher_export does not copy auto_vacuum or user_version.
+                    // Set target storage properties before creating the exported schema.
+                    sourceDb.execSQL("PRAGMA encrypted.auto_vacuum = " + sourceAutoVacuum)
+                    sourceDb.execSQL("PRAGMA encrypted.cipher_page_size = " + sourcePageSize)
+                    sourceDb.execSQL("PRAGMA encrypted.secure_delete = " + sourceSecureDelete)
                     sourceDb.rawQuery("SELECT sqlcipher_export('encrypted')", null).use { cursor ->
                         check(cursor.moveToFirst()) { "انتقال اطلاعات به دیتابیس رمزگذاری‌شده ناموفق بود." }
                     }
                     assertRowsEquivalent(sourceDb)
-                    sourceDb.execSQL("PRAGMA encrypted.user_version = " + sourceDb.version)
+                    sourceDb.execSQL("PRAGMA encrypted.application_id = " + sourceApplicationId)
+                    sourceDb.execSQL("PRAGMA encrypted.user_version = " + sourceVersion)
                 } finally {
                     sourceDb.execSQL("DETACH DATABASE encrypted")
                 }
@@ -423,6 +434,13 @@ object DatabaseEncryptionManager {
             assertNoForeignKeyViolations(database, "دیتابیس رمزگذاری‌شده")
         } finally {
             database.close()
+        }
+    }
+
+    private fun readPragmaLong(database: CipherDatabase, sql: String): Long {
+        return database.rawQuery(sql, null).use { cursor ->
+            check(cursor.moveToFirst()) { "خواندن ویژگی‌های فایل دیتابیس ناموفق بود." }
+            cursor.getLong(0)
         }
     }
 
