@@ -132,14 +132,15 @@ object DatabaseEncryptionManager {
             }
 
             checkpointPlaintextDatabase(sourceFile)
+            // A stale encrypted temp is disposable while the original plaintext source is intact.
+            // Remove it before measuring free space so crash recovery does not reserve space twice.
+            if (temporaryFile.exists() && !temporaryFile.delete()) {
+                throw IllegalStateException("فایل موقت مهاجرت قبلی قابل پاک‌سازی نیست؛ دیتابیس اصلی حفظ شد.")
+            }
             checkAvailableSpace(sourceFile)
 
             check(prefs.edit().putString(PREF_STATE, STATE_MIGRATING).commit()) {
                 "ثبت وضعیت شروع مهاجرت ناموفق بود."
-            }
-
-            if (temporaryFile.exists() && !temporaryFile.delete()) {
-                throw IllegalStateException("فایل موقت مهاجرت قبلی قابل پاک‌سازی نیست؛ دیتابیس اصلی حفظ شد.")
             }
 
             val sourceSnapshot: DatabaseSnapshot
