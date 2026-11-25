@@ -72,6 +72,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         scope.launch {
             try {
+                com.example.data.database.DatabaseEncryptionManager.initializeAndMigrate(context.applicationContext)
                 block()
             } catch (e: Exception) {
                 Log.e(TAG, "Reminder broadcast processing failed", e)
