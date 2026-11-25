@@ -73,21 +73,16 @@ class DatabaseEncryptionMigrationTest {
                 assertEquals("PERSIAN", cursor.getString(0))
                 assertEquals(123L, cursor.getLong(1))
             }
-        } finally {
-            encryptedRoom.close()
-        }
-
-        val encryptedSequenceDb = AppDatabase.getDatabase(context)
-        try {
-            encryptedSequenceDb.openHelper.readableDatabase.query(
+            encryptedRoom.openHelper.readableDatabase.query(
                 "SELECT seq FROM sqlite_sequence WHERE name = 'checks'"
             ).use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals(777L, cursor.getLong(0))
             }
         } finally {
-            encryptedSequenceDb.close()
+            encryptedRoom.close()
         }
+
 
         assertFalse("Plaintext backup must be removed after the first successful Room open.", plaintextBackup.exists())
         assertTrue(databaseFile.isFile && databaseFile.length() > 16L)
