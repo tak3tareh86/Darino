@@ -71,6 +71,10 @@ object DatabaseEncryptionManager {
             }
 
             if (databaseFile.exists() && !hasPlaintextSQLiteHeader(databaseFile)) {
+                if (state == STATE_READY && !plaintextBackup.exists()) {
+                    verifyEncryptedDatabaseFast(databaseFile, key)
+                    return@withLock
+                }
                 validateEncryptedDatabase(appContext, databaseFile, key)
                 validateWithRoom(appContext, databaseFile, key)
                 // A plaintext copy is retained until this first successful encrypted Room open.
@@ -342,6 +346,35 @@ object DatabaseEncryptionManager {
         val required = Math.addExact(Math.multiplyExact(file.length(), 2L), MIN_FREE_SPACE_BYTES)
         check(stat.availableBytes >= required) {
             "فضای خالی برای رمزگذاری امن دیتابیس کافی نیست؛ تمام اطلاعات حفظ شدند و امکان تلاش مجدد پس از آزادسازی فضا وجود دارد."
+        }
+    }
+
+    /**
+     * Normal launches verify that the persisted key still opens the encrypted file,
+     * without running a full integrity scan over a potentially large database each time.
+     */
+    private fun verifyEncryptedDatabaseFast(file: File, key: ByteArray) {
+        val database = CipherDatabase.openDatabase(
+            file.absolutePath,
+            key,
+            null,
+            CipherDatabase.OPEN_READWRITE,
+            null,
+            null
+        )
+        try {
+            database.rawQuery("PRAGMA cipher_status", null).use { cursor ->
+                check(cursor.moveToFirst() && cursor.getInt(0) == 1) {
+                    "SQLCipher کلید دیتابیس را تأیید نکرد."
+                }
+            }
+            database.rawQuery("SELECT COUNT(*) FROM sqlite_master", null).use { cursor ->
+                check(cursor.moveToFirst() && cursor.getLong(0) > 0L) {
+                    "ساختار دیتابیس رمزگذاری‌شده قابل خواندن نیست."
+                }
+            }
+        } finally {
+            database.close()
         }
     }
 
