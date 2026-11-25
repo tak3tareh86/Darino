@@ -82,6 +82,11 @@ object DatabaseEncryptionManager {
             }
 
             if (!databaseFile.exists() && !plaintextBackup.exists()) {
+                if (temporaryFile.exists() || state == STATE_MIGRATING ||
+                    state == STATE_INSTALLED || state == STATE_READY
+                ) {
+                    throw IllegalStateException("وضعیت مهاجرت ناقص است و منبع قابل بازیابی وجود ندارد؛ هیچ دیتابیس خالی ساخته نشد.")
+                }
                 // First installation: create the database encrypted from its first byte.
                 val encryptedDb = AppDatabase.buildEncrypted(
                     appContext,
@@ -212,7 +217,7 @@ object DatabaseEncryptionManager {
         val wrapped = prefs.getString(PREF_WRAPPED_KEY, null)
         if (wrapped != null) return decryptStoredKey(context)
         val existingState = prefs.getString(PREF_STATE, null)
-        if (existingState != null && existingState != STATE_KEY_READY) {
+        if (existingState != null) {
             throw IllegalStateException("کلید رمزگذاری دیتابیس مفقود است؛ هیچ دیتابیسی حذف یا بازسازی نشد.")
         }
 
@@ -309,6 +314,18 @@ object DatabaseEncryptionManager {
             }
         } finally {
             database.close()
+        }
+        val walFile = File(file.absolutePath + "-wal")
+        val shmFile = File(file.absolutePath + "-shm")
+        if (walFile.exists()) {
+            check(walFile.length() == 0L && walFile.delete()) {
+                "فایل WAL پس از checkpoint هنوز داده دارد یا قابل پاک‌سازی نیست؛ دیتابیس اصلی حفظ شد."
+            }
+        }
+        if (shmFile.exists()) {
+            check(shmFile.delete()) {
+                "فایل موقت SHM قابل پاک‌سازی نیست؛ دیتابیس اصلی حفظ شد."
+            }
         }
     }
 
