@@ -18,6 +18,7 @@ import java.security.KeyStore
 @RunWith(AndroidJUnit4::class)
 class DatabaseEncryptionMigrationTest {
 
+    // Runs against a disposable instrumentation database; no installed user database is accessed.
     @Test
     fun migratesExistingRoomDatabaseAndFailsClosedWhenWrappedKeyIsMissing() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
