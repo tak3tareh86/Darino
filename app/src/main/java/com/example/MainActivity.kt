@@ -79,12 +79,16 @@ import com.example.util.LocalAppCurrency
 import com.example.util.LocalAppLanguage
 import com.example.util.MoneyFormatter
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withContext
 
 class MainActivity : FragmentActivity() {
 
     // Do not expose mutable app screens until any interrupted restore has been replayed.
     private var restoreRecoveryReady by mutableStateOf(false)
     private var restoreRecoveryError by mutableStateOf(false)
+    private var databaseInitializationError by mutableStateOf(false)
+    private val databaseInitialization = CompletableDeferred<Unit>()
 
     override fun onStart() {
         super.onStart()
@@ -100,23 +104,39 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Initialize local data sources; Darino operates without a backend.
-        com.example.data.security.SessionManager.init(this)
-        com.example.util.MoneyFormatter.setPrivacyModeEnabled(
-            getSharedPreferences("darino_security_prefs", MODE_PRIVATE).getBoolean("privacy_mode_enabled", false)
-        )
-        getSharedPreferences("darino_security_prefs", MODE_PRIVATE).edit().remove("show_balance_on_home").apply()
-        LocalInstallmentRepository.instance.init(this)
-        com.example.ui.screens.finance.data.LocalFinanceRepository.instance.init(this)
-        com.example.ui.screens.check.data.LocalCheckRepository.instance.init(this)
-        com.example.vehicle.data.VehicleRepository.instance.initDatabase(this)
+        // No repository, receiver-driven session observer, or backup path may open Room
+        // until the one-time SQLite -> SQLCipher migration has completed and been validated.
+        lifecycleScope.launch {
+            try {
+                withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    com.example.data.database.DatabaseEncryptionManager
+                        .initializeAndMigrate(applicationContext)
+                }
 
-        // Reconcile automatic schedules with both saved preferences and the device-local
-        // SAF destination. The folder check queries a document provider, so keep it off main.
-        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            WeeklyBackupWorker.syncAutomaticBackups(applicationContext)
+                // Initialize local data sources only after the encrypted database is ready.
+                com.example.data.security.SessionManager.init(this@MainActivity)
+                com.example.util.MoneyFormatter.setPrivacyModeEnabled(
+                    getSharedPreferences("darino_security_prefs", MODE_PRIVATE)
+                        .getBoolean("privacy_mode_enabled", false)
+                )
+                getSharedPreferences("darino_security_prefs", MODE_PRIVATE)
+                    .edit().remove("show_balance_on_home").apply()
+                LocalInstallmentRepository.instance.init(this@MainActivity)
+                com.example.ui.screens.finance.data.LocalFinanceRepository.instance.init(this@MainActivity)
+                com.example.ui.screens.check.data.LocalCheckRepository.instance.init(this@MainActivity)
+                com.example.vehicle.data.VehicleRepository.instance.initDatabase(this@MainActivity)
+
+                lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    WeeklyBackupWorker.syncAutomaticBackups(applicationContext)
+                }
+                com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(this@MainActivity)
+                databaseInitialization.complete(Unit)
+            } catch (error: Exception) {
+                android.util.Log.e("MainActivity", "Encrypted database initialization failed; application data access remains locked.", error)
+                databaseInitializationError = true
+                databaseInitialization.completeExceptionally(error)
+            }
         }
-        com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(this)
 
         setContent {
             val preferencesRepository = remember {
@@ -147,6 +167,15 @@ class MainActivity : FragmentActivity() {
                             currentThemeMode = currentThemeMode,
                             onThemeModeChanged = preferencesRepository::setThemeMode
                         )
+                    } else if (this@MainActivity.databaseInitializationError) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            androidx.compose.material3.Text(
+                                "رمزگذاری و بررسی پایگاه داده کامل نشد. برای جلوگیری از تغییر یا از دست رفتن اطلاعات، دسترسی به داده‌ها متوقف شده است. دیتابیس اصلی حذف یا بازسازی نشده است."
+                            )
+                        }
                     } else if (this@MainActivity.restoreRecoveryError) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -176,6 +205,14 @@ class MainActivity : FragmentActivity() {
             alarmManager?.canScheduleExactAlarms() == true
         // Always inspect the durable restore journal, even when exact-alarm access is denied.
         lifecycleScope.launch {
+            try {
+                databaseInitialization.await()
+            } catch (error: Exception) {
+                restoreRecoveryReady = false
+                restoreRecoveryError = true
+                android.util.Log.e("MainActivity", "Database initialization did not complete; restore and alarm recovery were not started.", error)
+                return@launch
+            }
             val appContext = applicationContext
             // Attempt recovery before rebuilding alarms. If recovery fails, the journal
             // remains durable and the next app resume will retry it.
