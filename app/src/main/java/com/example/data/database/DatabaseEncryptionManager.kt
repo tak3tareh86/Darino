@@ -144,10 +144,8 @@ object DatabaseEncryptionManager {
             val sourceSnapshot: DatabaseSnapshot
             val sourceDb = CipherDatabase.openDatabase(
                 sourceFile.absolutePath,
-                null as ByteArray?,
                 null,
                 CipherDatabase.OPEN_READWRITE,
-                null,
                 null
             )
             try {
