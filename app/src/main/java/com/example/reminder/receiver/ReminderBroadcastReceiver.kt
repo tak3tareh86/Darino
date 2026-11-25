@@ -36,7 +36,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED,
             AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED -> {
-                goAsyncWork {
+                goAsyncWork(context.applicationContext) {
                     // Rebuild must also run after boot when no in-memory user session exists.
                     // ReminderScheduler initializes the session and can recover local schedules globally.
                     SessionManager.init(context.applicationContext)
@@ -48,14 +48,14 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                 val reminderId = intent.getStringExtra(EXTRA_REMINDER_ID) ?: return
                 val scheduleId = intent.getStringExtra(EXTRA_SCHEDULE_ID) ?: return
                 Log.i(TAG, "Received ACTION_TRIGGER_REMINDER broadcast for reminderId: $reminderId, scheduleId: $scheduleId")
-                goAsyncWork { handleTrigger(context.applicationContext, reminderId, scheduleId) }
+                goAsyncWork(context.applicationContext) { handleTrigger(context.applicationContext, reminderId, scheduleId) }
             }
 
             ACTION_COMPLETE_REMINDER -> {
                 val reminderId = intent.getStringExtra(EXTRA_REMINDER_ID) ?: return
                 val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
                 val secondaryNotificationId = intent.getIntExtra(EXTRA_SECONDARY_NOTIFICATION_ID, -1)
-                goAsyncWork { handleComplete(context.applicationContext, reminderId, notificationId, secondaryNotificationId) }
+                goAsyncWork(context.applicationContext) { handleComplete(context.applicationContext, reminderId, notificationId, secondaryNotificationId) }
             }
 
             ACTION_SNOOZE_REMINDER -> {
@@ -63,12 +63,12 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                 val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
                 val secondaryNotificationId = intent.getIntExtra(EXTRA_SECONDARY_NOTIFICATION_ID, -1)
                 val snoozeMinutes = intent.getIntExtra(EXTRA_SNOOZE_MINUTES, 15).coerceIn(1, 24 * 60)
-                goAsyncWork { handleSnooze(context.applicationContext, reminderId, notificationId, secondaryNotificationId, snoozeMinutes) }
+                goAsyncWork(context.applicationContext) { handleSnooze(context.applicationContext, reminderId, notificationId, secondaryNotificationId, snoozeMinutes) }
             }
         }
     }
 
-    private fun goAsyncWork(block: suspend () -> Unit) {
+    private fun goAsyncWork(context: Context, block: suspend () -> Unit) {
         val pendingResult = goAsync()
         scope.launch {
             try {
