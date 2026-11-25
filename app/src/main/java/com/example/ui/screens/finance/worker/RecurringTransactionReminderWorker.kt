@@ -20,6 +20,7 @@ class RecurringTransactionReminderWorker(
         val occurrenceId = inputData.getString(KEY_OCCURRENCE_ID) ?: return Result.failure()
 
         return try {
+            com.example.data.database.DatabaseEncryptionManager.initializeAndMigrate(applicationContext)
             SessionManager.init(applicationContext)
             if (SessionManager.userId != userId) return Result.success()
 
