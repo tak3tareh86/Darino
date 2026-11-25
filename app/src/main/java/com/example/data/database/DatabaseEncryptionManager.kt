@@ -220,6 +220,7 @@ object DatabaseEncryptionManager {
         check(prefs.getString(PREF_STATE, null) == STATE_READY) {
             "رمزگذاری دیتابیس هنوز کامل و اعتبارسنجی نشده است؛ دسترسی به دیتابیس مسدود شد."
         }
+        System.loadLibrary("sqlcipher")
         return decryptStoredKey(context.applicationContext)
     }
 
