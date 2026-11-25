@@ -474,6 +474,7 @@ object DatabaseEncryptionManager {
                     "SQLCipher رمزگذاری فعال را تأیید نکرد."
                 }
             }
+            assertCipherIntegrity(database)
             assertIntegrity(database, "دیتابیس رمزگذاری‌شده")
             assertNoForeignKeyViolations(database, "دیتابیس رمزگذاری‌شده")
         } finally {
@@ -485,6 +486,14 @@ object DatabaseEncryptionManager {
         return database.rawQuery(sql, null).use { cursor ->
             check(cursor.moveToFirst()) { "خواندن ویژگی‌های فایل دیتابیس ناموفق بود." }
             cursor.getLong(0)
+        }
+    }
+
+    private fun assertCipherIntegrity(database: CipherDatabase) {
+        database.rawQuery("PRAGMA cipher_integrity_check", null).use { cursor ->
+            check(!cursor.moveToFirst()) {
+                "بررسی صحت رمزنگاری صفحات دیتابیس ناموفق بود؛ نسخه اصلی حفظ شد."
+            }
         }
     }
 
