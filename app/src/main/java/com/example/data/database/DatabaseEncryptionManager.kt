@@ -109,6 +109,9 @@ object DatabaseEncryptionManager {
                 syncFile(databaseFile)
                 syncDirectory(databaseFile.parentFile ?: appContext.filesDir)
                 validateEncryptedDatabase(appContext, databaseFile, key)
+                checkpointEncryptedDatabase(databaseFile, key)
+                syncFile(databaseFile)
+                syncDirectory(databaseFile.parentFile ?: appContext.filesDir)
                 check(prefs.edit().putString(PREF_STATE, STATE_READY).commit()) {
                     "ثبت وضعیت دیتابیس جدید ناموفق بود."
                 }
@@ -187,6 +190,7 @@ object DatabaseEncryptionManager {
                 "ساختار یا تعداد رکوردهای دیتابیس رمزگذاری‌شده با منبع یکسان نیست؛ نسخه اصلی حفظ شد."
             }
             validateWithRoom(appContext, temporaryFile, key)
+            checkpointEncryptedDatabase(temporaryFile, key)
             syncFile(temporaryFile)
 
             // Atomic same-directory rename keeps the plaintext source recoverable on interruption.
@@ -214,6 +218,8 @@ object DatabaseEncryptionManager {
             // Keep the plaintext backup until the final Room open against the installed path succeeds.
             validateEncryptedDatabase(appContext, databaseFile, key)
             validateWithRoom(appContext, databaseFile, key)
+            checkpointEncryptedDatabase(databaseFile, key)
+            syncFile(databaseFile)
             if (plaintextBackup.exists() && !plaintextBackup.delete()) {
                 throw IllegalStateException("دیتابیس رمزگذاری شد اما نسخه بدون رمزگذاری قابل حذف نیست؛ برنامه برای حفاظت از داده‌ها متوقف شد.")
             }
@@ -411,6 +417,38 @@ object DatabaseEncryptionManager {
             }
         } finally {
             database.close()
+        }
+    }
+
+    private fun checkpointEncryptedDatabase(file: File, key: ByteArray) {
+        val database = CipherDatabase.openDatabase(
+            file.absolutePath,
+            key,
+            null,
+            CipherDatabase.OPEN_READWRITE,
+            null,
+            null
+        )
+        try {
+            database.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { cursor ->
+                check(cursor.moveToFirst() && cursor.getInt(0) == 0 && cursor.getInt(1) == cursor.getInt(2)) {
+                    "ثبت تغییرات WAL دیتابیس رمزگذاری‌شده کامل نشد؛ نسخه اصلی بدون رمزگذاری حفظ شد."
+                }
+            }
+        } finally {
+            database.close()
+        }
+        val walFile = File(file.absolutePath + "-wal")
+        val shmFile = File(file.absolutePath + "-shm")
+        if (walFile.exists()) {
+            check(walFile.length() == 0L && walFile.delete()) {
+                "WAL دیتابیس رمزگذاری‌شده پس از checkpoint قابل پاک‌سازی نیست."
+            }
+        }
+        if (shmFile.exists()) {
+            check(shmFile.delete()) {
+                "SHM دیتابیس رمزگذاری‌شده قابل پاک‌سازی نیست."
+            }
         }
     }
 
