@@ -44,10 +44,19 @@ class DatabaseEncryptionMigrationTest {
             "finance_app_database"
         ).build()
         try {
-            plaintextRoom.openHelper.writableDatabase.execSQL(
+            val plainDatabase = plaintextRoom.openHelper.writableDatabase
+            plainDatabase.execSQL(
                 "INSERT INTO user_preferences (userId, numberDisplayMode, updatedAt) " +
                     "VALUES ('migration-test-user', 'PERSIAN', 123)"
             )
+            // Preserve AUTOINCREMENT high-water marks even when the highest row was deleted.
+            plainDatabase.execSQL(
+                "INSERT INTO checks (id, userId, type, amount, amountUnit, checkNumber, bankName, " +
+                    "holderName, receiverName, issueDate, dueDate, status, createdAt, updatedAt) " +
+                    "VALUES (777, 'migration-test-user', 'RECEIVED', 1, 'TOMAN', 'migration-check', " +
+                    "'test-bank', 'holder', 'receiver', 1, 2, 'REGISTERED', 1, 1)"
+            )
+            plainDatabase.execSQL("DELETE FROM checks WHERE id = 777")
         } finally {
             plaintextRoom.close()
         }
@@ -66,6 +75,18 @@ class DatabaseEncryptionMigrationTest {
             }
         } finally {
             encryptedRoom.close()
+        }
+
+        val encryptedSequenceDb = AppDatabase.getDatabase(context)
+        try {
+            encryptedSequenceDb.openHelper.readableDatabase.query(
+                "SELECT seq FROM sqlite_sequence WHERE name = 'checks'"
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(777L, cursor.getLong(0))
+            }
+        } finally {
+            encryptedSequenceDb.close()
         }
 
         assertFalse("Plaintext backup must be removed after the first successful Room open.", plaintextBackup.exists())
