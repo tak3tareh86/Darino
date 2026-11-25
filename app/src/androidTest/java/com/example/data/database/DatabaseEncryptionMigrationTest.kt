@@ -128,6 +128,8 @@ class DatabaseEncryptionMigrationTest {
         assertFalse("Recovery must remove the plaintext backup only after Room validation.", plaintextBackup.exists())
         assertFalse("Recovery must consume the temporary encrypted file.", temporaryFile.exists())
         legacySnapshot.delete()
+        val headerBeforeKeyLoss = ByteArray(16)
+        RandomAccessFile(databaseFile, "r").use { it.readFully(headerBeforeKeyLoss) }
 
         // Losing the wrapped key must not recreate or replace the encrypted database.
         prefs.edit().remove("wrapped_database_key").commit()
@@ -141,6 +143,6 @@ class DatabaseEncryptionMigrationTest {
         assertTrue("Encrypted database must remain on disk after key loss.", databaseFile.isFile)
         val headerAfterKeyLoss = ByteArray(16)
         RandomAccessFile(databaseFile, "r").use { it.readFully(headerAfterKeyLoss) }
-        assertTrue(header.contentEquals(headerAfterKeyLoss))
+        assertTrue(headerBeforeKeyLoss.contentEquals(headerAfterKeyLoss))
     }
 }
