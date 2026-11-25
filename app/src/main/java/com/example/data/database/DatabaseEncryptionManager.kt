@@ -2,6 +2,8 @@ package com.example.data.database
 
 import android.content.Context
 import android.os.StatFs
+import android.system.Os
+import android.system.OsConstants
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -104,6 +106,8 @@ object DatabaseEncryptionManager {
                 } finally {
                     encryptedDb.close()
                 }
+                syncFile(databaseFile)
+                syncDirectory(databaseFile.parentFile ?: appContext.filesDir)
                 validateEncryptedDatabase(appContext, databaseFile, key)
                 check(prefs.edit().putString(PREF_STATE, STATE_READY).commit()) {
                     "ثبت وضعیت دیتابیس جدید ناموفق بود."
@@ -163,12 +167,14 @@ object DatabaseEncryptionManager {
                 sourceDb.close()
             }
 
+            syncFile(temporaryFile)
             validateEncryptedDatabase(appContext, temporaryFile, key)
             val encryptedSnapshot = openCipherSnapshot(temporaryFile, key)
             check(sourceSnapshot == encryptedSnapshot) {
                 "ساختار یا تعداد رکوردهای دیتابیس رمزگذاری‌شده با منبع یکسان نیست؛ نسخه اصلی حفظ شد."
             }
             validateWithRoom(appContext, temporaryFile, key)
+            syncFile(temporaryFile)
 
             // Atomic same-directory rename keeps the plaintext source recoverable on interruption.
             if (databaseFile.exists()) {
@@ -178,6 +184,7 @@ object DatabaseEncryptionManager {
                 check(databaseFile.renameTo(plaintextBackup)) {
                     "انتقال دیتابیس اصلی به نسخه محافظت‌شده ناموفق بود؛ دیتابیس اصلی حفظ شد."
                 }
+                syncDirectory(databaseFile.parentFile ?: appContext.filesDir)
             }
             if (!temporaryFile.renameTo(databaseFile)) {
                 if (!databaseFile.exists() && plaintextBackup.exists()) {
@@ -185,6 +192,7 @@ object DatabaseEncryptionManager {
                 }
                 throw IllegalStateException("جایگزینی دیتابیس رمزگذاری‌شده ناموفق بود؛ نسخه اصلی حفظ شد.")
             }
+            syncDirectory(databaseFile.parentFile ?: appContext.filesDir)
 
             check(prefs.edit().putString(PREF_STATE, STATE_INSTALLED).commit()) {
                 "ثبت وضعیت نصب دیتابیس رمزگذاری‌شده ناموفق بود."
@@ -196,6 +204,7 @@ object DatabaseEncryptionManager {
             if (plaintextBackup.exists() && !plaintextBackup.delete()) {
                 throw IllegalStateException("دیتابیس رمزگذاری شد اما نسخه بدون رمزگذاری قابل حذف نیست؛ برنامه برای حفاظت از داده‌ها متوقف شد.")
             }
+            syncDirectory(databaseFile.parentFile ?: appContext.filesDir)
             check(prefs.edit().putString(PREF_STATE, STATE_READY).commit()) {
                 "ثبت وضعیت نهایی رمزگذاری دیتابیس ناموفق بود."
             }
@@ -338,6 +347,19 @@ object DatabaseEncryptionManager {
             check(shmFile.delete()) {
                 "فایل موقت SHM قابل پاک‌سازی نیست؛ دیتابیس اصلی حفظ شد."
             }
+        }
+    }
+
+    private fun syncFile(file: File) {
+        RandomAccessFile(file, "rw").use { it.fd.sync() }
+    }
+
+    private fun syncDirectory(directory: File) {
+        val descriptor = Os.open(directory.absolutePath, OsConstants.O_RDONLY, 0)
+        try {
+            Os.fsync(descriptor)
+        } finally {
+            Os.close(descriptor)
         }
     }
 
