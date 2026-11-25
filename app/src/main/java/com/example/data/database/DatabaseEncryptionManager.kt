@@ -242,6 +242,10 @@ object DatabaseEncryptionManager {
         check(prefs.getString(PREF_STATE, null) == STATE_READY) {
             "رمزگذاری دیتابیس هنوز کامل و اعتبارسنجی نشده است؛ دسترسی به دیتابیس مسدود شد."
         }
+        val databaseFile = context.applicationContext.getDatabasePath(DATABASE_NAME)
+        check(databaseFile.isFile && databaseFile.length() > 16L && !hasPlaintextSQLiteHeader(databaseFile)) {
+            "فایل دیتابیس رمزگذاری‌شده موجود یا معتبر نیست؛ از ایجاد خودکار دیتابیس خالی جلوگیری شد."
+        }
         System.loadLibrary("sqlcipher")
         return decryptStoredKey(context.applicationContext)
     }
