@@ -273,7 +273,7 @@ object DatabaseEncryptionManager {
             STATE_NEW_DATABASE
         }
         val randomKey = ByteArray(32).also { SecureRandom().nextBytes(it) }
-        val passphrase = randomKey.joinToString("") { "%02x".format(it) }
+        val passphrase = randomKey.joinToString("") { "%02x".format(it.toInt() and 0xff) }
             .toByteArray(StandardCharsets.UTF_8)
         val secretKey = getOrCreateWrappingKey(context)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -318,6 +318,7 @@ object DatabaseEncryptionManager {
                 KEY_ALIAS,
                 KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
             )
+                .setKeySize(256)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setRandomizedEncryptionRequired(true)
