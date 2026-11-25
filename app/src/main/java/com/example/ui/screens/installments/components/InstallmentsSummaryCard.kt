@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccessTime
@@ -228,41 +227,33 @@ fun InstallmentsSummaryCard(
                                 tint = FinanceTeal
                             )
                             Text(
-                                text = "${AppNumberFormatter.formatDigits(summary.activeCount.toString(), numberMode)} مورد فعال",
+                                text = "وام‌های فعال: ${AppNumberFormatter.formatDigits(summary.activeCount.toString(), numberMode)} مورد",
                                 style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
                                 color = FinanceTeal
                             )
                         }
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFF153D69).copy(alpha = 0.78f),
+                        contentColor = FinanceText
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF153D69).copy(alpha = 0.88f)),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.AccessTime,
                                 contentDescription = null,
                                 tint = FinanceTeal,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(16.dp)
                             )
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text(
-                                text = "قسط بعدی",
+                                text = "قسط بعدی : ${AppNumberFormatter.formatDigits(summary.nextDueText, numberMode)}",
                                 color = FinanceText,
-                                style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp)
-                            )
-                            Text(
-                                text = AppNumberFormatter.formatDigits(summary.nextDueText, numberMode),
-                                color = FinanceMuted.copy(alpha = 0.92f),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
