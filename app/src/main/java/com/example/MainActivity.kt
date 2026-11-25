@@ -88,6 +88,7 @@ class MainActivity : FragmentActivity() {
     private var restoreRecoveryReady by mutableStateOf(false)
     private var restoreRecoveryError by mutableStateOf(false)
     private var databaseInitializationError by mutableStateOf(false)
+    private var databaseInitializationErrorMessage by mutableStateOf("")
     private val databaseInitialization = CompletableDeferred<Unit>()
 
     override fun onStart() {
@@ -133,6 +134,8 @@ class MainActivity : FragmentActivity() {
                 databaseInitialization.complete(Unit)
             } catch (error: Exception) {
                 android.util.Log.e("MainActivity", "Encrypted database initialization failed; application data access remains locked.", error)
+                databaseInitializationErrorMessage = error.localizedMessage
+                    ?: "خطای نامشخص در راه‌اندازی امن پایگاه داده رخ داد."
                 databaseInitializationError = true
                 databaseInitialization.completeExceptionally(error)
             }
@@ -173,7 +176,7 @@ class MainActivity : FragmentActivity() {
                             contentAlignment = Alignment.Center
                         ) {
                             androidx.compose.material3.Text(
-                                "رمزگذاری و بررسی پایگاه داده کامل نشد. برای جلوگیری از تغییر یا از دست رفتن اطلاعات، دسترسی به داده‌ها متوقف شده است. دیتابیس اصلی حذف یا بازسازی نشده است."
+                                "راه‌اندازی امن پایگاه داده کامل نشد. دسترسی به اطلاعات برای جلوگیری از آسیب متوقف شده است. دیتابیس اصلی حذف یا بازسازی نشده است.\n\nعلت: ${this@MainActivity.databaseInitializationErrorMessage}"
                             )
                         }
                     } else if (this@MainActivity.restoreRecoveryError) {
