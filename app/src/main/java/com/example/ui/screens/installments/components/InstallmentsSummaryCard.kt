@@ -118,9 +118,9 @@ fun InstallmentsSummaryCard(
                 .background(
                     Brush.linearGradient(
                         colors = listOf(
-                            Color(0xFF071A38),
-                            Color(0xFF062947),
-                            Color(0xFF063B3C)
+                            Color(0xFF06142D),
+                            Color(0xFF05233D),
+                            Color(0xFF053033)
                         )
                     )
                 )
@@ -143,9 +143,9 @@ fun InstallmentsSummaryCard(
                     path = upperWave,
                     brush = Brush.linearGradient(
                         listOf(
-                            Color(0xFF1A4D77).copy(alpha = 0.10f),
-                            FinanceTeal.copy(alpha = 0.17f),
-                            Color(0xFF16C9B2).copy(alpha = 0.035f)
+                            Color(0xFF153D66).copy(alpha = 0.13f),
+                            FinanceTeal.copy(alpha = 0.13f),
+                            Color(0xFF10A994).copy(alpha = 0.045f)
                         )
                     )
                 )
@@ -162,8 +162,8 @@ fun InstallmentsSummaryCard(
                     path = lowerWave,
                     brush = Brush.linearGradient(
                         colors = listOf(
-                            Color(0xFF1265B7).copy(alpha = 0.13f),
-                            Color(0xFF12CDBB).copy(alpha = 0.11f)
+                            Color(0xFF104F91).copy(alpha = 0.16f),
+                            Color(0xFF0B9F91).copy(alpha = 0.13f)
                         )
                     )
                 )
@@ -177,8 +177,8 @@ fun InstallmentsSummaryCard(
                     path = waveHighlight,
                     brush = Brush.linearGradient(
                         listOf(
-                            Color(0xFF2A83E8).copy(alpha = 0.16f),
-                            FinanceTeal.copy(alpha = 0.30f)
+                            Color(0xFF246FC4).copy(alpha = 0.13f),
+                            FinanceTeal.copy(alpha = 0.24f)
                         )
                     ),
                     style = Stroke(width = 1.2.dp.toPx())
@@ -187,9 +187,9 @@ fun InstallmentsSummaryCard(
                 drawRoundRect(
                     brush = Brush.linearGradient(
                         listOf(
-                            Color(0xFF4C91F4).copy(alpha = 0.42f),
-                            Color(0xFF1D829A).copy(alpha = 0.28f),
-                            FinanceTeal.copy(alpha = 0.64f)
+                            Color(0xFF3976C4).copy(alpha = 0.34f),
+                            Color(0xFF176B7E).copy(alpha = 0.24f),
+                            FinanceTeal.copy(alpha = 0.48f)
                         )
                     ),
                     style = Stroke(width = 1.dp.toPx()),
@@ -212,7 +212,7 @@ fun InstallmentsSummaryCard(
                     // In RTL layout the first child is placed at the right edge.
                     Surface(
                         shape = RoundedCornerShape(50),
-                        color = FinanceTeal.copy(alpha = 0.13f),
+                        color = FinanceTeal.copy(alpha = 0.09f),
                         contentColor = FinanceTeal
                     ) {
                         Row(
@@ -236,7 +236,7 @@ fun InstallmentsSummaryCard(
 
                     Surface(
                         shape = RoundedCornerShape(50),
-                        color = Color(0xFF153D69).copy(alpha = 0.78f),
+                        color = Color(0xFF102F53).copy(alpha = 0.88f),
                         contentColor = FinanceText
                     ) {
                         Row(
@@ -306,7 +306,7 @@ fun InstallmentsSummaryCard(
                         icon = Icons.Rounded.CheckCircle,
                         accent = FinanceMint,
                         background = Brush.linearGradient(
-                            listOf(Color(0xFF087A68).copy(alpha = 0.94f), Color(0xFF064C4B).copy(alpha = 0.96f))
+                            listOf(Color(0xFF075D53).copy(alpha = 0.97f), Color(0xFF043B3B).copy(alpha = 0.99f))
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -317,7 +317,7 @@ fun InstallmentsSummaryCard(
                         icon = Icons.Rounded.Payments,
                         accent = Color(0xFF75A9FF),
                         background = Brush.linearGradient(
-                            listOf(Color(0xFF123E87).copy(alpha = 0.94f), Color(0xFF092B60).copy(alpha = 0.96f))
+                            listOf(Color(0xFF10336F).copy(alpha = 0.97f), Color(0xFF071F4A).copy(alpha = 0.99f))
                         ),
                         modifier = Modifier.weight(1f)
                     )
