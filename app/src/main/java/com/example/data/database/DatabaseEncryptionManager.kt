@@ -314,8 +314,8 @@ object DatabaseEncryptionManager {
             android.database.sqlite.SQLiteDatabase.OPEN_READWRITE
         )
         try {
-            database.rawQuery("PRAGMA wal_checkpoint(FULL)", null).use { cursor ->
-                check(cursor.moveToFirst() && cursor.getInt(0) == 0) {
+            database.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { cursor ->
+                check(cursor.moveToFirst() && cursor.getInt(0) == 0 && cursor.getInt(1) == cursor.getInt(2)) {
                     "ثبت تغییرات WAL کامل نشد؛ مهاجرت متوقف شد و دیتابیس اصلی حفظ شد."
                 }
             }
