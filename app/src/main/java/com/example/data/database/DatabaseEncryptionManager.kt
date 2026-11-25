@@ -85,6 +85,7 @@ object DatabaseEncryptionManager {
                 if (plaintextBackup.exists() && !plaintextBackup.delete()) {
                     throw IllegalStateException("نسخه موقت بدون رمزگذاری پس از اعتبارسنجی قابل حذف نیست.")
                 }
+                syncDirectory(databaseFile.parentFile ?: appContext.filesDir)
                 check(prefs.edit().putString(PREF_STATE, STATE_READY).commit()) {
                     "ثبت وضعیت نهایی رمزگذاری دیتابیس ناموفق بود."
                 }
