@@ -34,7 +34,8 @@ object DatabaseEncryptionManager {
     private const val PREF_WRAPPED_KEY = "wrapped_database_key"
     private const val PREF_STATE = "migration_state"
     private const val KEY_ALIAS = "darino_database_key_v1"
-    private const val STATE_KEY_READY = "KEY_READY"
+    private const val STATE_KEY_READY = "KEY_READY_EXISTING_DATABASE"
+    private const val STATE_NEW_DATABASE = "NEW_DATABASE_PENDING"
     private const val STATE_MIGRATING = "MIGRATING"
     private const val STATE_INSTALLED = "ENCRYPTED_INSTALLED"
     private const val STATE_READY = "READY"
@@ -60,11 +61,14 @@ object DatabaseEncryptionManager {
 
             val state = prefs.getString(PREF_STATE, null)
             if (!databaseFile.exists() && !plaintextBackup.exists() &&
-                (state == STATE_READY || state == STATE_INSTALLED)
+                state != null && state != STATE_NEW_DATABASE
             ) {
                 throw IllegalStateException("دیتابیس ثبت‌شده پیدا نشد؛ برای جلوگیری از ساخت دیتابیس خالی، برنامه متوقف شد.")
             }
             val key = loadOrCreateDatabaseKey(appContext, databaseFile, temporaryFile, plaintextBackup)
+            if (databaseFile.exists() && hasPlaintextSQLiteHeader(databaseFile) && state == STATE_NEW_DATABASE) {
+                throw IllegalStateException("وضعیت پایگاه داده جدید با فایل قدیمی سازگار نیست؛ هیچ فایلی تغییر نکرد.")
+            }
 
             if (databaseFile.exists() && !hasPlaintextSQLiteHeader(databaseFile)) {
                 validateEncryptedDatabase(appContext, databaseFile, key)
@@ -227,6 +231,11 @@ object DatabaseEncryptionManager {
             throw IllegalStateException("کلید رمزگذاری دیتابیس مفقود است؛ هیچ دیتابیسی حذف یا بازسازی نشد.")
         }
 
+        val initialState = if (databaseFile.exists() || plaintextBackup.exists()) {
+            STATE_KEY_READY
+        } else {
+            STATE_NEW_DATABASE
+        }
         val randomKey = ByteArray(32).also { SecureRandom().nextBytes(it) }
         val passphrase = randomKey.joinToString("") { "%02x".format(it) }
             .toByteArray(StandardCharsets.UTF_8)
@@ -239,7 +248,7 @@ object DatabaseEncryptionManager {
         check(
             prefs.edit()
                 .putString(PREF_WRAPPED_KEY, payload)
-                .putString(PREF_STATE, STATE_KEY_READY)
+                .putString(PREF_STATE, initialState)
                 .commit()
         ) { "ذخیره امن کلید دیتابیس ناموفق بود." }
         randomKey.fill(0)
