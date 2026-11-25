@@ -9,7 +9,6 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -57,9 +56,7 @@ import com.example.ui.screens.home.components.UpcomingRemindersCard
 import com.example.ui.screens.home.domain.ObligationType
 import com.example.ui.screens.home.viewmodel.HomeDashboardViewModel
 import com.example.ui.screens.home.viewmodel.SmsAcceptResult
-import com.example.BuildConfig
 import com.example.ui.screens.subscription.SubscriptionStatusCard
-import com.example.ui.screens.subscription.SubscriptionLockedScreen
 import com.example.ui.screens.subscription.SubscriptionViewModel
 import kotlinx.coroutines.launch
 
@@ -77,7 +74,6 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val subState by subscriptionViewModel.uiState.collectAsState()
-    var showDebugExpiredScreen by remember { mutableStateOf(false) }
     var pendingInstallmentPaymentId by remember { mutableStateOf<String?>(null) }
     val smsPermissionState by viewModel.smsPermissionState.collectAsState()
     val isScanningSms by viewModel.isScanningSms.collectAsState()
@@ -191,16 +187,6 @@ fun HomeScreen(
         }
     }
 
-    if (BuildConfig.DEBUG && showDebugExpiredScreen) {
-        BackHandler(enabled = true) {
-            showDebugExpiredScreen = false
-        }
-        SubscriptionLockedScreen(
-            viewModel = subscriptionViewModel,
-            forceLockedForDebug = true,
-            forceAnnualExpiryForDebug = true
-        )
-    } else {
     Scaffold(
         modifier = modifier
             .fillMaxSize()
@@ -254,9 +240,6 @@ fun HomeScreen(
                         onRestoreClick = { subscriptionViewModel.manualRestorePurchase() },
                         isPurchaseLoading = subState.isLoading,
                         isRestoreLoading = subState.isSyncing,
-                        onDebugLongPress = if (BuildConfig.DEBUG) {
-                            { showDebugExpiredScreen = true }
-                        } else null,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
 
@@ -406,7 +389,6 @@ fun HomeScreen(
                 }
             }
         }
-    }
     }
 
 
