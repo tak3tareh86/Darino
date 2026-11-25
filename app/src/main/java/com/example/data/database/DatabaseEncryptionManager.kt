@@ -157,10 +157,9 @@ object DatabaseEncryptionManager {
             }
 
             checkpointPlaintextDatabase(sourceFile)
-            // A stale encrypted temp is discarded only after the preflight has passed.
-            if (temporaryFile.exists() && !temporaryFile.delete()) {
-                throw IllegalStateException("فایل موقت مهاجرت قبلی قابل پاک‌سازی نیست؛ دیتابیس اصلی حفظ شد.")
-            }
+            // A stale encrypted temp is disposable only while the validated plaintext
+            // source remains intact. Remove its main file and every SQLite sidecar.
+            deleteDatabaseArtifacts(temporaryFile)
 
             check(prefs.edit().putString(PREF_STATE, STATE_MIGRATING).commit()) {
                 "ثبت وضعیت شروع مهاجرت ناموفق بود."
@@ -287,7 +286,7 @@ object DatabaseEncryptionManager {
 
         // Never generate a replacement key for an encrypted or interrupted database.
         if ((databaseFile.exists() && !hasPlaintextSQLiteHeader(databaseFile)) ||
-            temporaryFile.exists() || plaintextBackup.exists()
+            hasAnyDatabaseArtifact(temporaryFile) || plaintextBackup.exists()
         ) {
             throw IllegalStateException("کلید رمزگذاری دیتابیس مفقود است؛ هیچ دیتابیسی حذف یا بازسازی نشد.")
         }
@@ -412,24 +411,40 @@ object DatabaseEncryptionManager {
         }
     }
 
+    private fun databaseSidecars(file: File): List<File> = listOf(
+        File(file.absolutePath + "-wal"),
+        File(file.absolutePath + "-shm"),
+        File(file.absolutePath + "-journal")
+    )
+
+    private fun hasAnyDatabaseArtifact(file: File): Boolean =
+        file.exists() || databaseSidecars(file).any { it.exists() }
+
+    private fun deleteDatabaseArtifacts(file: File) {
+        (listOf(file) + databaseSidecars(file)).forEach { artifact ->
+            if (artifact.exists() && !artifact.delete()) {
+                throw IllegalStateException(
+                    "فایل موقت دیتابیس یا فایل جانبی آن قابل پاک‌سازی نیست؛ نسخه اصلی حفظ شد: ${artifact.name}"
+                )
+            }
+        }
+    }
+
     private fun checkAvailableSpace(file: File, reclaimableTemporaryFile: File) {
         val stat = StatFs(file.parentFile?.absolutePath ?: file.absolutePath)
-        val walFile = File(file.absolutePath + "-wal")
-        val shmFile = File(file.absolutePath + "-shm")
-        val sourceFootprint = Math.addExact(
-            file.length(),
-            Math.addExact(
-                if (walFile.isFile) walFile.length() else 0L,
-                if (shmFile.isFile) shmFile.length() else 0L
-            )
-        )
+        val sourceSidecars = databaseSidecars(file)
+        val sourceFootprint = sourceSidecars.fold(file.length()) { total, sidecar ->
+            Math.addExact(total, if (sidecar.isFile) sidecar.length() else 0L)
+        }
         val required = Math.addExact(Math.multiplyExact(sourceFootprint, 2L), MIN_FREE_SPACE_BYTES)
-        // The stale temp can be reclaimed only after this check succeeds. Until then,
-        // its bytes are included in the capacity calculation without deleting the file.
-        val availableIncludingReclaimableTemp = Math.addExact(
-            stat.availableBytes,
+        // A stale temp and its SQLite sidecars are reclaimable only after this
+        // preflight succeeds. Until then, every existing file remains untouched.
+        val reclaimableBytes = databaseSidecars(reclaimableTemporaryFile).fold(
             if (reclaimableTemporaryFile.isFile) reclaimableTemporaryFile.length() else 0L
-        )
+        ) { total, sidecar ->
+            Math.addExact(total, if (sidecar.isFile) sidecar.length() else 0L)
+        }
+        val availableIncludingReclaimableTemp = Math.addExact(stat.availableBytes, reclaimableBytes)
         check(availableIncludingReclaimableTemp >= required) {
             "فضای خالی برای رمزگذاری امن دیتابیس کافی نیست؛ هیچ فایل یا تنظیم مهاجرتی تغییر نکرد و پس از آزادسازی فضا می‌توان دوباره تلاش کرد."
         }

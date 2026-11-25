@@ -100,9 +100,16 @@ class DatabaseEncryptionMigrationTest {
         // the encrypted temporary file was installed. Recovery must resume from the backup.
         legacySnapshot.copyTo(plaintextBackup, overwrite = true)
         databaseFile.copyTo(temporaryFile, overwrite = true)
+        // Simulate stale SQLite sidecars left beside the encrypted temp after process death.
+        File(temporaryFile.absolutePath + "-wal").writeBytes(byteArrayOf(1, 2, 3))
+        File(temporaryFile.absolutePath + "-shm").writeBytes(byteArrayOf(4, 5, 6))
+        File(temporaryFile.absolutePath + "-journal").writeBytes(byteArrayOf(7, 8, 9))
         assertTrue("Test setup must remove the main database file.", databaseFile.delete())
         prefs.edit().putString("migration_state", "MIGRATING").commit()
         DatabaseEncryptionManager.initializeAndMigrate(context)
+        assertFalse("Recovery must remove stale encrypted WAL sidecars.", File(temporaryFile.absolutePath + "-wal").exists())
+        assertFalse("Recovery must remove stale encrypted SHM sidecars.", File(temporaryFile.absolutePath + "-shm").exists())
+        assertFalse("Recovery must remove stale encrypted journal sidecars.", File(temporaryFile.absolutePath + "-journal").exists())
 
         val recoveredRoom = AppDatabase.buildEncrypted(
             context,
