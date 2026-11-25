@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -59,7 +57,6 @@ fun SubscriptionStatusCard(
     onRestoreClick: () -> Unit = {},
     isPurchaseLoading: Boolean = false,
     isRestoreLoading: Boolean = false,
-    onDebugLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val info = state.info
@@ -244,7 +241,7 @@ fun SubscriptionStatusCard(
                                     shape = CircleShape,
                                     color = Color(0xFFF59E0B).copy(alpha = 0.25f),
                                     border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.8f)),
-                                    modifier = Modifier.size(34.dp).then(if (onDebugLongPress != null) Modifier.pointerInput(onDebugLongPress) { detectTapGestures(onLongPress = { onDebugLongPress() }) } else Modifier)
+                                    modifier = Modifier.size(34.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
