@@ -52,6 +52,7 @@ class WeeklyBackupWorker(
         }
 
         return try {
+            com.example.data.database.DatabaseEncryptionManager.initializeAndMigrate(applicationContext)
             val backupRepo = LocalBackupRepository(applicationContext)
             val backup = backupRepo.createBackup()
 
