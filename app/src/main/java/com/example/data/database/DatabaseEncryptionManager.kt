@@ -386,6 +386,7 @@ object DatabaseEncryptionManager {
         }
         val walFile = File(file.absolutePath + "-wal")
         val shmFile = File(file.absolutePath + "-shm")
+        val journalFile = File(file.absolutePath + "-journal")
         if (walFile.exists()) {
             check(walFile.length() == 0L && walFile.delete()) {
                 "فایل WAL پس از checkpoint هنوز داده دارد یا قابل پاک‌سازی نیست؛ دیتابیس اصلی حفظ شد."
@@ -394,6 +395,11 @@ object DatabaseEncryptionManager {
         if (shmFile.exists()) {
             check(shmFile.delete()) {
                 "فایل موقت SHM قابل پاک‌سازی نیست؛ دیتابیس اصلی حفظ شد."
+            }
+        }
+        if (journalFile.exists()) {
+            check(journalFile.delete()) {
+                "فایل Journal پس از checkpoint قابل پاک‌سازی نیست؛ دیتابیس اصلی حفظ شد."
             }
         }
     }
@@ -499,6 +505,7 @@ object DatabaseEncryptionManager {
         }
         val walFile = File(file.absolutePath + "-wal")
         val shmFile = File(file.absolutePath + "-shm")
+        val journalFile = File(file.absolutePath + "-journal")
         if (walFile.exists()) {
             check(walFile.length() == 0L && walFile.delete()) {
                 "WAL دیتابیس رمزگذاری‌شده پس از checkpoint قابل پاک‌سازی نیست."
@@ -507,6 +514,11 @@ object DatabaseEncryptionManager {
         if (shmFile.exists()) {
             check(shmFile.delete()) {
                 "SHM دیتابیس رمزگذاری‌شده قابل پاک‌سازی نیست."
+            }
+        }
+        if (journalFile.exists()) {
+            check(journalFile.delete()) {
+                "Journal دیتابیس رمزگذاری‌شده قابل پاک‌سازی نیست."
             }
         }
     }
