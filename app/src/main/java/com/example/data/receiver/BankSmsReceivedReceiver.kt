@@ -22,6 +22,7 @@ class BankSmsReceivedReceiver : BroadcastReceiver() {
         val appContext = context.applicationContext
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
+                com.example.data.database.DatabaseEncryptionManager.initializeAndMigrate(appContext)
                 SessionManager.init(appContext)
                 val userId = SessionManager.userId ?: return@launch
                 val repository = BankSmsRepository.getInstance(appContext)
