@@ -152,7 +152,7 @@ object DatabaseEncryptionManager {
                 throw IllegalStateException("وضعیت فایل دیتابیس با وضعیت مهاجرت سازگار نیست؛ هیچ فایلی تغییر نکرد.")
             }
 
-            if (state == STATE_READY || state == STATE_INSTALLED) {
+            if (state == STATE_READY) {
                 throw IllegalStateException("وضعیت رمزگذاری با محتوای فایل دیتابیس همخوانی ندارد؛ برای جلوگیری از بازگشت ناامن، دیتابیس باز نشد.")
             }
 
