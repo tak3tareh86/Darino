@@ -182,8 +182,8 @@ fun InstallmentsSummaryCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 15.dp, vertical = 15.dp),
-                verticalArrangement = Arrangement.spacedBy(15.dp)
+                    .padding(horizontal = 15.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Header
                 Row(
@@ -266,15 +266,15 @@ fun InstallmentsSummaryCard(
                         )
                     ) {
                         Column(
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 11.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.AccessTime,
                                 contentDescription = null,
                                 tint = FinanceTeal,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                             Text(
                                 text = "قسط بعدی",
@@ -318,7 +318,7 @@ fun InstallmentsSummaryCard(
                     ProgressRing(
                         progress = progress.toFloat(),
                         progressText = progressText,
-                        modifier = Modifier.size(94.dp)
+                        modifier = Modifier.size(76.dp)
                     )
                 }
 
@@ -414,14 +414,14 @@ private fun SummaryMetricPanel(
         Row(
             modifier = Modifier
                 .background(background)
-                .padding(horizontal = 10.dp, vertical = 13.dp),
+                .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(35.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(11.dp))
                     .background(accent.copy(alpha = 0.16f)),
                 contentAlignment = Alignment.Center
             ) {
