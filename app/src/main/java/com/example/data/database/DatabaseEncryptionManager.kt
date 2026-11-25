@@ -38,7 +38,8 @@ object DatabaseEncryptionManager {
     private const val PREF_STATE = "migration_state"
     private const val KEY_ALIAS = "darino_database_key_v1"
     private const val STATE_KEY_READY = "KEY_READY_EXISTING_DATABASE"
-    private const val STATE_NEW_DATABASE = "NEW_DATABASE_PENDING"
+    private const val STATE_NEW_DATABASE_PENDING = "NEW_DATABASE_PENDING"
+    private const val STATE_NEW_DATABASE_CREATED = "NEW_DATABASE_CREATED"
     private const val STATE_MIGRATING = "MIGRATING"
     private const val STATE_INSTALLED = "ENCRYPTED_INSTALLED"
     private const val STATE_READY = "READY"
@@ -63,8 +64,16 @@ object DatabaseEncryptionManager {
             val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
             val state = prefs.getString(PREF_STATE, null)
+            val keyWasAlreadyStored = prefs.contains(PREF_WRAPPED_KEY)
             if (!databaseFile.exists() && !plaintextBackup.exists() &&
-                state != null && state != STATE_NEW_DATABASE
+                (
+                    state == STATE_READY ||
+                    state == STATE_INSTALLED ||
+                    state == STATE_KEY_READY ||
+                    state == STATE_MIGRATING ||
+                    state == STATE_NEW_DATABASE_CREATED ||
+                    (state == null && keyWasAlreadyStored)
+                )
             ) {
                 throw IllegalStateException("دیتابیس ثبت‌شده پیدا نشد؛ برای جلوگیری از ساخت دیتابیس خالی، برنامه متوقف شد.")
             }
@@ -123,6 +132,9 @@ object DatabaseEncryptionManager {
                 }
                 syncFile(databaseFile)
                 syncDirectory(databaseFile.parentFile ?: appContext.filesDir)
+                check(prefs.edit().putString(PREF_STATE, STATE_NEW_DATABASE_CREATED).commit()) {
+                    "ثبت وضعیت ایجاد پایگاه داده رمزگذاری‌شده ناموفق بود."
+                }
                 validateEncryptedDatabase(appContext, databaseFile, key)
                 checkpointEncryptedDatabase(databaseFile, key)
                 syncFile(databaseFile)
@@ -281,7 +293,7 @@ object DatabaseEncryptionManager {
         val initialState = if (databaseFile.exists() || plaintextBackup.exists()) {
             STATE_KEY_READY
         } else {
-            STATE_NEW_DATABASE
+            STATE_NEW_DATABASE_PENDING
         }
         val randomKey = ByteArray(32).also { SecureRandom().nextBytes(it) }
         val passphrase = randomKey.joinToString("") { "%02x".format(it.toInt() and 0xff) }
