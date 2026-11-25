@@ -79,6 +79,8 @@ object DatabaseEncryptionManager {
                 }
                 validateEncryptedDatabase(appContext, databaseFile, key)
                 validateWithRoom(appContext, databaseFile, key)
+                checkpointEncryptedDatabase(databaseFile, key)
+                syncFile(databaseFile)
                 // A plaintext copy is retained until this first successful encrypted Room open.
                 if (plaintextBackup.exists() && !plaintextBackup.delete()) {
                     throw IllegalStateException("نسخه موقت بدون رمزگذاری پس از اعتبارسنجی قابل حذف نیست.")
