@@ -68,6 +68,17 @@ object DatabaseEncryptionManager {
             ) {
                 throw IllegalStateException("دیتابیس ثبت‌شده پیدا نشد؛ برای جلوگیری از ساخت دیتابیس خالی، برنامه متوقف شد.")
             }
+
+            // Check capacity before generating key metadata, checkpointing SQLite,
+            // or deleting a stale encrypted temp. Low-space exits preserve every file.
+            val plaintextSourceForPreflight = when {
+                databaseFile.exists() && hasPlaintextSQLiteHeader(databaseFile) -> databaseFile
+                !databaseFile.exists() && plaintextBackup.exists() &&
+                    hasPlaintextSQLiteHeader(plaintextBackup) -> plaintextBackup
+                else -> null
+            }
+            plaintextSourceForPreflight?.let { checkAvailableSpace(it, temporaryFile) }
+
             val key = loadOrCreateDatabaseKey(appContext, databaseFile, temporaryFile, plaintextBackup)
             if (databaseFile.exists() && hasPlaintextSQLiteHeader(databaseFile) && state == STATE_NEW_DATABASE) {
                 throw IllegalStateException("وضعیت پایگاه داده جدید با فایل قدیمی سازگار نیست؛ هیچ فایلی تغییر نکرد.")
@@ -132,12 +143,10 @@ object DatabaseEncryptionManager {
             }
 
             checkpointPlaintextDatabase(sourceFile)
-            // A stale encrypted temp is disposable while the original plaintext source is intact.
-            // Remove it before measuring free space so crash recovery does not reserve space twice.
+            // A stale encrypted temp is discarded only after the preflight has passed.
             if (temporaryFile.exists() && !temporaryFile.delete()) {
                 throw IllegalStateException("فایل موقت مهاجرت قبلی قابل پاک‌سازی نیست؛ دیتابیس اصلی حفظ شد.")
             }
-            checkAvailableSpace(sourceFile)
 
             check(prefs.edit().putString(PREF_STATE, STATE_MIGRATING).commit()) {
                 "ثبت وضعیت شروع مهاجرت ناموفق بود."
@@ -389,11 +398,26 @@ object DatabaseEncryptionManager {
         }
     }
 
-    private fun checkAvailableSpace(file: File) {
+    private fun checkAvailableSpace(file: File, reclaimableTemporaryFile: File) {
         val stat = StatFs(file.parentFile?.absolutePath ?: file.absolutePath)
-        val required = Math.addExact(Math.multiplyExact(file.length(), 2L), MIN_FREE_SPACE_BYTES)
-        check(stat.availableBytes >= required) {
-            "فضای خالی برای رمزگذاری امن دیتابیس کافی نیست؛ تمام اطلاعات حفظ شدند و امکان تلاش مجدد پس از آزادسازی فضا وجود دارد."
+        val walFile = File(file.absolutePath + "-wal")
+        val shmFile = File(file.absolutePath + "-shm")
+        val sourceFootprint = Math.addExact(
+            file.length(),
+            Math.addExact(
+                if (walFile.isFile) walFile.length() else 0L,
+                if (shmFile.isFile) shmFile.length() else 0L
+            )
+        )
+        val required = Math.addExact(Math.multiplyExact(sourceFootprint, 2L), MIN_FREE_SPACE_BYTES)
+        // The stale temp can be reclaimed only after this check succeeds. Until then,
+        // its bytes are included in the capacity calculation without deleting the file.
+        val availableIncludingReclaimableTemp = Math.addExact(
+            stat.availableBytes,
+            if (reclaimableTemporaryFile.isFile) reclaimableTemporaryFile.length() else 0L
+        )
+        check(availableIncludingReclaimableTemp >= required) {
+            "فضای خالی برای رمزگذاری امن دیتابیس کافی نیست؛ هیچ فایل یا تنظیم مهاجرتی تغییر نکرد و پس از آزادسازی فضا می‌توان دوباره تلاش کرد."
         }
     }
 
