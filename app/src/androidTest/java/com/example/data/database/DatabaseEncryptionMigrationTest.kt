@@ -184,6 +184,11 @@ class DatabaseEncryptionMigrationTest {
             targetContext.getDatabasePath(DATABASE_NAME).canonicalPath,
             databaseFile.canonicalPath
         )
+        assertNotEquals(
+            "Instrumentation tests must use a different Android UID so Keystore aliases cannot affect Darino.",
+            targetContext.applicationInfo.uid,
+            context.applicationInfo.uid
+        )
     }
 
     private fun clearIsolatedTestArtifacts() {
