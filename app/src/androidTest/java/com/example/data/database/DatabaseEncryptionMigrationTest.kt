@@ -240,6 +240,7 @@ class DatabaseEncryptionMigrationTest {
         RandomAccessFile(databaseFile, "r").use { it.readFully(headerBeforeKeyLoss) }
 
         // Losing the wrapped key must not recreate or replace the encrypted database.
+        val wrappedKeyBeforeKeyLoss = checkNotNull(prefs.getString(PREF_WRAPPED_KEY, null))
         prefs.edit().remove(PREF_WRAPPED_KEY).commit()
         var failedClosed = false
         try {
@@ -253,10 +254,10 @@ class DatabaseEncryptionMigrationTest {
         RandomAccessFile(databaseFile, "r").use { it.readFully(headerAfterKeyLoss) }
         assertTrue(headerBeforeKeyLoss.contentEquals(headerAfterKeyLoss))
 
-        // A missing Android Keystore wrapping key must also fail closed while preserving
-        // both the encrypted database and its still-present wrapped-key metadata.
-        val wrappedKeyBeforeKeystoreLoss = checkNotNull(prefs.getString(PREF_WRAPPED_KEY, null))
-        check(prefs.edit().putString(PREF_WRAPPED_KEY, wrappedKeyBeforeKeystoreLoss).commit())
+        // Restore the original wrapped key metadata, then independently simulate loss
+        // of the Android Keystore key that protects it.
+        check(prefs.edit().putString(PREF_WRAPPED_KEY, wrappedKeyBeforeKeyLoss).commit())
+        val wrappedKeyBeforeKeystoreLoss = wrappedKeyBeforeKeyLoss
         KeyStore.getInstance("AndroidKeyStore").apply {
             load(null)
             check(containsAlias(KEY_ALIAS))
