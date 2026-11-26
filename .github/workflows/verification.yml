@@ -31,10 +31,12 @@ jobs:
         run: keytool -genkeypair -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
       - name: Android debug build (existing unit-test policy)
         run: ./gradlew --no-daemon :app:assembleDebug --stacktrace
+      - name: Grant emulator access to KVM
+        run: |
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
       - name: SQLCipher migration instrumentation test
         uses: reactivecircus/android-emulator-runner@v2
-        env:
-          ANDROID_I_WANT_MY_TCG: "yes"
         with:
           api-level: 35
           target: google_apis
