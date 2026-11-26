@@ -61,6 +61,14 @@ object DatabaseEncryptionManager {
             val databaseFile = appContext.getDatabasePath(DATABASE_NAME)
             val temporaryFile = File(databaseFile.parentFile, DATABASE_NAME + ".encrypted.tmp")
             val plaintextBackup = File(databaseFile.parentFile, DATABASE_NAME + ".plaintext.bak")
+            // An orphaned WAL/SHM/journal file without its owning database is an
+            // ambiguous interrupted state. Never treat it as a clean first install.
+            check(
+                !hasOrphanedDatabaseSidecars(databaseFile) &&
+                    !hasOrphanedDatabaseSidecars(plaintextBackup)
+            ) {
+                "فایل جانبی دیتابیس بدون فایل اصلی پیدا شد؛ برای جلوگیری از ساخت دیتابیس خالی، برنامه متوقف شد."
+            }
             val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
             val state = prefs.getString(PREF_STATE, null)
@@ -425,6 +433,9 @@ object DatabaseEncryptionManager {
 
     private fun hasAnyDatabaseArtifact(file: File): Boolean =
         file.exists() || databaseSidecars(file).any { it.exists() }
+
+    private fun hasOrphanedDatabaseSidecars(file: File): Boolean =
+        !file.exists() && databaseSidecars(file).any { it.exists() }
 
     private fun deleteDatabaseArtifacts(file: File) {
         (listOf(file) + databaseSidecars(file)).forEach { artifact ->

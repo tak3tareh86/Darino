@@ -1,6 +1,7 @@
 package com.example.data.database
 
 import android.content.Context
+import android.os.Process
 import androidx.room.Room
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -22,11 +23,11 @@ import java.security.KeyStore
 class DatabaseEncryptionMigrationTest {
 
     /**
-     * Instrumentation APK context has its own package data directory and UID-scoped
-     * Android Keystore. Never use targetContext here: it points at real Darino data.
+     * Tests target the dedicated migrationTest application variant. Its package ID and
+     * runtime UID are isolated from the installed production Darino application.
      */
     private val context: Context
-        get() = InstrumentationRegistry.getInstrumentation().context
+        get() = InstrumentationRegistry.getInstrumentation().targetContext
 
     private val databaseFile: File
         get() = context.getDatabasePath(DATABASE_NAME)
@@ -50,6 +51,35 @@ class DatabaseEncryptionMigrationTest {
     fun cleanIsolatedTestStorage() {
         assertTestStorageIsIsolated()
         clearIsolatedTestArtifacts()
+    }
+
+    @Test
+    fun refusesToCreateFreshDatabaseWhenOrphanedSidecarsExist() = runBlocking {
+        val orphanedArtifacts = listOf(
+            File(databaseFile.absolutePath + "-wal"),
+            File(plaintextBackup.absolutePath + "-shm")
+        )
+
+        orphanedArtifacts.forEach { orphanedArtifact ->
+            check(orphanedArtifact.parentFile?.exists() == true || orphanedArtifact.parentFile?.mkdirs() == true)
+            orphanedArtifact.writeBytes(byteArrayOf(1, 2, 3, 4))
+
+            var initializationRejected = false
+            try {
+                DatabaseEncryptionManager.initializeAndMigrate(context)
+            } catch (_: IllegalStateException) {
+                initializationRejected = true
+            }
+
+            assertTrue("An orphaned database sidecar must stop initialization.", initializationRejected)
+            assertFalse("No empty database may be created when only a sidecar exists.", databaseFile.exists())
+            assertFalse("No plaintext backup may be fabricated.", plaintextBackup.exists())
+            assertTrue("The orphaned sidecar must remain untouched for recovery.", orphanedArtifact.exists())
+            assertFalse("A database key must not be generated for an ambiguous database state.", prefs.contains(PREF_WRAPPED_KEY))
+            assertFalse("Migration state must not be advanced for an ambiguous database state.", prefs.contains(PREF_STATE))
+
+            check(orphanedArtifact.delete())
+        }
     }
 
     @Test
@@ -170,24 +200,45 @@ class DatabaseEncryptionMigrationTest {
         val headerAfterKeyLoss = ByteArray(16)
         RandomAccessFile(databaseFile, "r").use { it.readFully(headerAfterKeyLoss) }
         assertTrue(headerBeforeKeyLoss.contentEquals(headerAfterKeyLoss))
+
+        // A missing Android Keystore wrapping key must also fail closed while preserving
+        // both the encrypted database and its still-present wrapped-key metadata.
+        val wrappedKeyBeforeKeystoreLoss = checkNotNull(prefs.getString(PREF_WRAPPED_KEY, null))
+        check(prefs.edit().putString(PREF_WRAPPED_KEY, wrappedKeyBeforeKeystoreLoss).commit())
+        KeyStore.getInstance("AndroidKeyStore").apply {
+            load(null)
+            check(containsAlias(KEY_ALIAS))
+            deleteEntry(KEY_ALIAS)
+        }
+        var failedClosedOnKeystoreLoss = false
+        try {
+            DatabaseEncryptionManager.initializeAndMigrate(context)
+        } catch (_: IllegalStateException) {
+            failedClosedOnKeystoreLoss = true
+        }
+        assertTrue("Missing Android Keystore key must stop database initialization.", failedClosedOnKeystoreLoss)
+        assertTrue("Encrypted database must remain after Android Keystore key loss.", databaseFile.isFile)
+        val headerAfterKeystoreLoss = ByteArray(16)
+        RandomAccessFile(databaseFile, "r").use { it.readFully(headerAfterKeystoreLoss) }
+        assertTrue(headerBeforeKeyLoss.contentEquals(headerAfterKeystoreLoss))
+        assertEquals(wrappedKeyBeforeKeystoreLoss, prefs.getString(PREF_WRAPPED_KEY, null))
     }
 
     private fun assertTestStorageIsIsolated() {
-        val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertNotEquals(
-            "Instrumentation tests must not run with the Darino application package context.",
-            targetContext.packageName,
+        assertEquals(
+            "Migration tests must run under the dedicated migrationTest application ID.",
+            MIGRATION_TEST_APPLICATION_ID,
             context.packageName
         )
         assertNotEquals(
-            "Instrumentation database path must never resolve to the installed Darino database.",
-            targetContext.getDatabasePath(DATABASE_NAME).canonicalPath,
-            databaseFile.canonicalPath
+            "Migration tests must never target the production Darino application ID.",
+            PRODUCTION_APPLICATION_ID,
+            context.packageName
         )
-        assertNotEquals(
-            "Instrumentation tests must use a different Android UID so Keystore aliases cannot affect Darino.",
-            targetContext.applicationInfo.uid,
-            context.applicationInfo.uid
+        assertEquals(
+            "Android Keystore operations must execute under the isolated target application's UID.",
+            context.applicationInfo.uid,
+            Process.myUid()
         )
     }
 
@@ -215,6 +266,8 @@ class DatabaseEncryptionMigrationTest {
     }
 
     private companion object {
+        const val PRODUCTION_APPLICATION_ID = "com.aistudio.financemanager.vkqjxp"
+        const val MIGRATION_TEST_APPLICATION_ID = "com.aistudio.financemanager.vkqjxp.migrationtest"
         const val DATABASE_NAME = "finance_app_database"
         const val PREFS_NAME = "darino_database_encryption"
         const val PREF_WRAPPED_KEY = "wrapped_database_key"
