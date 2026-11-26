@@ -2,6 +2,7 @@ package com.example.data.database
 
 import android.content.Context
 import android.os.Process
+import android.util.Log
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import androidx.room.Room
@@ -92,6 +93,22 @@ class DatabaseEncryptionMigrationTest {
         )
         generator.generateKey()
 
+        val keyStoreAfterGeneration = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        Log.e(
+            "DatabaseMigrationTest",
+            "WRAPPING_KEY_DIAG package=${context.packageName} uid=${Process.myUid()} " +
+                "targetUid=${context.applicationInfo.uid} aliasPresent=${keyStoreAfterGeneration.containsAlias(KEY_ALIAS)} " +
+                "dbPath=${databaseFile.absolutePath} dbExists=${databaseFile.exists()} " +
+                "prefsState=${prefs.getString(PREF_STATE, null)} wrappedKeyPresent=${prefs.contains(PREF_WRAPPED_KEY)}"
+        )
+        assertTrue(
+            "Test precondition failed: generated Android Keystore alias is not visible to the migration process.",
+            keyStoreAfterGeneration.containsAlias(KEY_ALIAS)
+        )
+        assertFalse("Test precondition failed: database must be absent before orphan-key scenario.", databaseFile.exists())
+        assertFalse("Test precondition failed: migration preferences must be empty.", prefs.contains(PREF_STATE))
+        assertFalse("Test precondition failed: wrapped key metadata must be absent.", prefs.contains(PREF_WRAPPED_KEY))
+
         var initializationRejected = false
         try {
             DatabaseEncryptionManager.initializeAndMigrate(context)
@@ -115,6 +132,20 @@ class DatabaseEncryptionMigrationTest {
         orphanedArtifacts.forEach { orphanedArtifact ->
             check(orphanedArtifact.parentFile?.exists() == true || orphanedArtifact.parentFile?.mkdirs() == true)
             orphanedArtifact.writeBytes(byteArrayOf(1, 2, 3, 4))
+
+            Log.e(
+                "DatabaseMigrationTest",
+                "SIDECAR_DIAG package=${context.packageName} uid=${Process.myUid()} " +
+                    "dbPath=${databaseFile.absolutePath} dbExists=${databaseFile.exists()} " +
+                    "dbLength=${if (databaseFile.isFile) databaseFile.length() else -1L} " +
+                    "sidecarPath=${orphanedArtifact.absolutePath} sidecarExists=${orphanedArtifact.exists()} " +
+                    "backupPath=${plaintextBackup.absolutePath}"
+            )
+            assertTrue("Test precondition failed: sidecar was not created.", orphanedArtifact.isFile)
+            assertTrue(
+                "Test precondition failed: sidecar owner file unexpectedly exists and is non-empty.",
+                !databaseFile.isFile || databaseFile.length() <= 16L
+            )
 
             var initializationRejected = false
             try {
