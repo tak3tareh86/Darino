@@ -189,6 +189,20 @@ object DatabaseEncryptionManager {
                 val sourceApplicationId = readPragmaLong(sourceDb, "PRAGMA main.application_id")
                 val sourceSecureDelete = readPragmaLong(sourceDb, "PRAGMA main.secure_delete")
 
+                // Reserve the destination inside the app-private database directory before
+                // ATTACH. This makes filesystem creation failures explicit while the plaintext
+                // source is still intact, instead of relying on SQLite to create the file implicitly.
+                val temporaryDirectory = temporaryFile.parentFile
+                check(
+                    temporaryDirectory != null &&
+                        (temporaryDirectory.isDirectory || temporaryDirectory.mkdirs()) &&
+                        temporaryDirectory.canWrite()
+                ) {
+                    "پوشه موقت رمزگذاری دیتابیس قابل دسترسی نیست؛ دیتابیس اصلی حفظ شد."
+                }
+                check(!temporaryFile.exists() && temporaryFile.createNewFile()) {
+                    "فایل موقت رمزگذاری دیتابیس قابل ایجاد نیست؛ دیتابیس اصلی حفظ شد."
+                }
                 val escapedPath = temporaryFile.absolutePath.replace("'", "''")
                 sourceDb.execSQL(
                     "ATTACH DATABASE '" + escapedPath + "' AS encrypted KEY '" +
@@ -434,8 +448,15 @@ object DatabaseEncryptionManager {
     private fun hasAnyDatabaseArtifact(file: File): Boolean =
         file.exists() || databaseSidecars(file).any { it.exists() }
 
-    private fun hasOrphanedDatabaseSidecars(file: File): Boolean =
-        !file.exists() && databaseSidecars(file).any { it.exists() }
+    private fun hasOrphanedDatabaseSidecars(file: File): Boolean {
+        val sidecarsExist = databaseSidecars(file).any { it.exists() }
+        if (!sidecarsExist) return false
+
+        // A zero-length/truncated placeholder is not a recoverable database owner
+        // for WAL/SHM/journal files. Treat it as ambiguous rather than initializing
+        // over it and silently accepting an orphaned sidecar set.
+        return !file.isFile || file.length() <= 16L
+    }
 
     private fun hasExistingWrappingKey(): Boolean {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
