@@ -2,6 +2,8 @@ package com.example.data.database
 
 import android.content.Context
 import android.os.Process
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import androidx.room.Room
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -18,6 +20,7 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
+import javax.crypto.KeyGenerator
 
 @RunWith(AndroidJUnit4::class)
 class DatabaseEncryptionMigrationTest {
@@ -51,6 +54,55 @@ class DatabaseEncryptionMigrationTest {
     fun cleanIsolatedTestStorage() {
         assertTestStorageIsIsolated()
         clearIsolatedTestArtifacts()
+    }
+
+    @Test
+    fun refusesToCreateFreshDatabaseWhenMigrationStateIsUnknown() = runBlocking {
+        check(prefs.edit()
+            .putString(PREF_STATE, "UNKNOWN_MIGRATION_STATE")
+            .putString(PREF_WRAPPED_KEY, "unreadable-placeholder")
+            .commit())
+
+        var initializationRejected = false
+        try {
+            DatabaseEncryptionManager.initializeAndMigrate(context)
+        } catch (_: IllegalStateException) {
+            initializationRejected = true
+        }
+
+        assertTrue("An unknown persisted migration state must fail closed.", initializationRejected)
+        assertFalse("An unknown state must never trigger creation of an empty database.", databaseFile.exists())
+        assertEquals("UNKNOWN_MIGRATION_STATE", prefs.getString(PREF_STATE, null))
+        assertEquals("unreadable-placeholder", prefs.getString(PREF_WRAPPED_KEY, null))
+    }
+
+    @Test
+    fun refusesFreshDatabaseCreationWhenWrappingKeyExistsWithoutMetadata() = runBlocking {
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        generator.init(
+            KeyGenParameterSpec.Builder(
+                KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+            )
+                .setKeySize(256)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setRandomizedEncryptionRequired(true)
+                .build()
+        )
+        generator.generateKey()
+
+        var initializationRejected = false
+        try {
+            DatabaseEncryptionManager.initializeAndMigrate(context)
+        } catch (_: IllegalStateException) {
+            initializationRejected = true
+        }
+
+        assertTrue("An orphaned wrapping key must prevent silent database recreation.", initializationRejected)
+        assertFalse("An orphaned wrapping key must not result in a new database.", databaseFile.exists())
+        assertFalse("No new wrapped key metadata may be generated.", prefs.contains(PREF_WRAPPED_KEY))
+        assertFalse("No migration state may be fabricated.", prefs.contains(PREF_STATE))
     }
 
     @Test

@@ -73,17 +73,17 @@ object DatabaseEncryptionManager {
 
             val state = prefs.getString(PREF_STATE, null)
             val keyWasAlreadyStored = prefs.contains(PREF_WRAPPED_KEY)
-            if (!databaseFile.exists() && !plaintextBackup.exists() &&
-                (
-                    state == STATE_READY ||
-                    state == STATE_INSTALLED ||
-                    state == STATE_KEY_READY ||
-                    state == STATE_MIGRATING ||
-                    state == STATE_NEW_DATABASE_CREATED ||
-                    (state == null && keyWasAlreadyStored)
+            val noRecoverableDatabase = !databaseFile.exists() && !plaintextBackup.exists()
+            if (noRecoverableDatabase && (
+                    (state != null && state != STATE_NEW_DATABASE_PENDING) ||
+                    (state == null && keyWasAlreadyStored) ||
+                    (state == null && !keyWasAlreadyStored && hasExistingWrappingKey()) ||
+                    hasOrphanedDatabaseSidecars(temporaryFile)
                 )
             ) {
-                throw IllegalStateException("دیتابیس ثبت‌شده پیدا نشد؛ برای جلوگیری از ساخت دیتابیس خالی، برنامه متوقف شد.")
+                throw IllegalStateException(
+                    "وضعیت یا کلید قبلی دیتابیس بدون فایل قابل بازیابی پیدا شد؛ برای جلوگیری از ساخت دیتابیس خالی، برنامه متوقف شد."
+                )
             }
 
             // Check capacity before generating key metadata, checkpointing SQLite,
@@ -436,6 +436,11 @@ object DatabaseEncryptionManager {
 
     private fun hasOrphanedDatabaseSidecars(file: File): Boolean =
         !file.exists() && databaseSidecars(file).any { it.exists() }
+
+    private fun hasExistingWrappingKey(): Boolean {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        return keyStore.containsAlias(KEY_ALIAS)
+    }
 
     private fun deleteDatabaseArtifacts(file: File) {
         (listOf(file) + databaseSidecars(file)).forEach { artifact ->
