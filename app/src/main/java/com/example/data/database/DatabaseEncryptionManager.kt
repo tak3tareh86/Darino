@@ -204,23 +204,39 @@ object DatabaseEncryptionManager {
                     "فایل موقت رمزگذاری دیتابیس قابل ایجاد نیست؛ دیتابیس اصلی حفظ شد."
                 }
                 val escapedPath = temporaryFile.absolutePath.replace("'", "''")
-                sourceDb.execSQL(
+                executeMigrationStatement(
+                    sourceDb,
+                    "ATTACH encrypted destination",
                     "ATTACH DATABASE '" + escapedPath + "' AS encrypted KEY '" +
                         String(key, StandardCharsets.UTF_8) + "'"
                 )
                 try {
                     // sqlcipher_export does not copy auto_vacuum or user_version.
                     // Set target storage properties before creating the exported schema.
-                    sourceDb.execSQL("PRAGMA encrypted.auto_vacuum = " + sourceAutoVacuum)
-                    sourceDb.execSQL("PRAGMA encrypted.secure_delete = " + sourceSecureDelete)
+                    executeMigrationStatement(
+                        sourceDb, "set encrypted.auto_vacuum",
+                        "PRAGMA encrypted.auto_vacuum = " + sourceAutoVacuum
+                    )
+                    executeMigrationStatement(
+                        sourceDb, "set encrypted.secure_delete",
+                        "PRAGMA encrypted.secure_delete = " + sourceSecureDelete
+                    )
                     sourceDb.rawQuery("SELECT sqlcipher_export('encrypted')", null).use { cursor ->
                         check(cursor.moveToFirst()) { "انتقال اطلاعات به دیتابیس رمزگذاری‌شده ناموفق بود." }
                     }
                     assertRowsEquivalent(sourceDb)
-                    sourceDb.execSQL("PRAGMA encrypted.application_id = " + sourceApplicationId)
-                    sourceDb.execSQL("PRAGMA encrypted.user_version = " + sourceVersion)
+                    executeMigrationStatement(
+                        sourceDb, "set encrypted.application_id",
+                        "PRAGMA encrypted.application_id = " + sourceApplicationId
+                    )
+                    executeMigrationStatement(
+                        sourceDb, "set encrypted.user_version",
+                        "PRAGMA encrypted.user_version = " + sourceVersion
+                    )
                 } finally {
-                    sourceDb.execSQL("DETACH DATABASE encrypted")
+                    executeMigrationStatement(
+                        sourceDb, "DETACH encrypted destination", "DETACH DATABASE encrypted"
+                    )
                 }
             } finally {
                 sourceDb.close()
@@ -581,6 +597,22 @@ object DatabaseEncryptionManager {
             assertNoForeignKeyViolations(database, "دیتابیس رمزگذاری‌شده")
         } finally {
             database.close()
+        }
+    }
+
+    /**
+     * Diagnostic wrapper: preserves the SQL operation and adds its exact label to
+     * instrumentation failures so unsupported execSQL statements can be identified.
+     */
+    private fun executeMigrationStatement(
+        database: CipherDatabase,
+        label: String,
+        sql: String
+    ) {
+        try {
+            database.execSQL(sql)
+        } catch (error: Exception) {
+            throw IllegalStateException("SQLCipher migration statement failed [$label]: $sql", error)
         }
     }
 
