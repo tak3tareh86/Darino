@@ -59,6 +59,10 @@ class DatabaseEncryptionMigrationTest {
 
     @Test
     fun refusesToCreateFreshDatabaseWhenMigrationStateIsUnknown() = runBlocking {
+        // Re-establish the empty-state precondition immediately before this scenario.
+        clearIsolatedTestArtifacts()
+        assertFalse("Test isolation failed: database file remains after cleanup.", databaseFile.exists())
+        assertFalse("Test isolation failed: plaintext backup remains after cleanup.", plaintextBackup.exists())
         check(prefs.edit()
             .putString(PREF_STATE, "UNKNOWN_MIGRATION_STATE")
             .putString(PREF_WRAPPED_KEY, "unreadable-placeholder")
@@ -79,6 +83,10 @@ class DatabaseEncryptionMigrationTest {
 
     @Test
     fun refusesFreshDatabaseCreationWhenWrappingKeyExistsWithoutMetadata() = runBlocking {
+        // Re-establish the empty-state precondition immediately before this scenario.
+        clearIsolatedTestArtifacts()
+        assertFalse("Test isolation failed: database file remains after cleanup.", databaseFile.exists())
+        assertFalse("Test isolation failed: plaintext backup remains after cleanup.", plaintextBackup.exists())
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
         generator.init(
             KeyGenParameterSpec.Builder(
@@ -347,6 +355,9 @@ class DatabaseEncryptionMigrationTest {
             load(null)
             if (containsAlias(KEY_ALIAS)) deleteEntry(KEY_ALIAS)
         }
+        check(!databaseFile.exists()) { "Isolated database file survived test cleanup: ${databaseFile.absolutePath}" }
+        check(!temporaryFile.exists()) { "Encrypted temporary file survived test cleanup: ${temporaryFile.absolutePath}" }
+        check(!plaintextBackup.exists()) { "Plaintext backup survived test cleanup: ${plaintextBackup.absolutePath}" }
     }
 
     private companion object {
