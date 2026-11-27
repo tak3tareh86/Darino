@@ -644,7 +644,7 @@ object DatabaseEncryptionManager {
      * Diagnostic wrapper: preserves the SQL operation and adds its exact label to
      * instrumentation failures so unsupported execSQL statements can be identified.
      */
-    private fun executeMigrationStatement(
+    internal fun executeMigrationStatement(
         database: CipherDatabase,
         label: String,
         sql: String
