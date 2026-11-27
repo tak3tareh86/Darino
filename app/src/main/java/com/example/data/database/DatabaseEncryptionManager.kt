@@ -273,6 +273,10 @@ object DatabaseEncryptionManager {
             }
             // Ensure the source has no residual plaintext WAL/SHM sidecars before the file swap.
             checkpointPlaintextDatabase(sourceFile)
+            // Persist the fully checkpointed plaintext source before the atomic rename
+            // that moves it to the recovery backup. This strengthens power-loss durability.
+            syncFile(sourceFile)
+            syncDirectory(sourceFile.parentFile ?: appContext.filesDir)
 
             syncFile(temporaryFile)
             validateEncryptedDatabase(appContext, temporaryFile, key)
@@ -648,14 +652,10 @@ object DatabaseEncryptionManager {
         try {
             database.execSQL(sql)
         } catch (error: Exception) {
-            // Never include the SQL text here: ATTACH embeds the database passphrase.
-            // Preserve diagnostic value without exposing statement contents or key material.
-            val causeTypes = generateSequence(error as Throwable?) { it.cause }
-                .map { it.javaClass.simpleName }
-                .joinToString(" <- ")
+            // Native SQLite errors may echo the ATTACH statement, which contains the key.
+            // Do not retain the original exception as a cause: its message can reach Logcat.
             throw IllegalStateException(
-                "SQLCipher migration statement failed [$label] (cause=$causeTypes)",
-                error
+                "SQLCipher migration statement failed [$label] (${error.javaClass.simpleName})"
             )
         }
     }
@@ -678,7 +678,10 @@ object DatabaseEncryptionManager {
                 }
             }
         } catch (error: Exception) {
-            throw IllegalStateException("SQLCipher migration PRAGMA failed [$label]: $sql", error)
+            // Never include SQL or retain the native cause; diagnostics must not expose SQL text.
+            throw IllegalStateException(
+                "SQLCipher migration PRAGMA failed [$label] (${error.javaClass.simpleName})"
+            )
         }
     }
 
