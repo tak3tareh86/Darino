@@ -173,6 +173,38 @@ class DatabaseEncryptionMigrationTest {
     }
 
     @Test
+    fun sqlCipherMigrationErrorsDoNotRetainSensitiveSqlOrNativeCause() {
+        val file = File(context.cacheDir, "sqlcipher-error-sanitization.db")
+        val key = ByteArray(32) { index -> index.toByte() }
+        val database = CipherDatabase.openOrCreateDatabase(file.absolutePath, key, null, null)
+        try {
+            val sensitiveMarker = "SENSITIVE_SQL_MARKER_92A7"
+            val failure = try {
+                DatabaseEncryptionManager.executeMigrationStatement(
+                    database,
+                    "sanitization test",
+                    "SELECT '$sensitiveMarker'"
+                )
+                null
+            } catch (error: IllegalStateException) {
+                error
+            }
+            assertTrue("The deliberately invalid execSQL statement must fail.", failure != null)
+            assertFalse(
+                "The wrapper message must not include SQL text.",
+                checkNotNull(failure).message.orEmpty().contains(sensitiveMarker)
+            )
+            assertTrue(
+                "The native exception must not be retained as a cause.",
+                checkNotNull(failure).cause == null
+            )
+        } finally {
+            database.close()
+            file.delete()
+        }
+    }
+
+    @Test
     fun insufficientStoragePreflightPreservesSourceTempAndMigrationMetadata() = runBlocking {
         val plaintextRoom = Room.databaseBuilder(
             context,
