@@ -633,11 +633,13 @@ object DatabaseEncryptionManager {
         try {
             database.execSQL(sql)
         } catch (error: Exception) {
-            val causeMessage = generateSequence(error as Throwable?) { it.cause }
-                .mapNotNull { it.message }
+            // Never include the SQL text here: ATTACH embeds the database passphrase.
+            // Preserve diagnostic value without exposing statement contents or key material.
+            val causeTypes = generateSequence(error as Throwable?) { it.cause }
+                .map { it.javaClass.simpleName }
                 .joinToString(" <- ")
             throw IllegalStateException(
-                "SQLCipher migration statement failed [$label]: $sql; cause=$causeMessage",
+                "SQLCipher migration statement failed [$label] (cause=$causeTypes)",
                 error
             )
         }
