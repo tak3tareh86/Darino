@@ -233,6 +233,30 @@ class DatabaseEncryptionMigrationTest {
                     "'test-bank', 'holder', 'receiver', 1, 2, 'REGISTERED', 1, 1)"
             )
             plainDatabase.execSQL("DELETE FROM checks WHERE id = 777")
+
+            // Synthetic migration fixture covers NULL, BLOB, REAL, repeated values,
+            // and a real foreign-key relationship without touching production data.
+            plainDatabase.execSQL(
+                "CREATE TABLE migration_fixture_parent (" +
+                    "parentId TEXT NOT NULL PRIMARY KEY)"
+            )
+            plainDatabase.execSQL(
+                "CREATE TABLE migration_fixture_rows (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "parentId TEXT NOT NULL, nullableText TEXT, realValue REAL NOT NULL, " +
+                    "blobValue BLOB, repeatedValue TEXT NOT NULL, " +
+                    "FOREIGN KEY(parentId) REFERENCES migration_fixture_parent(parentId) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE)"
+            )
+            plainDatabase.execSQL(
+                "INSERT INTO migration_fixture_parent(parentId) VALUES ('fixture-parent')"
+            )
+            plainDatabase.execSQL(
+                "INSERT INTO migration_fixture_rows " +
+                    "(id, parentId, nullableText, realValue, blobValue, repeatedValue) VALUES " +
+                    "(1, 'fixture-parent', NULL, 1.25, X'00FF10', 'same-value'), " +
+                    "(2, 'fixture-parent', 'optional-text', -2.5, X'FF0001', 'same-value')"
+            )
         } finally {
             plaintextRoom.close()
         }
@@ -256,6 +280,27 @@ class DatabaseEncryptionMigrationTest {
                 assertTrue(cursor.moveToFirst())
                 assertEquals(777L, cursor.getLong(0))
             }
+            encryptedRoom.openHelper.readableDatabase.query(
+                "SELECT id, nullableText, realValue, hex(blobValue), repeatedValue " +
+                    "FROM migration_fixture_rows ORDER BY id"
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1L, cursor.getLong(0))
+                assertTrue(cursor.isNull(1))
+                assertEquals(1.25, cursor.getDouble(2), 0.0)
+                assertEquals("00FF10", cursor.getString(3))
+                assertEquals("same-value", cursor.getString(4))
+                assertTrue(cursor.moveToNext())
+                assertEquals(2L, cursor.getLong(0))
+                assertEquals("optional-text", cursor.getString(1))
+                assertEquals(-2.5, cursor.getDouble(2), 0.0)
+                assertEquals("FF0001", cursor.getString(3))
+                assertEquals("same-value", cursor.getString(4))
+                assertFalse(cursor.moveToNext())
+            }
+            encryptedRoom.openHelper.readableDatabase.query(
+                "PRAGMA foreign_key_check"
+            ).use { cursor -> assertFalse("Synthetic fixture foreign keys must remain valid.", cursor.moveToFirst()) }
         } finally {
             encryptedRoom.close()
         }
