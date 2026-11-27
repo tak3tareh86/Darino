@@ -538,7 +538,9 @@ object DatabaseEncryptionManager {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         // Check for the actual secret-key entry, not only the alias metadata.
         // An orphaned key must block first-install database creation.
-        return keyStore.getKey(KEY_ALIAS, null) is SecretKey
+        // Any surviving alias is evidence of a prior encryption attempt. Treat it
+        // as an orphan even if Android Keystore cannot currently unwrap the entry.
+        return keyStore.containsAlias(KEY_ALIAS)
     }
 
     private fun deleteDatabaseArtifacts(file: File) {
