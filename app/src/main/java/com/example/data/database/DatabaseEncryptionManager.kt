@@ -200,8 +200,14 @@ object DatabaseEncryptionManager {
                 ) {
                     "پوشه موقت رمزگذاری دیتابیس قابل دسترسی نیست؛ دیتابیس اصلی حفظ شد."
                 }
+                // Probe that the directory can create files, then remove the empty
+                // placeholder. SQLCipher ATTACH must create and initialize the encrypted
+                // destination itself; an existing zero-byte file can be rejected as NOTADB.
                 check(!temporaryFile.exists() && temporaryFile.createNewFile()) {
                     "فایل موقت رمزگذاری دیتابیس قابل ایجاد نیست؛ دیتابیس اصلی حفظ شد."
+                }
+                check(temporaryFile.delete()) {
+                    "فایل آزمایشی موقت دیتابیس قابل حذف نیست؛ دیتابیس اصلی حفظ شد."
                 }
                 val escapedPath = temporaryFile.absolutePath.replace("'", "''")
                 executeMigrationStatement(
@@ -626,7 +632,13 @@ object DatabaseEncryptionManager {
         sql: String
     ) {
         try {
-            database.rawQuery(sql, null).use { /* consume and close any returned cursor */ }
+            database.rawQuery(sql, null).use { cursor ->
+                // rawQuery executes lazily; advancing the cursor ensures the PRAGMA
+                // assignment is actually applied before the encrypted export proceeds.
+                while (cursor.moveToNext()) {
+                    // PRAGMA assignments normally return no rows; drain any result safely.
+                }
+            }
         } catch (error: Exception) {
             throw IllegalStateException("SQLCipher migration PRAGMA failed [$label]: $sql", error)
         }
