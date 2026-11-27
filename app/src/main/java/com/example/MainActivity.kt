@@ -218,7 +218,11 @@ class MainActivity : FragmentActivity() {
             } catch (error: Exception) {
                 restoreRecoveryReady = false
                 restoreRecoveryError = true
-                android.util.Log.e("MainActivity", "Database initialization did not complete; restore and alarm recovery were not started.", error)
+                // The awaited failure may originate from SQLCipher migration; never log its throwable.
+                android.util.Log.e(
+                    "MainActivity",
+                    "Database initialization did not complete; restore and alarm recovery were not started."
+                )
                 return@launch
             }
             val appContext = applicationContext
