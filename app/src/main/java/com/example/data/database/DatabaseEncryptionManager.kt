@@ -213,11 +213,11 @@ object DatabaseEncryptionManager {
                 try {
                     // sqlcipher_export does not copy auto_vacuum or user_version.
                     // Set target storage properties before creating the exported schema.
-                    executeMigrationStatement(
+                    executeMigrationPragma(
                         sourceDb, "set encrypted.auto_vacuum",
                         "PRAGMA encrypted.auto_vacuum = " + sourceAutoVacuum
                     )
-                    executeMigrationStatement(
+                    executeMigrationPragma(
                         sourceDb, "set encrypted.secure_delete",
                         "PRAGMA encrypted.secure_delete = " + sourceSecureDelete
                     )
@@ -225,11 +225,11 @@ object DatabaseEncryptionManager {
                         check(cursor.moveToFirst()) { "انتقال اطلاعات به دیتابیس رمزگذاری‌شده ناموفق بود." }
                     }
                     assertRowsEquivalent(sourceDb)
-                    executeMigrationStatement(
+                    executeMigrationPragma(
                         sourceDb, "set encrypted.application_id",
                         "PRAGMA encrypted.application_id = " + sourceApplicationId
                     )
-                    executeMigrationStatement(
+                    executeMigrationPragma(
                         sourceDb, "set encrypted.user_version",
                         "PRAGMA encrypted.user_version = " + sourceVersion
                     )
@@ -613,6 +613,22 @@ object DatabaseEncryptionManager {
             database.execSQL(sql)
         } catch (error: Exception) {
             throw IllegalStateException("SQLCipher migration statement failed [$label]: $sql", error)
+        }
+    }
+
+    /**
+     * PRAGMA assignments can return a result set in SQLCipher's Android API.
+     * Execute them through rawQuery rather than execSQL, which expects an update count.
+     */
+    private fun executeMigrationPragma(
+        database: CipherDatabase,
+        label: String,
+        sql: String
+    ) {
+        try {
+            database.rawQuery(sql, null).use { /* consume and close any returned cursor */ }
+        } catch (error: Exception) {
+            throw IllegalStateException("SQLCipher migration PRAGMA failed [$label]: $sql", error)
         }
     }
 
