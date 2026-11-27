@@ -6,6 +6,7 @@ import android.os.StatFs
 import android.system.Os
 import android.system.OsConstants
 import android.util.Base64
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -55,7 +56,8 @@ object DatabaseEncryptionManager {
      * Must complete before any application component is allowed to obtain AppDatabase.
      */
     suspend fun initializeAndMigrate(context: Context) = withContext(Dispatchers.IO) {
-        migrationMutex.withLock {
+        try {
+            migrationMutex.withLock {
             val appContext = context.applicationContext
             System.loadLibrary("sqlcipher")
             val databaseFile = appContext.getDatabasePath(DATABASE_NAME)
@@ -329,6 +331,15 @@ object DatabaseEncryptionManager {
             check(prefs.edit().putString(PREF_STATE, STATE_READY).commit()) {
                 "ثبت وضعیت نهایی رمزگذاری دیتابیس ناموفق بود."
             }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            // Callers may log caught exceptions. Never let a native SQLCipher message,
+            // SQL statement, or nested cause escape the migration boundary.
+            throw IllegalStateException(
+                "راه‌اندازی امن پایگاه داده ناموفق بود؛ جزئیات داخلی برای جلوگیری از افشای اطلاعات ثبت نشد. (\${error.javaClass.simpleName})"
+            )
         }
     }
 
