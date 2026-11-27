@@ -69,14 +69,22 @@ class DatabaseEncryptionMigrationTest {
             .putString(PREF_WRAPPED_KEY, "unreadable-placeholder")
             .commit())
 
-        var initializationRejected = false
+        var initializationFailure: IllegalStateException? = null
         try {
             DatabaseEncryptionManager.initializeAndMigrate(context)
-        } catch (_: IllegalStateException) {
-            initializationRejected = true
+        } catch (error: IllegalStateException) {
+            initializationFailure = error
         }
 
-        assertTrue("An unknown persisted migration state must fail closed.", initializationRejected)
+        assertTrue("An unknown persisted migration state must fail closed.", initializationFailure != null)
+        assertTrue(
+            "Initialization failures must not expose the original exception or native SQLCipher cause.",
+            initializationFailure?.cause == null
+        )
+        assertFalse(
+            "Initialization failures must not expose persisted migration metadata in their message.",
+            initializationFailure?.message.orEmpty().contains("UNKNOWN_MIGRATION_STATE")
+        )
         assertFalse("An unknown state must never trigger creation of an empty database.", databaseFile.exists())
         assertEquals("UNKNOWN_MIGRATION_STATE", prefs.getString(PREF_STATE, null))
         assertEquals("unreadable-placeholder", prefs.getString(PREF_WRAPPED_KEY, null))
