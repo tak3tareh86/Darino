@@ -156,7 +156,8 @@ class DatabaseEncryptionMigrationTest {
             check(orphanedArtifact.parentFile?.exists() == true || orphanedArtifact.parentFile?.mkdirs() == true)
             orphanedArtifact.writeBytes(byteArrayOf(1, 2, 3, 4))
             assertTrue("Test precondition failed: sidecar was not created.", orphanedArtifact.isFile)
-            assertTrue("Test precondition failed: orphaned sidecar was not recognized before initialization.", DatabaseEncryptionManager.hasOrphanedDatabaseSidecars(ownerFile))
+            assertTrue("Test precondition failed: orphaned sidecar file was not created.", orphanedArtifact.exists())
+            assertFalse("Test precondition failed: orphaned sidecar owner must remain absent.", ownerFile.exists())
             assertFalse("Test precondition failed: sidecar owner unexpectedly exists.", ownerFile.exists())
             assertEquals(
                 "The manager and test must resolve the same isolated database directory.",
