@@ -59,7 +59,9 @@ object DatabaseEncryptionManager {
         try {
             migrationMutex.withLock {
             val appContext = context.applicationContext
-            System.loadLibrary("sqlcipher")
+            // Resolve paths and inspect the filesystem before loading SQLCipher or
+            // invoking any SQLite/Room code. Opening SQLite can remove orphaned
+            // WAL/SHM/journal files, destroying evidence of an interrupted database.
             val databaseFile = appContext.getDatabasePath(DATABASE_NAME)
             val temporaryFile = File(databaseFile.parentFile, DATABASE_NAME + ".encrypted.tmp")
             val plaintextBackup = File(databaseFile.parentFile, DATABASE_NAME + ".plaintext.bak")
@@ -76,6 +78,8 @@ object DatabaseEncryptionManager {
             check(orphanedOwner == null) {
                 "فایل جانبی دیتابیس بدون فایل اصلی معتبر پیدا شد؛ برای جلوگیری از ساخت دیتابیس خالی، برنامه متوقف شد."
             }
+            // Native loading is deliberately after the orphan-artifact preflight.
+            System.loadLibrary("sqlcipher")
             val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
             val state = prefs.getString(PREF_STATE, null)
@@ -135,6 +139,14 @@ object DatabaseEncryptionManager {
                     state == STATE_INSTALLED || state == STATE_READY
                 ) {
                     throw IllegalStateException("وضعیت مهاجرت ناقص است و منبع قابل بازیابی وجود ندارد؛ هیچ دیتابیس خالی ساخته نشد.")
+                }
+                // Recheck immediately before the first database open. This closes
+                // the gap between preflight and creation if another component has
+                // touched the database directory in the meantime.
+                val lateOrphanedOwner = listOf(databaseFile, plaintextBackup, temporaryFile)
+                    .firstOrNull(::hasOrphanedDatabaseSidecars)
+                check(lateOrphanedOwner == null) {
+                    "فایل جانبی دیتابیس پیش از ساخت اولیه شناسایی شد؛ هیچ دیتابیسی ایجاد نشد."
                 }
                 // First installation: create the database encrypted from its first byte.
                 val encryptedDb = AppDatabase.buildEncrypted(
