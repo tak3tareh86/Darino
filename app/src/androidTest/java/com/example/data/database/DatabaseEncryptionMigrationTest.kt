@@ -158,7 +158,10 @@ class DatabaseEncryptionMigrationTest {
             assertTrue("Test precondition failed: sidecar was not created.", orphanedArtifact.isFile)
             assertTrue("Test precondition failed: orphaned sidecar file was not created.", orphanedArtifact.exists())
             assertFalse("Test precondition failed: orphaned sidecar owner must remain absent.", ownerFile.exists())
-            assertFalse("Test precondition failed: sidecar owner unexpectedly exists.", ownerFile.exists())
+            assertTrue(
+                "Test precondition failed: manager did not recognize the exact orphaned sidecar fixture.",
+                DatabaseEncryptionManager.hasOrphanedDatabaseSidecars(ownerFile)
+            )
             assertEquals(
                 "The manager and test must resolve the same isolated database directory.",
                 databaseFile.absolutePath,
@@ -575,12 +578,10 @@ class DatabaseEncryptionMigrationTest {
     }
 
     private fun clearIsolatedTestArtifacts() {
-        // These paths are guarded above and belong only to the instrumentation package.
-        // Use SQLCipher's database-aware deletion first so its own handles and
-        // sidecar naming rules are respected, then remove any remaining test artifacts.
-        // First ask Android's database helper to remove the database and its
-        // framework-managed sidecars, then let SQLCipher remove any cipher-specific
-        // artifacts. The final explicit pass below verifies every path is gone.
+        // Close and forget the process-local Room singleton before deleting files.
+        // Otherwise a later test can reuse a closed helper holding a previous key,
+        // or an open SQLite handle can recreate the database after filesystem cleanup.
+        AppDatabase.closeInstanceForInstrumentationTests()
         context.deleteDatabase(DATABASE_NAME)
         // Do not call SQLCipher's deleteDatabase helper here: cleanup must be a
         // filesystem-only operation and must never open or initialize a database.
