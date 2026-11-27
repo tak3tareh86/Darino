@@ -494,7 +494,7 @@ object DatabaseEncryptionManager {
     private fun hasAnyDatabaseArtifact(file: File): Boolean =
         file.exists() || databaseSidecars(file).any { it.exists() }
 
-    private fun hasOrphanedDatabaseSidecars(file: File): Boolean {
+    internal fun hasOrphanedDatabaseSidecars(file: File): Boolean {
         val sidecarsExist = databaseSidecars(file).any { it.exists() }
         if (!sidecarsExist) return false
 
