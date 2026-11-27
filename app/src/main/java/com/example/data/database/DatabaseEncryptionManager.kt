@@ -209,6 +209,19 @@ object DatabaseEncryptionManager {
                 check(temporaryFile.delete()) {
                     "فایل آزمایشی موقت دیتابیس قابل حذف نیست؛ دیتابیس اصلی حفظ شد."
                 }
+                // Create a valid encrypted SQLCipher database before ATTACH. The
+                // SQLCipher Android API explicitly supports this creation path and
+                // avoids relying on ATTACH to create a not-yet-existing file.
+                val destinationDb = CipherDatabase.openOrCreateDatabase(
+                    temporaryFile.absolutePath,
+                    key,
+                    null,
+                    null
+                )
+                destinationDb.close()
+                check(temporaryFile.isFile && temporaryFile.length() > 16L) {
+                    "فایل مقصد رمزگذاری‌شده توسط SQLCipher ایجاد نشد؛ دیتابیس اصلی حفظ شد."
+                }
                 val escapedPath = temporaryFile.absolutePath.replace("'", "''")
                 executeMigrationStatement(
                     sourceDb,
@@ -482,7 +495,9 @@ object DatabaseEncryptionManager {
 
     private fun hasExistingWrappingKey(): Boolean {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        return keyStore.containsAlias(KEY_ALIAS)
+        // Check for the actual secret-key entry, not only the alias metadata.
+        // An orphaned key must block first-install database creation.
+        return keyStore.getKey(KEY_ALIAS, null) is SecretKey
     }
 
     private fun deleteDatabaseArtifacts(file: File) {
@@ -618,7 +633,13 @@ object DatabaseEncryptionManager {
         try {
             database.execSQL(sql)
         } catch (error: Exception) {
-            throw IllegalStateException("SQLCipher migration statement failed [$label]: $sql", error)
+            val causeMessage = generateSequence(error as Throwable?) { it.cause }
+                .mapNotNull { it.message }
+                .joinToString(" <- ")
+            throw IllegalStateException(
+                "SQLCipher migration statement failed [$label]: $sql; cause=$causeMessage",
+                error
+            )
         }
     }
 
