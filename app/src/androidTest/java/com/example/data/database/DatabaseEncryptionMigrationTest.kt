@@ -133,27 +133,21 @@ class DatabaseEncryptionMigrationTest {
     @Test
     fun refusesToCreateFreshDatabaseWhenOrphanedSidecarsExist() = runBlocking {
         val orphanedArtifacts = listOf(
-            File(databaseFile.absolutePath + "-wal"),
-            File(plaintextBackup.absolutePath + "-shm")
+            databaseFile to File(databaseFile.absolutePath + "-wal"),
+            plaintextBackup to File(plaintextBackup.absolutePath + "-shm")
         )
 
-        orphanedArtifacts.forEach { orphanedArtifact ->
+        orphanedArtifacts.forEach { (ownerFile, orphanedArtifact) ->
+            // Each sidecar scenario starts from a completely clean isolated package.
+            clearIsolatedTestArtifacts()
+            assertFalse("Test precondition failed: sidecar owner must be absent.", ownerFile.exists())
+            assertFalse("Test precondition failed: primary database must be absent.", databaseFile.exists())
+            assertFalse("Test precondition failed: plaintext backup must be absent.", plaintextBackup.exists())
+
             check(orphanedArtifact.parentFile?.exists() == true || orphanedArtifact.parentFile?.mkdirs() == true)
             orphanedArtifact.writeBytes(byteArrayOf(1, 2, 3, 4))
-
-            Log.e(
-                "DatabaseMigrationTest",
-                "SIDECAR_DIAG package=${context.packageName} uid=${Process.myUid()} " +
-                    "dbPath=${databaseFile.absolutePath} dbExists=${databaseFile.exists()} " +
-                    "dbLength=${if (databaseFile.isFile) databaseFile.length() else -1L} " +
-                    "sidecarPath=${orphanedArtifact.absolutePath} sidecarExists=${orphanedArtifact.exists()} " +
-                    "backupPath=${plaintextBackup.absolutePath}"
-            )
             assertTrue("Test precondition failed: sidecar was not created.", orphanedArtifact.isFile)
-            assertTrue(
-                "Test precondition failed: sidecar owner file unexpectedly exists and is non-empty.",
-                !databaseFile.isFile || databaseFile.length() <= 16L
-            )
+            assertFalse("Test precondition failed: sidecar owner unexpectedly exists.", ownerFile.exists())
 
             var initializationRejected = false
             try {
@@ -162,14 +156,17 @@ class DatabaseEncryptionMigrationTest {
                 initializationRejected = true
             }
 
-            assertTrue("An orphaned database sidecar must stop initialization.", initializationRejected)
+            assertTrue(
+                "An orphaned sidecar must stop initialization (owner=${ownerFile.name}, " +
+                    "sidecar=${orphanedArtifact.name}, ownerExists=${ownerFile.exists()}, " +
+                    "sidecarExists=${orphanedArtifact.exists()}).",
+                initializationRejected
+            )
             assertFalse("No empty database may be created when only a sidecar exists.", databaseFile.exists())
             assertFalse("No plaintext backup may be fabricated.", plaintextBackup.exists())
             assertTrue("The orphaned sidecar must remain untouched for recovery.", orphanedArtifact.exists())
             assertFalse("A database key must not be generated for an ambiguous database state.", prefs.contains(PREF_WRAPPED_KEY))
             assertFalse("Migration state must not be advanced for an ambiguous database state.", prefs.contains(PREF_STATE))
-
-            check(orphanedArtifact.delete())
         }
     }
 
