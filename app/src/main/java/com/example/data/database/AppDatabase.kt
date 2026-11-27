@@ -1018,6 +1018,18 @@ abstract class AppDatabase : RoomDatabase() {
                 .build()
         }
 
+        /**
+         * Drops the process-local Room singleton between isolated instrumentation
+         * scenarios. Production callers never invoke this; it prevents a closed
+         * helper carrying a previous test's SQLCipher key from being reused.
+         */
+        internal fun closeInstanceForInstrumentationTests() {
+            synchronized(this) {
+                INSTANCE?.close()
+                INSTANCE = null
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             val appContext = context.applicationContext
             val key = DatabaseEncryptionManager.requireReadyKey(appContext)
