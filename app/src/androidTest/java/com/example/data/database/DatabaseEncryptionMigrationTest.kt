@@ -405,8 +405,24 @@ class DatabaseEncryptionMigrationTest {
         assertFalse("Recovery must remove plaintext backup only after Room validation.", plaintextBackup.exists())
         assertFalse("Recovery must consume the temporary encrypted file.", temporaryFile.exists())
 
-        // Simulate process death after the encrypted file was installed and the durable
-        // INSTALLED marker was written, but before plaintext cleanup and READY commit.
+        // Simulate process death after the encrypted file was atomically installed,
+        // but before the INSTALLED marker could be committed. The persisted state is
+        // still MIGRATING while the encrypted database and plaintext recovery copy exist.
+        legacySnapshot.copyTo(plaintextBackup, overwrite = true)
+        check(prefs.edit().putString(PREF_STATE, STATE_MIGRATING).commit())
+        DatabaseEncryptionManager.initializeAndMigrate(context)
+        assertFalse(
+            "Recovery from the rename-before-marker window must retain data and remove plaintext only after validation.",
+            plaintextBackup.exists()
+        )
+        assertEquals(
+            "Recovery from the rename-before-marker window must finish in READY.",
+            STATE_READY,
+            prefs.getString(PREF_STATE, null)
+        )
+
+        // Simulate process death after the durable INSTALLED marker was written,
+        // but before plaintext cleanup and READY commit.
         legacySnapshot.copyTo(plaintextBackup, overwrite = true)
         check(prefs.edit().putString(PREF_STATE, STATE_INSTALLED).commit())
         DatabaseEncryptionManager.initializeAndMigrate(context)
@@ -447,6 +463,34 @@ class DatabaseEncryptionMigrationTest {
         val headerAfterKeyLoss = ByteArray(16)
         RandomAccessFile(databaseFile, "r").use { it.readFully(headerAfterKeyLoss) }
         assertTrue(headerBeforeKeyLoss.contentEquals(headerAfterKeyLoss))
+
+        // Restore the original wrapped key metadata, then independently corrupt its
+        // persisted contents. The encrypted database and metadata must remain untouched.
+        check(prefs.edit().putString(PREF_WRAPPED_KEY, wrappedKeyBeforeKeyLoss).commit())
+        val encryptedBytesBeforeCorruptWrappedKey = databaseFile.readBytes()
+        val corruptedWrappedKey = "corrupted-wrapped-key-metadata"
+        check(prefs.edit().putString(PREF_WRAPPED_KEY, corruptedWrappedKey).commit())
+        var failedClosedOnCorruptWrappedKey = false
+        try {
+            DatabaseEncryptionManager.initializeAndMigrate(context)
+        } catch (_: IllegalStateException) {
+            failedClosedOnCorruptWrappedKey = true
+        }
+        assertTrue("Corrupted wrapped-key metadata must stop initialization.", failedClosedOnCorruptWrappedKey)
+        assertTrue(
+            "Corrupt wrapped-key metadata must not modify or replace the encrypted database.",
+            encryptedBytesBeforeCorruptWrappedKey.contentEquals(databaseFile.readBytes())
+        )
+        assertEquals(
+            "Corrupt wrapped-key metadata must not be silently regenerated or overwritten.",
+            corruptedWrappedKey,
+            prefs.getString(PREF_WRAPPED_KEY, null)
+        )
+        assertEquals(
+            "Corrupt wrapped-key metadata must not advance or reset migration state.",
+            STATE_READY,
+            prefs.getString(PREF_STATE, null)
+        )
 
         // Restore the original wrapped key metadata, then independently simulate loss
         // of the Android Keystore key that protects it.
