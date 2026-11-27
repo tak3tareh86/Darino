@@ -150,6 +150,11 @@ class DatabaseEncryptionMigrationTest {
             assertTrue("Test precondition failed: sidecar was not created.", orphanedArtifact.isFile)
             assertTrue("Test precondition failed: orphaned sidecar was not recognized before initialization.", DatabaseEncryptionManager.hasOrphanedDatabaseSidecars(ownerFile))
             assertFalse("Test precondition failed: sidecar owner unexpectedly exists.", ownerFile.exists())
+            assertEquals(
+                "The manager and test must resolve the same isolated database directory.",
+                databaseFile.absolutePath,
+                context.applicationContext.getDatabasePath(DATABASE_NAME).absolutePath
+            )
 
             var initializationRejected = false
             try {
@@ -179,6 +184,7 @@ class DatabaseEncryptionMigrationTest {
         val database = CipherDatabase.openOrCreateDatabase(file.absolutePath, key, null, null)
         try {
             val sensitiveMarker = "SENSITIVE_SQL_MARKER_92A7"
+            val keyBeforeDatabaseOpen = key.copyOf()
             val failure = try {
                 DatabaseEncryptionManager.executeMigrationStatement(
                     database,
@@ -202,6 +208,10 @@ class DatabaseEncryptionMigrationTest {
             database.close()
             file.delete()
         }
+        assertTrue(
+            "SQLCipher test operations must not mutate the caller-owned key buffer.",
+            key.contentEquals(keyBeforeDatabaseOpen)
+        )
     }
 
     @Test
