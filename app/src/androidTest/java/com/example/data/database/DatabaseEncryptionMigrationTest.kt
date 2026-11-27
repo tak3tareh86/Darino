@@ -581,18 +581,25 @@ class DatabaseEncryptionMigrationTest {
         // framework-managed sidecars, then let SQLCipher remove any cipher-specific
         // artifacts. The final explicit pass below verifies every path is gone.
         context.deleteDatabase(DATABASE_NAME)
-        if (databaseFile.exists()) {
-            CipherDatabase.deleteDatabase(databaseFile)
-        }
-        listOf(databaseFile, temporaryFile, plaintextBackup).forEach { file ->
-            listOf(
-                file,
-                File(file.absolutePath + "-wal"),
-                File(file.absolutePath + "-shm"),
-                File(file.absolutePath + "-journal")
-            ).forEach { artifact ->
-                if (artifact.exists()) check(artifact.deleteRecursively()) {
-                    "Could not clean isolated migration-test artifact: ${artifact.absolutePath}"
+        // Do not call SQLCipher's deleteDatabase helper here: cleanup must be a
+        // filesystem-only operation and must never open or initialize a database.
+        // Remove sidecars before their owner, then make a second explicit pass over
+        // all known test paths to catch artifacts left by interrupted SQLite handles.
+        val testArtifacts = listOf(databaseFile, temporaryFile, plaintextBackup)
+            .flatMap { file ->
+                listOf(
+                    File(file.absolutePath + "-wal"),
+                    File(file.absolutePath + "-shm"),
+                    File(file.absolutePath + "-journal"),
+                    file
+                )
+            }
+        repeat(2) {
+            testArtifacts.forEach { artifact ->
+                if (artifact.exists()) {
+                    check(artifact.deleteRecursively()) {
+                        "Could not clean isolated migration-test artifact: ${artifact.absolutePath}"
+                    }
                 }
             }
         }
