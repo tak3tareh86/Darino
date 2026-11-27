@@ -582,6 +582,20 @@ class DatabaseEncryptionMigrationTest {
         // Otherwise a later test can reuse a closed helper holding a previous key,
         // or an open SQLite handle can recreate the database after filesystem cleanup.
         AppDatabase.closeInstanceForInstrumentationTests()
+
+        // The migrationTest package has its own preferences and Android Keystore namespace.
+        // Reset both between scenarios; deleting database files alone leaves a wrapped key
+        // from an earlier test and makes "no key was generated" assertions order-dependent.
+        check(prefs.edit().clear().commit()) {
+            "Could not reset isolated migration-test preferences."
+        }
+        KeyStore.getInstance("AndroidKeyStore").apply {
+            load(null)
+            if (containsAlias(KEY_ALIAS)) {
+                deleteEntry(KEY_ALIAS)
+            }
+        }
+
         // Do not call Context.deleteDatabase or SQLCipher deletion helpers here.
         // Context.deleteDatabase delegates to SQLite's database deletion path and
         // can race an outstanding SQLite handle. The explicit list below removes
