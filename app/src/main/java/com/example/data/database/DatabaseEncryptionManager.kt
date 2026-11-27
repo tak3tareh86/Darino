@@ -63,10 +63,14 @@ object DatabaseEncryptionManager {
             val plaintextBackup = File(databaseFile.parentFile, DATABASE_NAME + ".plaintext.bak")
             // An orphaned WAL/SHM/journal file without its owning database is an
             // ambiguous interrupted state. Never treat it as a clean first install.
-            check(
-                !hasOrphanedDatabaseSidecars(databaseFile) &&
-                    !hasOrphanedDatabaseSidecars(plaintextBackup)
-            ) {
+            // Check every owner/sidecar pair directly before any database API can
+            // create a file or clean up SQLite sidecars. A missing owner with any
+            // remaining WAL/SHM/journal is an ambiguous state and must fail closed.
+            val orphanedOwner = listOf(databaseFile, plaintextBackup, temporaryFile)
+                .firstOrNull { owner ->
+                    !owner.exists() && databaseSidecars(owner).any { it.exists() }
+                }
+            check(orphanedOwner == null) {
                 "فایل جانبی دیتابیس بدون فایل اصلی پیدا شد؛ برای جلوگیری از ساخت دیتابیس خالی، برنامه متوقف شد."
             }
             val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -212,9 +216,12 @@ object DatabaseEncryptionManager {
                 // Create a valid encrypted SQLCipher database before ATTACH. The
                 // SQLCipher Android API explicitly supports this creation path and
                 // avoids relying on ATTACH to create a not-yet-existing file.
+                // SQLCipher APIs may retain or clear the supplied passphrase buffer.
+                // Pass defensive copies so the migration key remains stable for ATTACH,
+                // validation, Room, checkpoint, and crash-recovery operations.
                 val destinationDb = CipherDatabase.openOrCreateDatabase(
                     temporaryFile.absolutePath,
-                    key,
+                    key.copyOf(),
                     null,
                     null
                 )
@@ -556,7 +563,7 @@ object DatabaseEncryptionManager {
     private fun verifyEncryptedDatabaseFast(file: File, key: ByteArray) {
         val database = CipherDatabase.openDatabase(
             file.absolutePath,
-            key,
+            key.copyOf(),
             null,
             CipherDatabase.OPEN_READWRITE,
             null,
@@ -860,7 +867,7 @@ object DatabaseEncryptionManager {
     }
 
     private fun validateWithRoom(context: Context, file: File, key: ByteArray) {
-        val roomDatabase = AppDatabase.buildEncrypted(context, file.absolutePath, key)
+        val roomDatabase = AppDatabase.buildEncrypted(context, file.absolutePath, key.copyOf())
         try {
             roomDatabase.openHelper.writableDatabase
         } finally {
