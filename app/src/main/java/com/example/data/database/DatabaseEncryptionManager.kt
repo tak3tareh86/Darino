@@ -218,7 +218,18 @@ object DatabaseEncryptionManager {
                     null,
                     null
                 )
-                destinationDb.close()
+                try {
+                    // Opening a new SQLCipher database may leave a zero-byte file
+                    // until its first page is written. Persist a harmless header
+                    // value so ATTACH receives an initialized encrypted database.
+                    destinationDb.rawQuery("PRAGMA user_version = 1", null).use { cursor ->
+                        while (cursor.moveToNext()) {
+                            // Drain the PRAGMA cursor to execute the assignment.
+                        }
+                    }
+                } finally {
+                    destinationDb.close()
+                }
                 check(temporaryFile.isFile && temporaryFile.length() > 16L) {
                     "فایل مقصد رمزگذاری‌شده توسط SQLCipher ایجاد نشد؛ دیتابیس اصلی حفظ شد."
                 }
