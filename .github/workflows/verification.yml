@@ -32,6 +32,11 @@ jobs:
       - name: Android debug build (existing unit-test policy)
         run: ./gradlew --no-daemon :app:assembleDebug --stacktrace
       - name: Android minified release build (backup restore diagnosis)
+        env:
+          KEYSTORE_PATH: debug.keystore
+          STORE_PASSWORD: android
+          KEY_ALIAS: androiddebugkey
+          KEY_PASSWORD: android
         run: ./gradlew --no-daemon :app:assembleRelease --stacktrace
       - name: Grant emulator access to KVM
         run: |
