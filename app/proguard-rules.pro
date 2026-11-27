@@ -2,6 +2,8 @@
 # Diagnostic protection for Moshi Kotlin-reflection backup models.
 # This is intentionally scoped to the backup package for the Release restore test.
 -keep class com.example.data.backup.** { *; }
+# Backup JSON reflection also loads Room entity classes by their original names.
+-keep class com.example.data.database.UserPreferenceEntity { *; }
 -keepattributes *Annotation*, InnerClasses, EnclosingMethod, Signature
 -keep class kotlin.Metadata { *; }
 
