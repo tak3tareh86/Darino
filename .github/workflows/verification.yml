@@ -31,6 +31,8 @@ jobs:
         run: keytool -genkeypair -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
       - name: Android debug build (existing unit-test policy)
         run: ./gradlew --no-daemon :app:assembleDebug --stacktrace
+      - name: Android minified release build (backup restore diagnosis)
+        run: ./gradlew --no-daemon :app:assembleRelease --stacktrace
       - name: Grant emulator access to KVM
         run: |
           sudo chmod 666 /dev/kvm
@@ -48,5 +50,12 @@ jobs:
         with:
           name: Darino-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload minified release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Darino-minified-release-apk
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 14
