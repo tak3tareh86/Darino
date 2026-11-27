@@ -28,7 +28,7 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
       - name: Generate debug keystore
-        run: keytool -genkeypair -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+        run: keytool -genkeypair -keystore app/debug.keystore -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
       - name: Android debug build (existing unit-test policy)
         run: ./gradlew --no-daemon :app:assembleDebug --stacktrace
       - name: Android minified release build (backup restore diagnosis)
