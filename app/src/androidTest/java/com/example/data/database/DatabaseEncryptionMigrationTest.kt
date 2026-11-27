@@ -148,6 +148,7 @@ class DatabaseEncryptionMigrationTest {
             check(orphanedArtifact.parentFile?.exists() == true || orphanedArtifact.parentFile?.mkdirs() == true)
             orphanedArtifact.writeBytes(byteArrayOf(1, 2, 3, 4))
             assertTrue("Test precondition failed: sidecar was not created.", orphanedArtifact.isFile)
+            assertTrue("Test precondition failed: orphaned sidecar was not recognized before initialization.", DatabaseEncryptionManager.hasOrphanedDatabaseSidecars(ownerFile))
             assertFalse("Test precondition failed: sidecar owner unexpectedly exists.", ownerFile.exists())
 
             var initializationRejected = false
@@ -316,7 +317,11 @@ class DatabaseEncryptionMigrationTest {
         DatabaseEncryptionManager.initializeAndMigrate(context)
         assertFalse("Post-install recovery must delete plaintext only after encrypted Room validation.", plaintextBackup.exists())
         assertEquals("Post-install recovery must persist READY only after validation.", STATE_READY, prefs.getString(PREF_STATE, null))
-        val postInstallRecoveredRoom = AppDatabase.getDatabase(context)
+        val postInstallRecoveredRoom = AppDatabase.buildEncrypted(
+            context,
+            databaseFile.absolutePath,
+            DatabaseEncryptionManager.requireReadyKey(context)
+        )
         try {
             postInstallRecoveredRoom.openHelper.readableDatabase.query(
                 "SELECT numberDisplayMode FROM user_preferences WHERE userId = ?",
