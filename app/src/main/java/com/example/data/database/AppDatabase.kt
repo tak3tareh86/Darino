@@ -1011,7 +1011,9 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 databasePath
             )
-                .openHelperFactory(SupportOpenHelperFactory(key))
+                // Room/SQLCipher may retain the passphrase buffer for lazy opening.
+                // Never let that lifecycle mutate the manager's master-key byte array.
+                .openHelperFactory(SupportOpenHelperFactory(key.copyOf()))
                 .addMigrations(*ALL_MIGRATIONS)
                 .build()
         }
