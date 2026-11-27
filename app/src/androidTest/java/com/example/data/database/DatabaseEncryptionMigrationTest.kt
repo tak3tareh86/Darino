@@ -172,6 +172,43 @@ class DatabaseEncryptionMigrationTest {
     }
 
     @Test
+    fun insufficientStoragePreflightPreservesSourceTempAndMigrationMetadata() = runBlocking {
+        val plaintextRoom = Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            DATABASE_NAME
+        ).build()
+        try {
+            plaintextRoom.openHelper.writableDatabase
+        } finally {
+            plaintextRoom.close()
+        }
+
+        val sourceBefore = databaseFile.readBytes()
+        val temporaryMarker = byteArrayOf(9, 8, 7, 6, 5, 4)
+        temporaryFile.writeBytes(temporaryMarker)
+        val temporaryBefore = temporaryFile.readBytes()
+        val stateBefore = prefs.all.toMap()
+
+        var rejectedForLowStorage = false
+        try {
+            // Simulate a filesystem with zero free bytes without filling the emulator.
+            DatabaseEncryptionManager.checkAvailableSpace(
+                databaseFile,
+                temporaryFile,
+                availableBytesOverride = 0L
+            )
+        } catch (_: IllegalStateException) {
+            rejectedForLowStorage = true
+        }
+
+        assertTrue("Low-storage preflight must reject migration.", rejectedForLowStorage)
+        assertTrue("The plaintext source database must remain byte-for-byte unchanged.", sourceBefore.contentEquals(databaseFile.readBytes()))
+        assertTrue("The existing temporary artifact must remain byte-for-byte unchanged.", temporaryBefore.contentEquals(temporaryFile.readBytes()))
+        assertEquals("Migration preferences must not change during low-storage preflight.", stateBefore, prefs.all.toMap())
+    }
+
+    @Test
     fun migratesExistingRoomDatabaseAndFailsClosedWhenWrappedKeyIsMissing() = runBlocking {
         // Build a genuine version-52 plaintext Room database in the instrumentation
         // package's private storage, never in the installed Darino package.
@@ -271,6 +308,26 @@ class DatabaseEncryptionMigrationTest {
         }
         assertFalse("Recovery must remove plaintext backup only after Room validation.", plaintextBackup.exists())
         assertFalse("Recovery must consume the temporary encrypted file.", temporaryFile.exists())
+
+        // Simulate process death after the encrypted file was installed and the durable
+        // INSTALLED marker was written, but before plaintext cleanup and READY commit.
+        legacySnapshot.copyTo(plaintextBackup, overwrite = true)
+        check(prefs.edit().putString(PREF_STATE, STATE_INSTALLED).commit())
+        DatabaseEncryptionManager.initializeAndMigrate(context)
+        assertFalse("Post-install recovery must delete plaintext only after encrypted Room validation.", plaintextBackup.exists())
+        assertEquals("Post-install recovery must persist READY only after validation.", STATE_READY, prefs.getString(PREF_STATE, null))
+        val postInstallRecoveredRoom = AppDatabase.getDatabase(context)
+        try {
+            postInstallRecoveredRoom.openHelper.readableDatabase.query(
+                "SELECT numberDisplayMode FROM user_preferences WHERE userId = ?",
+                arrayOf("migration-test-user")
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("PERSIAN", cursor.getString(0))
+            }
+        } finally {
+            postInstallRecoveredRoom.close()
+        }
         legacySnapshot.delete()
 
         val headerBeforeKeyLoss = ByteArray(16)
@@ -374,6 +431,8 @@ class DatabaseEncryptionMigrationTest {
         const val PREF_WRAPPED_KEY = "wrapped_database_key"
         const val PREF_STATE = "migration_state"
         const val STATE_MIGRATING = "MIGRATING"
+        const val STATE_INSTALLED = "ENCRYPTED_INSTALLED"
+        const val STATE_READY = "READY"
         const val KEY_ALIAS = "darino_database_key_v1"
     }
 }
