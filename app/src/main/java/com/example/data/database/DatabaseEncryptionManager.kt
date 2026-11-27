@@ -521,7 +521,11 @@ object DatabaseEncryptionManager {
         }
     }
 
-    private fun checkAvailableSpace(file: File, reclaimableTemporaryFile: File) {
+    internal fun checkAvailableSpace(
+        file: File,
+        reclaimableTemporaryFile: File,
+        availableBytesOverride: Long? = null
+    ) {
         val stat = StatFs(file.parentFile?.absolutePath ?: file.absolutePath)
         val sourceSidecars = databaseSidecars(file)
         val sourceFootprint = sourceSidecars.fold(file.length()) { total, sidecar ->
@@ -535,8 +539,8 @@ object DatabaseEncryptionManager {
         ) { total, sidecar ->
             Math.addExact(total, if (sidecar.isFile) sidecar.length() else 0L)
         }
-        val availableIncludingReclaimableTemp = Math.addExact(stat.availableBytes, reclaimableBytes)
-        check(availableIncludingReclaimableTemp >= required) {
+        val availableBytes = availableBytesOverride ?: stat.availableBytes
+        check(Math.addExact(availableBytes, reclaimableBytes) >= required) {
             "فضای خالی برای رمزگذاری امن دیتابیس کافی نیست؛ هیچ فایل یا تنظیم مهاجرتی تغییر نکرد و پس از آزادسازی فضا می‌توان دوباره تلاش کرد."
         }
     }
