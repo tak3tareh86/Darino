@@ -588,7 +588,7 @@ object DatabaseEncryptionManager {
     private fun checkpointEncryptedDatabase(file: File, key: ByteArray) {
         val database = CipherDatabase.openDatabase(
             file.absolutePath,
-            key,
+            key.copyOf(),
             null,
             CipherDatabase.OPEN_READWRITE,
             null,
