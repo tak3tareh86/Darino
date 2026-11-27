@@ -627,7 +627,7 @@ object DatabaseEncryptionManager {
         check(file.isFile && file.length() > 0L) { "فایل دیتابیس رمزگذاری‌شده ایجاد نشده است." }
         val database = CipherDatabase.openDatabase(
             file.absolutePath,
-            key,
+            key.copyOf(),
             null,
             CipherDatabase.OPEN_READWRITE,
             null,
@@ -853,7 +853,7 @@ object DatabaseEncryptionManager {
     private fun openCipherSnapshot(file: File, key: ByteArray): DatabaseSnapshot {
         val database = CipherDatabase.openDatabase(
             file.absolutePath,
-            key,
+            key.copyOf(),
             null,
             CipherDatabase.OPEN_READWRITE,
             null,
