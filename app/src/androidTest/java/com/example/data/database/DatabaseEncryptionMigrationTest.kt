@@ -260,6 +260,46 @@ class DatabaseEncryptionMigrationTest {
     }
 
     @Test
+    fun insufficientStorageAfterExportPreservesPlaintextAndRecoveryArtifacts() = runBlocking {
+        val plaintextRoom = Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            DATABASE_NAME
+        ).build()
+        try {
+            plaintextRoom.openHelper.writableDatabase
+        } finally {
+            plaintextRoom.close()
+        }
+
+        // Model the post-export boundary: source is still authoritative, an encrypted
+        // temporary artifact exists, and the durable state says migration is in progress.
+        val sourceBefore = databaseFile.readBytes()
+        val temporaryMarker = byteArrayOf(3, 1, 4, 1, 5, 9)
+        temporaryFile.writeBytes(temporaryMarker)
+        check(prefs.edit().putString(PREF_STATE, STATE_MIGRATING).commit())
+        val temporaryBefore = temporaryFile.readBytes()
+        val stateBefore = prefs.all.toMap()
+
+        var rejectedForLowStorage = false
+        try {
+            // Simulate disk exhaustion at the post-export guard without filling the emulator.
+            DatabaseEncryptionManager.checkRemainingSpace(
+                databaseFile.parentFile!!,
+                availableBytesOverride = 0L
+            )
+        } catch (_: IllegalStateException) {
+            rejectedForLowStorage = true
+        }
+
+        assertTrue("The post-export low-space guard must stop the file swap.", rejectedForLowStorage)
+        assertTrue("The plaintext source must remain byte-for-byte unchanged.", sourceBefore.contentEquals(databaseFile.readBytes()))
+        assertTrue("The encrypted temporary artifact must remain available for diagnosis/retry.", temporaryBefore.contentEquals(temporaryFile.readBytes()))
+        assertFalse("The plaintext source must not be moved to backup on low space.", plaintextBackup.exists())
+        assertEquals("The MIGRATING marker must remain unchanged for recovery.", stateBefore, prefs.all.toMap())
+    }
+
+    @Test
     fun migratesExistingRoomDatabaseAndFailsClosedWhenWrappedKeyIsMissing() = runBlocking {
         // Build a genuine version-52 plaintext Room database in the instrumentation
         // package's private storage, never in the installed Darino package.
