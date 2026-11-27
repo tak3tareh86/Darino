@@ -338,7 +338,7 @@ object DatabaseEncryptionManager {
             // Callers may log caught exceptions. Never let a native SQLCipher message,
             // SQL statement, or nested cause escape the migration boundary.
             throw IllegalStateException(
-                "راه‌اندازی امن پایگاه داده ناموفق بود؛ جزئیات داخلی برای جلوگیری از افشای اطلاعات ثبت نشد. (\${error.javaClass.simpleName})"
+                "راه‌اندازی امن پایگاه داده ناموفق بود؛ جزئیات داخلی برای جلوگیری از افشای اطلاعات ثبت نشد."
             )
         }
     }
