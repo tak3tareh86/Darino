@@ -336,6 +336,10 @@ class DatabaseEncryptionMigrationTest {
         // These paths are guarded above and belong only to the instrumentation package.
         // Use SQLCipher's database-aware deletion first so its own handles and
         // sidecar naming rules are respected, then remove any remaining test artifacts.
+        // First ask Android's database helper to remove the database and its
+        // framework-managed sidecars, then let SQLCipher remove any cipher-specific
+        // artifacts. The final explicit pass below verifies every path is gone.
+        context.deleteDatabase(DATABASE_NAME)
         if (databaseFile.exists()) {
             CipherDatabase.deleteDatabase(databaseFile)
         }
