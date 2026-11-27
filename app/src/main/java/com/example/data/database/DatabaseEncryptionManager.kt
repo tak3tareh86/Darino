@@ -68,12 +68,13 @@ object DatabaseEncryptionManager {
             // Check every owner/sidecar pair directly before any database API can
             // create a file or clean up SQLite sidecars. A missing owner with any
             // remaining WAL/SHM/journal is an ambiguous state and must fail closed.
+            // Use the same strict predicate exercised by instrumentation tests.
+            // This rejects sidecars whose owner is absent, truncated, or otherwise
+            // not a usable database before preferences/Keystore can create new state.
             val orphanedOwner = listOf(databaseFile, plaintextBackup, temporaryFile)
-                .firstOrNull { owner ->
-                    !owner.exists() && databaseSidecars(owner).any { it.exists() }
-                }
+                .firstOrNull(::hasOrphanedDatabaseSidecars)
             check(orphanedOwner == null) {
-                "فایل جانبی دیتابیس بدون فایل اصلی پیدا شد؛ برای جلوگیری از ساخت دیتابیس خالی، برنامه متوقف شد."
+                "فایل جانبی دیتابیس بدون فایل اصلی معتبر پیدا شد؛ برای جلوگیری از ساخت دیتابیس خالی، برنامه متوقف شد."
             }
             val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
