@@ -582,9 +582,10 @@ class DatabaseEncryptionMigrationTest {
         // Otherwise a later test can reuse a closed helper holding a previous key,
         // or an open SQLite handle can recreate the database after filesystem cleanup.
         AppDatabase.closeInstanceForInstrumentationTests()
-        context.deleteDatabase(DATABASE_NAME)
-        // Do not call SQLCipher's deleteDatabase helper here: cleanup must be a
-        // filesystem-only operation and must never open or initialize a database.
+        // Do not call Context.deleteDatabase or SQLCipher deletion helpers here.
+        // Context.deleteDatabase delegates to SQLite's database deletion path and
+        // can race an outstanding SQLite handle. The explicit list below removes
+        // the owner and every known sidecar using filesystem operations only.
         // Remove sidecars before their owner, then make a second explicit pass over
         // all known test paths to catch artifacts left by interrupted SQLite handles.
         val testArtifacts = listOf(databaseFile, temporaryFile, plaintextBackup)
