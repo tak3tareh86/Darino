@@ -21,6 +21,7 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
+import net.zetetic.database.sqlcipher.SQLiteDatabase as CipherDatabase
 import javax.crypto.KeyGenerator
 
 @RunWith(AndroidJUnit4::class)
@@ -333,7 +334,11 @@ class DatabaseEncryptionMigrationTest {
 
     private fun clearIsolatedTestArtifacts() {
         // These paths are guarded above and belong only to the instrumentation package.
-        context.deleteDatabase(DATABASE_NAME)
+        // Use SQLCipher's database-aware deletion first so its own handles and
+        // sidecar naming rules are respected, then remove any remaining test artifacts.
+        if (databaseFile.exists()) {
+            CipherDatabase.deleteDatabase(databaseFile)
+        }
         listOf(databaseFile, temporaryFile, plaintextBackup).forEach { file ->
             listOf(
                 file,
@@ -341,8 +346,8 @@ class DatabaseEncryptionMigrationTest {
                 File(file.absolutePath + "-shm"),
                 File(file.absolutePath + "-journal")
             ).forEach { artifact ->
-                if (artifact.exists()) check(artifact.delete()) {
-                    "Could not clean isolated migration-test artifact: ${artifact.name}"
+                if (artifact.exists()) check(artifact.deleteRecursively()) {
+                    "Could not clean isolated migration-test artifact: ${artifact.absolutePath}"
                 }
             }
         }
