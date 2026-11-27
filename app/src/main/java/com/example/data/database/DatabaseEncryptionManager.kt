@@ -280,6 +280,11 @@ object DatabaseEncryptionManager {
             } finally {
                 sourceDb.close()
             }
+            // The export may consume substantially more space than the initial preflight
+            // predicted. Re-check the real filesystem before checkpointing or swapping files.
+            // Any failure here leaves the original plaintext database as the sole source.
+            checkRemainingSpace(databaseFile.parentFile ?: appContext.filesDir)
+
             // Ensure the source has no residual plaintext WAL/SHM sidecars before the file swap.
             checkpointPlaintextDatabase(sourceFile)
             // Persist the fully checkpointed plaintext source before the atomic rename
@@ -294,6 +299,9 @@ object DatabaseEncryptionManager {
                 "ساختار یا تعداد رکوردهای دیتابیس رمزگذاری‌شده با منبع یکسان نیست؛ نسخه اصلی حفظ شد."
             }
             validateWithRoom(appContext, temporaryFile, key)
+            // Validation and Room opening can also create temporary filesystem activity.
+            // Preserve a safety reserve before the final encrypted checkpoint and atomic swap.
+            checkRemainingSpace(databaseFile.parentFile ?: appContext.filesDir)
             checkpointEncryptedDatabase(temporaryFile, key)
             syncFile(temporaryFile)
 
@@ -564,6 +572,21 @@ object DatabaseEncryptionManager {
         val availableBytes = availableBytesOverride ?: stat.availableBytes
         check(Math.addExact(availableBytes, reclaimableBytes) >= required) {
             "فضای خالی برای رمزگذاری امن دیتابیس کافی نیست؛ هیچ فایل یا تنظیم مهاجرتی تغییر نکرد و پس از آزادسازی فضا می‌توان دوباره تلاش کرد."
+        }
+    }
+
+    /**
+     * Keeps a safety reserve after export and before the atomic file swap.
+     * A low-space failure is deliberately non-destructive: the plaintext source,
+     * migration marker, and encrypted temporary file are left for a safe retry.
+     */
+    internal fun checkRemainingSpace(
+        directory: File,
+        availableBytesOverride: Long? = null
+    ) {
+        val availableBytes = availableBytesOverride ?: StatFs(directory.absolutePath).availableBytes
+        check(availableBytes >= MIN_FREE_SPACE_BYTES) {
+            "فضای آزاد پس از انتقال اطلاعات کافی نیست؛ فایل اصلی حفظ شد و پس از آزادسازی فضا می‌توان دوباره تلاش کرد."
         }
     }
 
