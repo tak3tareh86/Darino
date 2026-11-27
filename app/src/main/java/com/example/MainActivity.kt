@@ -133,9 +133,14 @@ class MainActivity : FragmentActivity() {
                 com.example.ui.screens.finance.worker.RecurringTransactionWorker.enqueuePeriodic(this@MainActivity)
                 databaseInitialization.complete(Unit)
             } catch (error: Exception) {
-                android.util.Log.e("MainActivity", "Encrypted database initialization failed; application data access remains locked.", error)
-                databaseInitializationErrorMessage = error.localizedMessage
-                    ?: "خطای نامشخص در راه‌اندازی امن پایگاه داده رخ داد."
+                // Never log the throwable: native SQLCipher failures can contain SQL text.
+                android.util.Log.e(
+                    "MainActivity",
+                    "Encrypted database initialization failed; application data access remains locked. " +
+                        "errorType=${error.javaClass.simpleName}"
+                )
+                databaseInitializationErrorMessage =
+                    "راه‌اندازی امن پایگاه داده ناموفق بود؛ برای جلوگیری از آسیب به اطلاعات، دسترسی برنامه مسدود شد."
                 databaseInitializationError = true
                 databaseInitialization.completeExceptionally(error)
             }
