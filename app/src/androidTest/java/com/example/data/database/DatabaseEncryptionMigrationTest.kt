@@ -181,10 +181,10 @@ class DatabaseEncryptionMigrationTest {
     fun sqlCipherMigrationErrorsDoNotRetainSensitiveSqlOrNativeCause() {
         val file = File(context.cacheDir, "sqlcipher-error-sanitization.db")
         val key = ByteArray(32) { index -> index.toByte() }
-        val database = CipherDatabase.openOrCreateDatabase(file.absolutePath, key, null, null)
+        val keyBeforeDatabaseOpen = key.copyOf()
+        val database = CipherDatabase.openOrCreateDatabase(file.absolutePath, key.copyOf(), null, null)
         try {
             val sensitiveMarker = "SENSITIVE_SQL_MARKER_92A7"
-            val keyBeforeDatabaseOpen = key.copyOf()
             val failure = try {
                 DatabaseEncryptionManager.executeMigrationStatement(
                     database,
