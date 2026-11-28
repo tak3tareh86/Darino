@@ -40,18 +40,8 @@ jobs:
           KEY_ALIAS: androiddebugkey
           KEY_PASSWORD: android
         run: ./gradlew --no-daemon :app:assembleRelease --stacktrace
-      - name: Grant emulator access to KVM
-        run: |
-          sudo chmod 666 /dev/kvm
-          test -r /dev/kvm && test -w /dev/kvm
-      - name: SQLCipher migration instrumentation test
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          disable-animations: true
-          script: ./gradlew --no-daemon :app:connectedMigrationTestAndroidTest --stacktrace
+      # Upload both APKs before emulator tests so a separate instrumentation
+      # failure does not discard successfully built installable artifacts.
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -66,3 +56,15 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 14
+      - name: Grant emulator access to KVM
+        run: |
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+      - name: SQLCipher migration instrumentation test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: ./gradlew --no-daemon :app:connectedMigrationTestAndroidTest --stacktrace
