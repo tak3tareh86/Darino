@@ -1,9 +1,9 @@
 # Add project specific ProGuard rules here.
-# Diagnostic protection for Moshi Kotlin-reflection backup models.
-# This is intentionally scoped to the backup package for the Release restore test.
+# Keep Moshi Kotlin-reflection backup models in minified Release builds.
 -keep class com.example.data.backup.** { *; }
-# Backup JSON reflection also loads Room entity classes by their original names.
--keep class com.example.data.database.UserPreferenceEntity { *; }
+# Backup JSON restores database model classes by their original fully-qualified names.
+# Keep the whole database package so R8 cannot remove or rename referenced entities.
+-keep class com.example.data.database.** { *; }
 -keepattributes *Annotation*, InnerClasses, EnclosingMethod, Signature
 -keep class kotlin.Metadata { *; }
 
