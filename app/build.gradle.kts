@@ -23,6 +23,9 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  // Run migration instrumentation tests against a separate app ID/UID.
+  testBuildType = "migrationTest"
+
   signingConfigs {
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
@@ -43,6 +46,12 @@ android {
 
   buildTypes {
     debug {
+      signingConfig = signingConfigs.getByName("debugConfig")
+    }
+    create("migrationTest") {
+      initWith(getByName("debug"))
+      applicationIdSuffix = ".migrationtest"
+      matchingFallbacks += listOf("debug")
       signingConfig = signingConfigs.getByName("debugConfig")
     }
     release {
@@ -117,6 +126,8 @@ dependencies {
   // implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
+  implementation(libs.androidx.sqlite)
+  implementation(libs.sqlcipher.android)
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.poolakey)
   implementation(libs.coil.compose)

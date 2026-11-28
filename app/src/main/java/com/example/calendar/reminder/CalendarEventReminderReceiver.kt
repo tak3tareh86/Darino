@@ -17,6 +17,7 @@ class CalendarEventReminderReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                com.example.data.database.DatabaseEncryptionManager.initializeAndMigrate(context.applicationContext)
                 SessionManager.init(context.applicationContext)
                 val dao = AppDatabase.getDatabase(context).financialEventDao()
                 val userId = SessionManager.userId

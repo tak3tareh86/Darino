@@ -46,6 +46,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
     private fun rescheduleAllActiveReminders(context: Context) {
         scope.launch {
             try {
+                com.example.data.database.DatabaseEncryptionManager.initializeAndMigrate(context.applicationContext)
                 val userId = com.example.data.security.SessionManager.userId ?: return@launch
                 val db = AppDatabase.getDatabase(context)
                 val activeReminders = db.reminderDao().getActiveReminders(userId).first()
@@ -66,6 +67,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
     private fun dispatchReminder(context: Context, reminderId: Int) {
         scope.launch {
             try {
+                com.example.data.database.DatabaseEncryptionManager.initializeAndMigrate(context.applicationContext)
                 val userId = com.example.data.security.SessionManager.userId ?: return@launch
                 val db = AppDatabase.getDatabase(context)
                 val reminder = db.reminderDao().getReminderById(userId, reminderId)

@@ -26,6 +26,7 @@ class RecurringTransactionActionReceiver : BroadcastReceiver() {
 
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
+                com.example.data.database.DatabaseEncryptionManager.initializeAndMigrate(appContext)
                 SessionManager.init(appContext)
                 if (SessionManager.userId != userId) return@launch
 
