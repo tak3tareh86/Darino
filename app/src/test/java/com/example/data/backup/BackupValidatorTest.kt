@@ -95,6 +95,58 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun legacyVersionSixUsesGlobalCurrencyAndDoesNotRequirePerRecordUnits() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 6,
+                    createdAt = 1L,
+                    recordCount = 1,
+                    currencyUnit = "TOMAN"
+                ),
+                transactions = listOf(
+                    TransactionEntity(
+                        id = 1,
+                        userId = "backup-user",
+                        amount = 250_000,
+                        amountUnit = "LEGACY_UNSPECIFIED"
+                    )
+                )
+            )
+        )
+
+        assertEquals(ValidationResult.Valid, BackupValidator.validate(backup))
+    }
+
+    @Test
+    fun versionSevenRejectsUnknownPerRecordCurrencyUnit() {
+        val backup = BackupValidator.withChecksum(
+            DarinoBackup(
+                metadata = BackupMetadata(
+                    backupVersion = 7,
+                    createdAt = 1L,
+                    recordCount = 1,
+                    currencyUnit = "PER_RECORD"
+                ),
+                transactions = listOf(
+                    TransactionEntity(
+                        id = 1,
+                        userId = "backup-user",
+                        amount = 250_000,
+                        amountUnit = "LEGACY_UNSPECIFIED"
+                    )
+                )
+            )
+        )
+
+        val result = BackupValidator.validate(backup)
+        assertTrue(result is ValidationResult.Invalid)
+        assertTrue(
+            (result as ValidationResult.Invalid).reason.contains("واحد پول ناشناخته")
+        )
+    }
+
+    @Test
     fun versionSevenBackupAcceptsPerRecordCurrencyMetadata() {
         val unsigned = DarinoBackup(
             metadata = BackupMetadata(
