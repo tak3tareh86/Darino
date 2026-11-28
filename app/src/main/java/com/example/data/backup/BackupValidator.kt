@@ -229,22 +229,27 @@ object BackupValidator {
         // Reject unknown per-record units before restore reaches Room. Silently
         // falling back to Toman here would change the monetary value of a record.
         val validUnits = setOf("TOMAN", "RIAL")
-        val hasInvalidCurrencyUnit =
+        // Backups v1-v6 stored one global currency in metadata (TOMAN).
+        // Per-record currency fields were introduced with v7; validating those fields
+        // on legacy records can reject valid backups whose entities predate the fields.
+        // Keep strict per-record validation for v7+ only; the legacy metadata check above
+        // already guarantees the historical global unit is TOMAN.
+        val hasInvalidCurrencyUnit = version >= 7 && (
             backup.accounts.any { it.initialBalanceUnit !in validUnits } ||
-            backup.checks.any { it.amountUnit !in validUnits } ||
-            backup.transactions.any { it.amountUnit !in validUnits } ||
-            backup.installments.any { it.amountUnit !in validUnits } ||
-            backup.installmentPayments.any { it.amountUnit !in validUnits } ||
-            backup.vehicles.any { it.estimatedValueUnit !in validUnits } ||
-            backup.vehicleServices.any { it.costUnit !in validUnits } ||
-            backup.vehicleExpenses.any { it.amountUnit !in validUnits } ||
-            backup.vehicleInsurances.any { it.amountUnit !in validUnits } ||
-            backup.vehicleInspections.any { it.costUnit !in validUnits } ||
-            backup.reminders.any { it.amountUnit !in validUnits } ||
-            backup.financialEvents.any { it.amountUnit !in validUnits } ||
-            backup.financialHealthProfiles.any { it.amountUnit !in validUnits } ||
-            backup.loanCalculations.any { it.amountUnit !in validUnits } ||
-            (backup.appSettings?.currency?.let { it !in validUnits } ?: false)
+                backup.checks.any { it.amountUnit !in validUnits } ||
+                backup.transactions.any { it.amountUnit !in validUnits } ||
+                backup.installments.any { it.amountUnit !in validUnits } ||
+                backup.installmentPayments.any { it.amountUnit !in validUnits } ||
+                backup.vehicles.any { it.estimatedValueUnit !in validUnits } ||
+                backup.vehicleServices.any { it.costUnit !in validUnits } ||
+                backup.vehicleExpenses.any { it.amountUnit !in validUnits } ||
+                backup.vehicleInsurances.any { it.amountUnit !in validUnits } ||
+                backup.vehicleInspections.any { it.costUnit !in validUnits } ||
+                backup.reminders.any { it.amountUnit !in validUnits } ||
+                backup.financialEvents.any { it.amountUnit !in validUnits } ||
+                backup.financialHealthProfiles.any { it.amountUnit !in validUnits } ||
+                backup.loanCalculations.any { it.amountUnit !in validUnits }
+        )
         if (hasInvalidCurrencyUnit) {
             return ValidationResult.Invalid("فایل پشتیبان شامل رکوردی با واحد پول ناشناخته است؛ برای جلوگیری از تغییر مبلغ، بازیابی متوقف شد.")
         }
